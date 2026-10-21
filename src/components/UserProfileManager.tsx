@@ -20,8 +20,6 @@ import {
   UserCheck,
   Send,
   BadgeCheck,
-  MapPin,
-  ExternalLink,
   Crown,
 } from 'lucide-react';
 import type { User, ProfileVisitor } from '../types';
@@ -420,30 +418,6 @@ export default function UserProfileManager({
                         <Sparkles className="h-3.5 w-3.5 text-purple-400" />
                         <span>Level {profileData.level || 1} ({profileData.xp || 0} XP)</span>
                       </div>
-
-                      {profileData.location && (
-                        <a
-                          href={
-                            profileData.location.latitude && profileData.location.longitude
-                              ? `https://www.google.com/maps/search/?api=1&query=${profileData.location.latitude},${profileData.location.longitude}`
-                              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                  (profileData.location.city ? profileData.location.city + ', ' : '') +
-                                    (profileData.location.country || ''),
-                                )}`
-                          }
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition"
-                          title="Open Location in Google Maps"
-                        >
-                          <MapPin className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>
-                            {profileData.location.city ? `${profileData.location.city}, ` : ''}
-                            {profileData.location.country || 'Detected Location'}
-                          </span>
-                          <ExternalLink className="h-3 w-3 opacity-60" />
-                        </a>
-                      )}
                     </div>
                   </div>
                 </div>
