@@ -1,0 +1,14 @@
+services:
+  ssmr-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ssmr_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - LIVEKIT_API_KEY=API7QMERjkNUN7j
+      - LIVEKIT_API_SECRET=pFc6g6JdfXCOVbRLeRWmj3q4bgKPnyvPO15eqa5NfEoD

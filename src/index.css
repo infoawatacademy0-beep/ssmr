@@ -1,0 +1,341 @@
+@import "tailwindcss";
+
+/* ============================================
+   SSMR — Global Styles & Design Tokens
+   ============================================ */
+
+/* Enforce font-display: swap to prevent FOIT (Flash of Invisible Text) */
+@layer base {
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 300 900;
+    font-display: swap;
+    src: local('Inter');
+  }
+
+  @font-face {
+    font-family: 'Orbitron';
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: local('Orbitron');
+  }
+}
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Orbitron', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* Core Dark Palette */
+  --color-surface-900: #0a0a0f;
+  --color-surface-800: #0f0f1a;
+  --color-surface-700: #151525;
+  --color-surface-600: #1a1a2e;
+  --color-surface-500: #22223a;
+
+  /* Accent Colors */
+  --color-accent-primary: #7c3aed;
+  --color-accent-secondary: #06b6d4;
+  --color-accent-gold: #f59e0b;
+  --color-accent-rose: #f43f5e;
+  --color-accent-emerald: #10b981;
+
+  /* Gradients (as colors for reference) */
+  --color-glow-purple: rgba(124, 58, 237, 0.25);
+  --color-glow-cyan: rgba(6, 182, 212, 0.15);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+::-webkit-scrollbar-thumb {
+  background: #7c3aed;
+  border-radius: 2px;
+}
+
+/* Selection */
+::selection {
+  background: rgba(124, 58, 237, 0.4);
+  color: #fff;
+}
+
+/* Focus ring override */
+*:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+/* Animated gradient background */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Utility animation classes */
+.animate-gradient-shift {
+  animation: gradient-shift 8s ease infinite;
+  background-size: 200% 200%;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background-size: 200% 100%;
+}
+
+/* Glass morphism utility */
+.glass {
+  background: rgba(15, 15, 26, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.glass-strong {
+  background: rgba(15, 15, 26, 0.85);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+/* Input autofill override for dark theme */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px #151525 inset !important;
+  -webkit-text-fill-color: #e2e8f0 !important;
+  caret-color: #e2e8f0 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+
+/* ============================================
+   GIFT ANIMATION KEYFRAMES — TikTok-Style
+   Each gift has a unique CSS animation class
+   ============================================ */
+
+/* Heart Me — soft heartbeat bounce */
+@keyframes gift-heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.25); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.15); }
+  60% { transform: scale(1); }
+}
+.gift-anim-heartbeat { animation: gift-heartbeat 1.2s ease-in-out infinite; }
+
+/* Rose — gentle bloom sway */
+@keyframes gift-bloom {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.08) rotate(3deg); }
+  50% { transform: scale(1.12) rotate(0deg); }
+  75% { transform: scale(1.08) rotate(-3deg); }
+}
+.gift-anim-bloom { animation: gift-bloom 2.5s ease-in-out infinite; }
+
+/* Neon Heart — glow pulse */
+@keyframes gift-neon-pulse {
+  0%, 100% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 4px #ff69b4); }
+  50% { transform: scale(1.1); filter: brightness(1.3) drop-shadow(0 0 12px #ff1493); }
+}
+.gift-anim-neon-pulse { animation: gift-neon-pulse 1.5s ease-in-out infinite; }
+
+/* Fire — flickering flame */
+@keyframes gift-flicker {
+  0%, 100% { transform: scaleY(1) scaleX(1); }
+  25% { transform: scaleY(1.04) scaleX(0.96); }
+  50% { transform: scaleY(0.96) scaleX(1.04); }
+  75% { transform: scaleY(1.06) scaleX(0.98); }
+}
+.gift-anim-flicker { animation: gift-flicker 0.5s ease-in-out infinite; }
+
+/* Diamond — sparkle shimmer */
+@keyframes gift-sparkle {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 2px #4dd0e1); }
+  25% { filter: brightness(1.4) drop-shadow(0 0 8px #00bcd4); transform: rotate(3deg); }
+  50% { filter: brightness(1) drop-shadow(0 0 4px #4dd0e1); }
+  75% { filter: brightness(1.3) drop-shadow(0 0 10px #00e5ff); transform: rotate(-3deg); }
+}
+.gift-anim-sparkle { animation: gift-sparkle 2s ease-in-out infinite; }
+
+/* Sports Car — driving shake */
+@keyframes gift-drive {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(2px) rotate(-1deg); }
+  75% { transform: translateX(-2px) rotate(1deg); }
+}
+.gift-anim-drive { animation: gift-drive 0.4s ease-in-out infinite; }
+
+/* Lion — regal roar */
+@keyframes gift-roar {
+  0%, 100% { transform: scale(1); }
+  10% { transform: scale(1.15); }
+  20% { transform: scale(1.05); }
+  30% { transform: scale(1.12); }
+  50% { transform: scale(1); }
+}
+.gift-anim-roar { animation: gift-roar 2s ease-in-out infinite; }
+
+/* Rocket — launch vibration */
+@keyframes gift-launch {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-3px) rotate(1deg); }
+  50% { transform: translateY(-1px); }
+  75% { transform: translateY(-4px) rotate(-1deg); }
+}
+.gift-anim-launch { animation: gift-launch 0.3s ease-in-out infinite; }
+
+/* Nebula — cosmic orbit spin */
+@keyframes gift-orbit {
+  0% { transform: rotate(0deg); filter: hue-rotate(0deg); }
+  100% { transform: rotate(360deg); filter: hue-rotate(360deg); }
+}
+.gift-anim-orbit { animation: gift-orbit 8s linear infinite; }
+
+/* Crown — golden glow */
+@keyframes gift-crown-glow {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 4px #ffd600); }
+  50% { filter: brightness(1.3) drop-shadow(0 0 16px #ff8f00); transform: scale(1.05); }
+}
+.gift-anim-crown-glow { animation: gift-crown-glow 2s ease-in-out infinite; }
+
+/* Interstellar — warp speed */
+@keyframes gift-warp {
+  0%, 100% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 4px #7c4dff); }
+  30% { transform: scale(1.08); filter: brightness(1.5) drop-shadow(0 0 20px #651fff); }
+  60% { transform: scale(0.95); filter: brightness(0.9) drop-shadow(0 0 6px #7c4dff); }
+}
+.gift-anim-warp { animation: gift-warp 3s ease-in-out infinite; }
+
+/* White Tiger — lightning flash */
+@keyframes gift-lightning {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 2px #64b5f6); }
+  10% { filter: brightness(2) drop-shadow(0 0 20px #42a5f5); }
+  20% { filter: brightness(1); }
+  30% { filter: brightness(1.8) drop-shadow(0 0 15px #2196f3); }
+  40% { filter: brightness(1) drop-shadow(0 0 2px #64b5f6); }
+}
+.gift-anim-lightning { animation: gift-lightning 2.5s ease-in-out infinite; }
+
+/* ─── Full-Screen Gift Send Animation Overlay ─── */
+@keyframes gift-fly-up {
+  0% { transform: translateY(60vh) scale(0.3); opacity: 0; }
+  20% { transform: translateY(10vh) scale(1.2); opacity: 1; }
+  50% { transform: translateY(0) scale(1); opacity: 1; }
+  80% { transform: translateY(-5vh) scale(1.1); opacity: 0.8; }
+  100% { transform: translateY(-30vh) scale(0.5); opacity: 0; }
+}
+.gift-fly-animation {
+  animation: gift-fly-up 2.5s ease-out forwards;
+}
+
+/* ─── Tier Glow Borders ─── */
+.gift-tier-common { border-color: rgba(156,163,175,0.3); }
+.gift-tier-rare { border-color: rgba(96,165,250,0.5); box-shadow: 0 0 8px rgba(96,165,250,0.15); }
+.gift-tier-epic { border-color: rgba(167,139,250,0.5); box-shadow: 0 0 12px rgba(139,92,246,0.2); }
+.gift-tier-legendary { border-color: rgba(251,191,36,0.5); box-shadow: 0 0 16px rgba(245,158,11,0.25); }
+.gift-tier-mythic { border-color: rgba(244,63,94,0.6); box-shadow: 0 0 20px rgba(244,63,94,0.3), 0 0 40px rgba(139,92,246,0.15); }
+
+/* ─── VIP Animated Profile Covers & Badges ─── */
+@keyframes vip-gradient-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes vip-shimmer-sweep {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  100% { transform: translateX(250%) skewX(-20deg); }
+}
+
+@keyframes vip-crown-float {
+  0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8)); }
+  50% { transform: translateY(-3px) rotate(2deg) scale(1.08); filter: drop-shadow(0 0 16px rgba(245, 158, 11, 1)); }
+}
+
+@keyframes vip-border-pulse {
+  0%, 100% { border-color: rgba(251, 191, 36, 0.5); box-shadow: 0 0 15px rgba(251, 191, 36, 0.2); }
+  50% { border-color: rgba(251, 191, 36, 0.9); box-shadow: 0 0 25px rgba(245, 158, 11, 0.45); }
+}
+
+.vip-animated-cover {
+  background-size: 300% 300% !important;
+  animation: vip-gradient-flow 6s ease infinite !important;
+}
+
+.vip-crown-animation {
+  animation: vip-crown-float 2.5s ease-in-out infinite;
+}
+
+.vip-border-glow {
+  animation: vip-border-pulse 3s ease-in-out infinite;
+}
+
+.vip-shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.vip-shine-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 20%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.03) 80%,
+    transparent 100%
+  );
+  animation: vip-shimmer-sweep 4s ease-in-out infinite;
+  pointer-events: none;
+}

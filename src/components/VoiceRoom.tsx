@@ -1,0 +1,1330 @@
+import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Mic,
+  MicOff,
+  PhoneOff,
+  Send,
+  Crown,
+  Volume2,
+  Share2,
+  Check,
+  Gift,
+  Plus,
+  Radio,
+  X,
+  Lock,
+  Dices,
+  Coins,
+  Flame,
+  Gamepad2,
+  Users,
+  Music,
+  Diamond,
+  Star,
+  Sparkles,
+  ShieldAlert,
+  MessageCircle,
+  Shield,
+  UserPlus,
+  BadgeCheck,
+} from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../contexts';
+import type {
+  Room,
+  Seat,
+  DiceGame,
+  LudoGame,
+  RoomEntranceEvent,
+  RoomMusicState,
+  AudienceMember,
+  RoomGiftEvent,
+  PkBattleState,
+} from '../types';
+import {
+  subscribeToRoom,
+  joinSeat,
+  leaveSeat,
+  toggleSeatMute,
+  sendRoomMessage,
+  subscribeToDiceGame,
+  subscribeToLudoGame,
+  broadcastUserEntrance,
+  subscribeToRoomEntrance,
+  subscribeToMusicState,
+  registerAudiencePresence,
+  subscribeToAudience,
+  getUserSocialProfile,
+  subscribeToRoomGift,
+  subscribeToSeatGiftCoins,
+  subscribeToPkBattle,
+} from '../services';
+import { useVoiceRoom } from '../hooks/useVoiceRoom';
+import DiceGamePanel from './DiceGamePanel';
+import LudoGamePanel from './LudoGamePanel';
+import GiftStoreModal from './GiftStoreModal';
+import AudioStreams from './AudioStreams';
+import EntranceAnimation from './EntranceAnimation';
+import GiftAnimationOverlay from './GiftAnimationOverlay';
+import PkBattlePanel from './PkBattlePanel';
+import FloatingHearts from './FloatingHearts';
+import MusicPlayerPanel from './MusicPlayerPanel';
+import AudienceGrid from './AudienceGrid';
+import ReportModal from './ReportModal';
+import PrivateChat from './PrivateChat';
+import HostControlsPanel from './HostControlsPanel';
+import RoomInviteModal from './RoomInviteModal';
+
+/* ─────────────────────────────────────────────────────────────
+   SSMR — Ultra-Premium Gamified Voice Chat Room & Arena
+   Real-Time Voice Streaming Powered by LiveKit WebRTC
+   Collaborative Music Player, Audience Presence, and TTS
+   ───────────────────────────────────────────────────────────── */
+
+const SEAT_NAME_COLORS = [
+  'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.35)]',
+  'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.35)]',
+  'text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]',
+  'text-pink-400 drop-shadow-[0_0_8px_rgba(244,114,182,0.35)]',
+  'text-purple-400 drop-shadow-[0_0_8px_rgba(192,132,252,0.35)]',
+  'text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.35)]',
+  'text-sky-300 drop-shadow-[0_0_8px_rgba(56,189,248,0.35)]',
+  'text-lime-300 drop-shadow-[0_0_8px_rgba(190,242,100,0.35)]',
+];
+
+export default function VoiceRoom() {
+  const { roomId } = useParams<{ roomId: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [room, setRoom] = useState<Room | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Synchronized Mini-Game (Dice Battle) state
+  const [activeGame, setActiveGame] = useState<DiceGame | null>(null);
+  const [isDiceGameOpen, setIsDiceGameOpen] = useState(false);
+
+  // Synchronized 4-Player Ludo Board Battle state
+  const [activeLudoGame, setActiveLudoGame] = useState<LudoGame | null>(null);
+  const [isLudoGameOpen, setIsLudoGameOpen] = useState(false);
+
+  // Live User Entrance Animations state
+  const [entranceEvent, setEntranceEvent] = useState<RoomEntranceEvent | null>(null);
+
+  // Live TikTok-style Room Gift Broadcast Animation state
+  const [roomGiftEvent, setRoomGiftEvent] = useState<RoomGiftEvent | null>(null);
+
+  // 4 VS 4 PK Battle state
+  const [pkBattle, setPkBattle] = useState<PkBattleState | null>(null);
+
+  // Gift coins earned by each seated user in this room session
+  const [seatGiftCoins, setSeatGiftCoins] = useState<Record<string, number>>({});
+
+  // Collaborative Music Room & Media Queue state
+  const [musicState, setMusicState] = useState<RoomMusicState>({
+    currentTrackId: null,
+    isPlaying: false,
+    playbackPosition: 0,
+    lastSyncTimestamp: Date.now(),
+    queue: [],
+  });
+
+  // Real-time Audience Presence state
+  const [audience, setAudience] = useState<AudienceMember[]>([]);
+
+  // Interactive Gift Store modal state
+  const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
+  const [giftRecipient, setGiftRecipient] = useState<{ uid: string; username: string } | null>(null);
+
+  // Chat message input
+  const [chatInput, setChatInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Seat Action Sheet Modal
+  const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+
+  // Copied link toast
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Room Report Modal state
+  const [isRoomReportOpen, setIsRoomReportOpen] = useState(false);
+
+  // Host Controls Panel modal state
+  const [isHostControlsOpen, setIsHostControlsOpen] = useState(false);
+
+  // Room Invite Modal state
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+
+  // Custom Host Room Background & Verification state
+  const [hostRoomBackground, setHostRoomBackground] = useState<string | null>(null);
+  const [hostIsVerified, setHostIsVerified] = useState<boolean>(false);
+
+  // Private Chat (DM) state — triggered from seat action sheet or audience click
+  const [activeChatRecipient, setActiveChatRecipient] = useState<{
+    uid: string;
+    username: string;
+    avatar?: string;
+  } | null>(null);
+
+  // Identify if current user is seated and on which seat
+  const mySeat = room?.seats.find((s) => s.userId === user?.uid) ?? null;
+  const isHost = room?.hostId === user?.uid;
+
+  /* ─────────────────────────────────────────────────────────────
+     1. Real-time Firebase Listeners (Room, Games, Music, Presence)
+     ───────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!roomId) {
+      setError('Room ID not provided.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const unsubRoom = subscribeToRoom(roomId, (updatedRoom) => {
+      if (!updatedRoom) {
+        setError('This room does not exist or has been closed.');
+        setRoom(null);
+      } else {
+        setRoom(updatedRoom);
+        setError(null);
+      }
+      setLoading(false);
+    });
+
+    // Real-time Escrow Mini-Game listener
+    const unsubDice = subscribeToDiceGame(roomId, (game) => {
+      setActiveGame(game);
+    });
+
+    // Real-time 4-Player Ludo Board Battle listener
+    const unsubLudo = subscribeToLudoGame(roomId, (ludo) => {
+      setActiveLudoGame(ludo);
+    });
+
+    // Real-time User Entrance listener
+    const unsubEntrance = subscribeToRoomEntrance(roomId, (entrance) => {
+      setEntranceEvent(entrance);
+    });
+
+    // Real-time TikTok-Style Room Gift listener
+    const unsubGift = subscribeToRoomGift(roomId, (gEvent) => {
+      setRoomGiftEvent(gEvent);
+    });
+
+    // Real-time 4 VS 4 PK Battle listener
+    const unsubPk = subscribeToPkBattle(roomId, (battle) => {
+      setPkBattle(battle);
+    });
+
+    // Real-time seat gift coins listener
+    const unsubSeatCoins = subscribeToSeatGiftCoins(roomId, (coinsMap) => {
+      setSeatGiftCoins(coinsMap);
+    });
+
+    // Real-time Music Queue & Player listener
+    const unsubMusic = subscribeToMusicState(roomId, (mState) => {
+      setMusicState(mState);
+    });
+
+    // Real-time Audience Presence listener
+    const unsubAudience = subscribeToAudience(roomId, (listeners) => {
+      setAudience(listeners);
+    });
+
+    // Register user presence in audience (automatic onDisconnect cleanup)
+    let unregisterPresence: (() => void) | null = null;
+    if (user) {
+      unregisterPresence = registerAudiencePresence(roomId, {
+        uid: user.uid,
+        username: user.username,
+        level: user.level,
+        avatar: user.avatar,
+        badges: user.badges,
+      });
+
+      // Broadcast current user's luxury entrance
+      broadcastUserEntrance(roomId, {
+        uid: user.uid,
+        username: user.username,
+        level: user.level,
+        avatar: user.avatar,
+      }).catch(console.error);
+    }
+
+    return () => {
+      unsubRoom();
+      unsubDice();
+      unsubLudo();
+      unsubEntrance();
+      unsubGift();
+      unsubPk();
+      unsubSeatCoins();
+      unsubMusic();
+      unsubAudience();
+      if (unregisterPresence) unregisterPresence();
+    };
+  }, [roomId, user?.uid]);
+
+  // Load Host custom room background and verification status
+  useEffect(() => {
+    if (!room?.hostId) return;
+    getUserSocialProfile(room.hostId)
+      .then((hostProfile) => {
+        if (hostProfile) {
+          if (hostProfile.roomBackground) {
+            setHostRoomBackground(hostProfile.roomBackground);
+          }
+          if (hostProfile.isVerified) {
+            setHostIsVerified(true);
+          }
+        }
+      })
+      .catch((err) => console.error('Error fetching host themes:', err));
+  }, [room?.hostId]);
+
+  /* ─────────────────────────────────────────────────────────────
+     2. WebRTC Audio Streaming with LiveKit
+     ───────────────────────────────────────────────────────────── */
+  const {
+    isConnected: isLiveKitConnected,
+    isConnecting: isLiveKitConnecting,
+    connectionError: livekitError,
+    speakingUids,
+    audioAutoplayBlocked,
+    unlockAudioAutoplay,
+  } = useVoiceRoom({
+    roomId: room?.id || '',
+    currentUser: user,
+    mySeat,
+    allSeats: room?.seats || [],
+  });
+
+  /* ─────────────────────────────────────────────────────────────
+     3. Auto-scroll chat to bottom
+     ───────────────────────────────────────────────────────────── */
+  const scrollToBottom = useCallback(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [room?.activeChat, scrollToBottom]);
+
+  /* ─────────────────────────────────────────────────────────────
+     4. Seat Actions Handlers (Cascades to LiveKit Audio Engine)
+     ───────────────────────────────────────────────────────────── */
+  const handleSeatClick = async (seat: Seat) => {
+    if (!room || !user) return;
+
+    if (!seat.userId) {
+      // Empty seat clicked: Join seat
+      try {
+        await joinSeat(room.id, seat.seatNo, {
+          uid: user.uid,
+          username: user.username,
+          avatar: user.avatar,
+        });
+      } catch (err: any) {
+        alert(err.message || 'Could not take this seat.');
+      }
+    } else {
+      // Seat is occupied: Open action sheet / profile view
+      setSelectedSeat(seat);
+      setIsActionSheetOpen(true);
+    }
+  };
+
+  const handleToggleMyMute = async () => {
+    if (!room || !mySeat) return;
+    try {
+      // Toggling isMuted in Firebase cascades to LiveKit setMicrophoneEnabled
+      await toggleSeatMute(room.id, mySeat.seatNo, !mySeat.isMuted);
+    } catch (err: any) {
+      console.error('Failed to toggle mute:', err);
+    }
+  };
+
+  const handleLeaveMySeat = async (seatNo?: number) => {
+    if (!room) return;
+    const targetSeatNo = seatNo ?? mySeat?.seatNo;
+    if (!targetSeatNo) return;
+
+    try {
+      await leaveSeat(room.id, targetSeatNo);
+      setIsActionSheetOpen(false);
+    } catch (err: any) {
+      console.error('Failed to vacate seat:', err);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     4b. Leave Room (Vacates seat first so user doesn't get stuck)
+     ───────────────────────────────────────────────────────────── */
+  const [isLeaving, setIsLeaving] = useState(false);
+  const mySeatRef = useRef<Seat | null>(null);
+  mySeatRef.current = mySeat;
+
+  const handleLeaveRoom = async () => {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    try {
+      if (mySeat && room) {
+        await leaveSeat(room.id, mySeat.seatNo);
+      }
+      setActiveChatRecipient(null);
+    } catch (err) {
+      console.error('Failed to vacate seat on room leave:', err);
+    } finally {
+      navigate('/');
+    }
+  };
+
+  // Ensure seat is released if component unmounts while user is on stage
+  useEffect(() => {
+    return () => {
+      if (mySeatRef.current && roomId) {
+        leaveSeat(roomId, mySeatRef.current.seatNo).catch(console.error);
+      }
+    };
+  }, [roomId]);
+
+  /* ─────────────────────────────────────────────────────────────
+     5. Chat Messaging
+     ───────────────────────────────────────────────────────────── */
+  const handleSendMessage = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!room || !user || !chatInput.trim() || isSending) return;
+
+    const messageText = chatInput.trim();
+    setChatInput('');
+    setIsSending(true);
+
+    try {
+      await sendRoomMessage(
+        room.id,
+        user.uid || 'anon',
+        user.username || 'User',
+        messageText,
+      );
+    } catch (err: any) {
+      console.error('Failed to send message:', err);
+      alert(err.message || 'Could not send message.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     6. Share / Copy Room link
+     ───────────────────────────────────────────────────────────── */
+  const handleShareRoom = () => {
+    if (!room) return;
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  /* ─────────────────────────────────────────────────────────────
+     Render Loading / Error states
+     ───────────────────────────────────────────────────────────── */
+  if (loading) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-surface-900 p-4 text-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+          className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 to-cyan-500 shadow-lg shadow-violet-500/25"
+        >
+          <Radio className="h-7 w-7 text-white" />
+        </motion.div>
+        <p className="text-sm font-semibold text-white">Connecting to Voice Arena…</p>
+        <p className="mt-1 text-xs text-slate-500">Initializing LiveKit WebRTC & 8 audio channels</p>
+      </div>
+    );
+  }
+
+  if (error || !room || !user) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-surface-900 p-6 text-center">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-500/10 text-rose-400">
+          <PhoneOff className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold text-white">Room Unavailable</h2>
+        <p className="mt-2 text-sm text-slate-400 max-w-xs">{error || 'This voice room was closed or could not be found.'}</p>
+        <button
+          onClick={() => navigate('/')}
+          className="mt-6 rounded-2xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-transform active:scale-95"
+        >
+          Return to Lobby
+        </button>
+      </div>
+    );
+  }
+
+  const isGradientBg = hostRoomBackground && !hostRoomBackground.startsWith('http') && !hostRoomBackground.startsWith('data:');
+  const isImageBg = hostRoomBackground && (hostRoomBackground.startsWith('http') || hostRoomBackground.startsWith('data:'));
+
+  return (
+    <div
+      className={`relative mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden bg-surface-900 text-white select-none transition-all duration-700 ${
+        isGradientBg ? 'vip-animated-cover' : 'bg-cover bg-center'
+      }`}
+      style={
+        isImageBg
+          ? {
+              backgroundImage: `linear-gradient(to bottom, rgba(13, 13, 22, 0.78), rgba(13, 13, 22, 0.94)), url(${hostRoomBackground})`,
+            }
+          : isGradientBg
+          ? {
+              background: hostRoomBackground,
+            }
+          : undefined
+      }
+    >
+      {/* ── Background Glow Effects ── */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+        <div
+          className="absolute -top-24 -left-24 h-72 w-72 rounded-full opacity-20 blur-3xl"
+          style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute top-1/3 -right-20 h-64 w-64 rounded-full opacity-15 blur-3xl"
+          style={{ background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)' }}
+        />
+        <div
+          className="absolute bottom-10 left-10 h-64 w-64 rounded-full opacity-10 blur-3xl"
+          style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }}
+        />
+      </div>
+
+      {/* Audio Streams Provider (renders autoplay banners & error toasts silently) */}
+      <AudioStreams
+        isConnected={isLiveKitConnected}
+        isConnecting={isLiveKitConnecting}
+        connectionError={livekitError}
+        audioAutoplayBlocked={audioAutoplayBlocked}
+        onUnlockAudio={unlockAudioAutoplay}
+        activeSpeakersCount={speakingUids.size}
+      />
+
+      {/* ─────────────────────────────────────────────────────────
+         TOP BAR: Clean Header with Zero Overlap on Mobile
+         ───────────────────────────────────────────────────────── */}
+      <header className="relative z-20 flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-surface-900/80 px-3 py-2.5 backdrop-blur-xl gap-2">
+        {/* Left Side: Host Info & Room Name */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 font-bold shadow-md shadow-violet-500/20 text-xs">
+            <span>{room.hostName.charAt(0).toUpperCase()}</span>
+            <div className="absolute -top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+              <Crown className="h-2.5 w-2.5 text-black" strokeWidth={2.5} />
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <h1 className="truncate text-xs sm:text-sm font-bold text-white tracking-wide max-w-[110px] xs:max-w-[140px] sm:max-w-[200px]">
+              {room.roomName}
+            </h1>
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <span className="truncate max-w-[70px]">Host: <strong className="text-violet-400">{room.hostName}</strong></span>
+              {hostIsVerified && (
+                <span title="Verified VIP Host" className="inline-flex items-center gap-0.5 shrink-0">
+                  <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
+                  <BadgeCheck
+                    size={12}
+                    className="text-sky-400 fill-sky-400/20 shrink-0"
+                  />
+                </span>
+              )}
+              <span>·</span>
+              <div className="flex items-center gap-0.5 text-amber-300 font-semibold shrink-0">
+                <Coins className="h-3 w-3 text-amber-400" />
+                <span>{(user.coins ?? 0).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Action Buttons (No text overflow, mobile friendly) */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Live Audience Counter */}
+          <div
+            className="flex h-8 items-center gap-1 rounded-xl bg-white/[0.04] border border-white/[0.06] px-2 text-xs font-bold text-slate-300"
+            title="Active room listeners"
+          >
+            <Users className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-[11px] text-white">{audience.length}</span>
+          </div>
+
+          {/* Invite Button */}
+          <button
+            onClick={() => setIsInviteModalOpen(true)}
+            className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/20"
+            title="Invite friends"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Invite</span>
+          </button>
+
+          {/* Host Controls Button */}
+          {isHost && (
+            <button
+              onClick={() => setIsHostControlsOpen(true)}
+              className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-amber-500/40 bg-amber-500/10 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500/20"
+              title="Host Controls"
+            >
+              <Shield className="h-3.5 w-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Panel</span>
+            </button>
+          )}
+
+          {/* Share Button */}
+          <button
+            onClick={handleShareRoom}
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-300 transition-colors hover:bg-white/[0.08]"
+            title="Copy room link"
+          >
+            {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
+          </button>
+
+          {/* Report Room Button */}
+          <button
+            onClick={() => setIsRoomReportOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-400 transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"
+            title="Report this room"
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Leave Button - Safely vacates seat before exiting */}
+          <button
+            onClick={handleLeaveRoom}
+            disabled={isLeaving}
+            className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/15 px-2.5 text-xs font-bold text-rose-300 transition-colors hover:bg-rose-500/25 active:scale-95 disabled:opacity-50"
+            title="Leave Room"
+          >
+            <PhoneOff className="h-3.5 w-3.5" />
+            <span>Leave</span>
+          </button>
+        </div>
+      </header>
+
+      {/* ─────────────────────────────────────────────────────────
+         MAIN CONTENT AREA: 8-Seat Stage + Music + Audience + Chat
+         ───────────────────────────────────────────────────────── */}
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+        {/* ── THE 8-SEAT AUDIO GRID WITH SEAT FLOATING BADGES ── */}
+        <section className="shrink-0 p-4 pb-1">
+          {/* 4 VS 4 PK Battle Arena Panel (5-min real-time battle) */}
+          <PkBattlePanel
+            roomId={room.id}
+            currentUser={user}
+            isHost={isHost}
+            seats={room.seats}
+            pkBattle={pkBattle}
+          />
+
+          <div className="flex items-center justify-between pb-2 px-1">
+            <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+              Live Mic Stage (8 Seats)
+            </span>
+            <span className="text-[10px] text-slate-500">
+              {room.seats.filter((s) => s.userId).length} / 8 Seated
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 sm:gap-4">
+            {room.seats.map((seat) => {
+              const isOccupied = Boolean(seat.userId);
+              const isCurrentUser = seat.userId === user?.uid;
+              const isHostSeat = seat.userId === room.hostId;
+              const isPkActive = pkBattle?.status === 'active';
+              const isTeamRed = [1, 2, 5, 6].includes(seat.seatNo);
+              // True WebRTC speaking indicator powered by LiveKit Voice Activity Detection
+              const isSpeaking =
+                isOccupied &&
+                !seat.isMuted &&
+                seat.userId !== null &&
+                speakingUids.has(seat.userId);
+
+              // Dynamic border & glow depending on speaking / PK team status
+              let avatarBorderClass = 'border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-violet-500/50 hover:bg-white/[0.04]';
+              if (isOccupied) {
+                if (isSpeaking) {
+                  avatarBorderClass = 'border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)]';
+                } else if (isPkActive) {
+                  avatarBorderClass = isTeamRed
+                    ? 'border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
+                    : 'border-2 border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.6)]';
+                } else {
+                  avatarBorderClass = 'border-2 border-violet-500/60 shadow-md shadow-violet-500/20';
+                }
+              }
+
+              return (
+                <div
+                  key={`seat-${seat.seatNo}`}
+                  onClick={() => handleSeatClick(seat)}
+                  className="group flex cursor-pointer flex-col items-center"
+                >
+                  {/* Seat Avatar Container */}
+                  <div className="relative flex items-center justify-center">
+                    {/* Speaking Animated Wave Ring */}
+                    {isSpeaking && (
+                      <motion.div
+                        animate={{ scale: [1, 1.35, 1], opacity: [0.9, 0, 0.9] }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute inset-0 rounded-full border-2 border-emerald-400 pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.8)]"
+                      />
+                    )}
+
+                    {/* PK Battle Team Pill Indicator on Seat */}
+                    {isPkActive && (
+                      <div
+                        className={`absolute -top-2 left-1/2 -translate-x-1/2 rounded px-1.5 py-0.2 text-[7px] font-black uppercase text-white shadow-md z-20 ${
+                          isTeamRed ? 'bg-rose-600 border border-rose-400/80' : 'bg-sky-600 border border-sky-400/80'
+                        }`}
+                      >
+                        {isTeamRed ? 'RED' : 'BLUE'}
+                      </div>
+                    )}
+
+                    {/* Avatar / Empty Seat Base */}
+                    <div
+                      className={`
+                        relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full transition-all duration-300
+                        ${avatarBorderClass}
+                      `}
+                    >
+                      {isOccupied ? (
+                        <>
+                          {/* Occupied Avatar */}
+                          <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-tr from-violet-700 via-purple-600 to-cyan-500 text-sm font-bold text-white uppercase shadow-inner">
+                            {seat.username?.charAt(0) || 'U'}
+                          </div>
+
+                          {/* Host Crown Indicator */}
+                          {isHostSeat && (
+                            <div className="absolute -top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow z-10">
+                              <Crown className="h-2.5 w-2.5 text-black" strokeWidth={2.5} />
+                            </div>
+                          )}
+
+                          {/* FEATURE 3: Seat Floating Shimmering Badges (Top Spender / Diamond / VIP) */}
+                          {isOccupied && !isHostSeat && (
+                            <div className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-md shadow-cyan-400/40 z-10">
+                              <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                            </div>
+                          )}
+
+                          {/* Received Gift Coins Badge on Profile Icon */}
+                          {seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
+                            <div
+                              title={`${(seatGiftCoins[seat.userId] ?? 0).toLocaleString()} coins received`}
+                              className="absolute -bottom-2 -left-1.5 z-20 flex items-center gap-0.5 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-500 to-yellow-500 px-1.5 py-0.5 text-[8px] font-black text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
+                            >
+                              <Coins className="h-2.5 w-2.5 text-slate-950 shrink-0" />
+                              <span>{(seatGiftCoins[seat.userId] ?? 0).toLocaleString()}</span>
+                            </div>
+                          )}
+
+                          {/* Mic Status Badge */}
+                          <div
+                            className={`
+                              absolute -bottom-1 -right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-surface-900 shadow-md
+                              ${seat.isMuted ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-black'}
+                            `}
+                          >
+                            {seat.isMuted ? (
+                              <MicOff className="h-2.5 w-2.5" />
+                            ) : (
+                              <Mic className="h-2.5 w-2.5" />
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Empty Seat State */}
+                          {seat.isLocked ? (
+                            <Lock className="h-5 w-5 text-slate-600" />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-slate-500 transition-colors group-hover:text-violet-400">
+                              <Plus className="h-5 w-5" />
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Seat Title / Colored Username */}
+                  <div className="mt-1.5 flex flex-col items-center max-w-full px-1">
+                    <span
+                      className={`truncate text-center text-[11px] leading-tight max-w-[68px] ${
+                        isOccupied
+                          ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
+                          : 'text-slate-500 font-medium'
+                      }`}
+                      title={isOccupied ? seat.username || `Seat ${seat.seatNo}` : `Seat ${seat.seatNo}`}
+                    >
+                      {isOccupied ? (isCurrentUser ? `${seat.username} (You)` : seat.username) : `Seat ${seat.seatNo}`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── FLOATING MINI-GAME NOTIFICATION BANNERS ── */}
+          <div className="mt-2 space-y-2">
+            {/* 4-Player Ludo Banner */}
+            <AnimatePresence>
+              {activeLudoGame && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  onClick={() => setIsLudoGameOpen(true)}
+                  className="flex cursor-pointer items-center justify-between rounded-2xl border border-violet-500/40 bg-gradient-to-r from-violet-600/30 via-surface-800 to-indigo-600/20 px-3.5 py-2 shadow-lg shadow-violet-500/15"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white shadow">
+                      <Gamepad2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>4P LUDO BATTLE</span>
+                        <span className="rounded bg-violet-400/20 px-1 py-0.2 text-[8px] text-violet-300 font-bold uppercase">
+                          {activeLudoGame.status}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-slate-300">
+                        {activeLudoGame.players.length}/4 Players · Pot: {activeLudoGame.totalPot} Coins
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-violet-400">
+                    <span>{activeLudoGame.status === 'waiting' ? 'Join' : 'Play'}</span>
+                    <Flame className="h-3.5 w-3.5" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* 1v1 Dice Battle Banner */}
+            <AnimatePresence>
+              {activeGame && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  onClick={() => setIsDiceGameOpen(true)}
+                  className="flex cursor-pointer items-center justify-between rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-surface-800 to-amber-500/10 px-3.5 py-2 shadow-lg shadow-amber-500/10"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-400 text-black shadow">
+                      <Dices className="h-4 w-4 animate-spin" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>DICE BATTLE</span>
+                        <span className="rounded bg-amber-400/20 px-1 py-0.2 text-[8px] text-amber-300 font-bold uppercase">
+                          {activeGame.status}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-amber-300/80">
+                        {activeGame.status === 'waiting'
+                          ? `${activeGame.player1.username} wagered ${activeGame.betAmount} Coins`
+                          : `${activeGame.player1.username} vs ${activeGame.player2?.username} (${activeGame.potSize} Coins Pot)`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400">
+                    <span>{activeGame.status === 'waiting' ? 'Accept' : 'Watch'}</span>
+                    <Flame className="h-3.5 w-3.5" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </section>
+
+        {/* ── FEATURE 1: Collaborative Music Room & Media Queue ── */}
+        {(room.category === 'Music' || musicState.queue.length > 0) && (
+          <MusicPlayerPanel
+            roomId={room.id}
+            currentUser={user}
+            isHost={isHost}
+            seats={room.seats}
+            musicState={musicState}
+          />
+        )}
+
+        {/* ── FEATURE 2: Live Room Audience Strip Row ── */}
+        <AudienceGrid
+          audience={audience}
+          seats={room.seats}
+          currentUser={user}
+          onSendGiftToUser={(recipient) => {
+            setGiftRecipient(recipient);
+            setIsGiftModalOpen(true);
+          }}
+        />
+
+        {/* ── REAL-TIME LIVE CHAT DOCKED SECTION ── */}
+        <section className="relative flex flex-1 flex-col overflow-hidden border-t border-white/[0.06] bg-surface-900/50 p-4">
+          {/* Luxury User Entrance Visual Animations */}
+          <EntranceAnimation entranceEvent={entranceEvent} />
+
+          {/* TikTok-Style Live Room Gift Animation Overlay */}
+          <GiftAnimationOverlay giftEvent={roomGiftEvent} />
+
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+              Live Room Chat
+            </span>
+            <span className="text-[10px] text-slate-500">
+              {room.activeChat.length} messages
+            </span>
+          </div>
+
+          {/* Chat Messages Stream */}
+          <div
+            ref={chatScrollRef}
+            className="flex-1 space-y-2 overflow-y-auto pr-1 text-xs"
+          >
+            {room.activeChat.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-slate-500 text-center">
+                <p>No messages yet.<br />Be the first to say hello!</p>
+              </div>
+            ) : (
+              room.activeChat.map((msg) => {
+                const isSystem = msg.senderId === 'system';
+                const isMe = msg.senderId === user?.uid;
+                const isHostSender = msg.senderId === room.hostId;
+
+                if (isSystem) {
+                  return (
+                    <div
+                      key={msg.id}
+                      className="rounded-xl border border-violet-500/15 bg-violet-500/10 px-3 py-1.5 text-center text-[11px] text-violet-300 font-medium"
+                    >
+                      {msg.text}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[10px] font-semibold text-slate-400">
+                        {isMe ? 'You' : msg.senderName}
+                      </span>
+                      {isHostSender && (
+                        <span className="flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.2 text-[8px] font-bold text-amber-300">
+                          <Crown className="h-2 w-2" /> HOST
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`
+                        max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed
+                        ${
+                          isMe
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-sm'
+                            : 'bg-white/[0.05] border border-white/[0.06] text-slate-200 rounded-tl-sm'
+                        }
+                      `}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Chat Input Bar */}
+          <form onSubmit={handleSendMessage} className="mt-3 flex items-center gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Send a message to the room…"
+              className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition-colors focus:border-violet-500 focus:bg-white/[0.06]"
+            />
+            <button
+              type="submit"
+              disabled={!chatInput.trim() || isSending}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md shadow-violet-600/30 transition-transform active:scale-95 disabled:opacity-40"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </form>
+        </section>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────
+         BOTTOM CONTROL PANEL: Mic, Games, Music, Gifts, Leave
+         ───────────────────────────────────────────────────────── */}
+      <footer className="relative z-20 shrink-0 border-t border-white/[0.08] bg-surface-900/90 px-3 py-3 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+          {/* Mic Quick Toggle (Cascades to LiveKit Audio Engine) */}
+          {mySeat ? (
+            <button
+              onClick={handleToggleMyMute}
+              className={`
+                flex items-center justify-center gap-1 rounded-2xl px-2.5 py-2 text-xs font-semibold transition-all shadow-md active:scale-95
+                ${
+                  mySeat.isMuted
+                    ? 'border border-rose-500/30 bg-rose-500/10 text-rose-300'
+                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/20'
+                }
+              `}
+            >
+              {mySeat.isMuted ? (
+                <>
+                  <MicOff className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Unmute</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Mute</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <div className="flex items-center gap-1 text-slate-400 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded-2xl px-2 py-2">
+              <Volume2 className="h-3 w-3 text-violet-400" />
+              <span className="hidden xs:inline">Stage</span>
+            </div>
+          )}
+
+          {/* 4-PLAYER LUDO BOARD BUTTON */}
+          <button
+            onClick={() => setIsLudoGameOpen(true)}
+            className="flex items-center gap-1 rounded-2xl border border-violet-500/40 bg-gradient-to-r from-violet-600/20 to-indigo-600/10 px-2.5 py-2 text-xs font-bold text-violet-300 shadow-md transition-transform active:scale-95"
+          >
+            <Gamepad2 className="h-3.5 w-3.5 text-violet-400" />
+            <span>4P Ludo</span>
+            {activeLudoGame && (
+              <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-ping" />
+            )}
+          </button>
+
+          {/* DICE BATTLE MINI-GAME BUTTON */}
+          <button
+            onClick={() => setIsDiceGameOpen(true)}
+            className="flex items-center gap-1 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 px-2.5 py-2 text-xs font-bold text-amber-300 shadow-md transition-transform active:scale-95"
+          >
+            <Dices className="h-3.5 w-3.5 text-amber-400" />
+            <span>Dice</span>
+            {activeGame && (
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+            )}
+          </button>
+
+          {/* INTERACTIVE GIFTS BUTTON */}
+          <button
+            onClick={() => {
+              setGiftRecipient(null);
+              setIsGiftModalOpen(true);
+            }}
+            className="relative flex items-center gap-1 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-3 py-2 text-xs font-bold text-black shadow-lg shadow-amber-500/25 transition-transform active:scale-95"
+          >
+            <Gift className="h-3.5 w-3.5" />
+            <span>Gifts</span>
+          </button>
+
+          {/* Quick Leave Seat button (if seated) */}
+          {mySeat && (
+            <button
+              onClick={() => handleLeaveMySeat()}
+              className="flex items-center gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-2.5 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08] active:scale-95"
+              title="Leave current seat"
+            >
+              <PhoneOff className="h-3 w-3 text-rose-400" />
+              <span>Leave Seat</span>
+            </button>
+          )}
+        </div>
+      </footer>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 1: Seat Action Sheet (Mute/Unmute, Leave Seat, Gift)
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isActionSheetOpen && selectedSeat && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="w-full max-w-sm rounded-3xl border border-white/[0.1] bg-surface-800 p-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 font-bold text-white">
+                    {selectedSeat.username?.charAt(0) || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">{selectedSeat.username}</h3>
+                    <p className="text-[11px] text-slate-400">Seat #{selectedSeat.seatNo}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsActionSheetOpen(false)}
+                  className="rounded-full p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {selectedSeat.userId === user?.uid ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        await toggleSeatMute(room.id, selectedSeat.seatNo, !selectedSeat.isMuted);
+                        setIsActionSheetOpen(false);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.05] py-3 text-xs font-semibold text-white transition-colors hover:bg-white/[0.1]"
+                    >
+                      {selectedSeat.isMuted ? <Mic className="h-4 w-4 text-emerald-400" /> : <MicOff className="h-4 w-4 text-rose-400" />}
+                      {selectedSeat.isMuted ? 'Unmute My Mic' : 'Mute My Mic'}
+                    </button>
+
+                    <button
+                      onClick={() => handleLeaveMySeat(selectedSeat.seatNo)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 py-3 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20"
+                    >
+                      <PhoneOff className="h-4 w-4" />
+                      Leave This Seat
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Host Moderation Controls (Room Host can mute/unmute or kick member) */}
+                    {isHost && (
+                      <div className="space-y-2 border-b border-white/[0.08] pb-3 mb-2">
+                        <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-400 px-1">
+                          <Crown className="h-3 w-3" />
+                          <span>Host Moderation</span>
+                        </div>
+
+                        {/* Host Mute/Unmute Member Mic */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              await toggleSeatMute(room.id, selectedSeat.seatNo, !selectedSeat.isMuted);
+                              setIsActionSheetOpen(false);
+                            } catch (err: any) {
+                              alert(err.message || 'Failed to toggle member microphone.');
+                            }
+                          }}
+                          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all active:scale-95 ${
+                            selectedSeat.isMuted
+                              ? 'border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                              : 'border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25'
+                          }`}
+                        >
+                          {selectedSeat.isMuted ? (
+                            <>
+                              <Mic className="h-4 w-4 text-emerald-400" />
+                              <span>Unmute Member Mic</span>
+                            </>
+                          ) : (
+                            <>
+                              <MicOff className="h-4 w-4 text-rose-400" />
+                              <span>Mute Member Mic</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Host Kick from Seat */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              await leaveSeat(room.id, selectedSeat.seatNo);
+                              setIsActionSheetOpen(false);
+                            } catch (err: any) {
+                              alert(err.message || 'Failed to remove member from seat.');
+                            }
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-xs font-semibold text-slate-300 hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-300 transition-all"
+                        >
+                          <PhoneOff className="h-3.5 w-3.5 text-rose-400" />
+                          <span>Kick from Seat</span>
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2.5 text-center text-xs text-slate-400">
+                      <p>
+                        Mic Status:{' '}
+                        <span className={selectedSeat.isMuted ? 'text-rose-400 font-semibold' : 'text-emerald-400 font-semibold'}>
+                          {selectedSeat.isMuted ? 'Muted' : 'Speaking / Active Mic'}
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Direct Message button for seated user */}
+                    <button
+                      onClick={() => {
+                        setIsActionSheetOpen(false);
+                        setActiveChatRecipient({
+                          uid: selectedSeat.userId!,
+                          username: selectedSeat.username || 'User',
+                          avatar: undefined,
+                        });
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.05] py-3 text-xs font-semibold text-cyan-300 transition-colors hover:bg-white/[0.1]"
+                    >
+                      <MessageCircle className="h-4 w-4 text-cyan-400" />
+                      Direct Message {selectedSeat.username}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsActionSheetOpen(false);
+                        setGiftRecipient({
+                          uid: selectedSeat.userId!,
+                          username: selectedSeat.username || 'User',
+                        });
+                        setIsGiftModalOpen(true);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 py-3 text-xs font-bold text-black shadow-md shadow-amber-500/20"
+                    >
+                      <Gift className="h-4 w-4" />
+                      Send Gift to {selectedSeat.username}
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 2: 4-Player Ludo Board Battle Panel
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isLudoGameOpen && (
+          <LudoGamePanel
+            roomId={room.id}
+            currentUser={user}
+            activeLudoGame={activeLudoGame}
+            seats={room.seats}
+            onClose={() => setIsLudoGameOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 3: Interactive Dice Game Escrow Panel
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isDiceGameOpen && (
+          <DiceGamePanel
+            roomId={room.id}
+            currentUser={user}
+            activeGame={activeGame}
+            seats={room.seats}
+            onClose={() => setIsDiceGameOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 4: Interactive Gift Store
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isGiftModalOpen && (
+          <GiftStoreModal
+            roomId={room.id}
+            currentUser={user}
+            seats={room.seats}
+            initialRecipient={giftRecipient}
+            onClose={() => {
+              setIsGiftModalOpen(false);
+              setGiftRecipient(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 5: Room Report Modal
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isRoomReportOpen && (
+          <ReportModal
+            reporterUid={user.uid}
+            reporterName={user.username}
+            targetId={room.id}
+            targetType="room"
+            targetName={room.roomName}
+            onClose={() => setIsRoomReportOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 6: Private Direct Message Chat Panel
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {activeChatRecipient && (
+          <PrivateChat
+            currentUser={user}
+            recipientUser={activeChatRecipient}
+            onClose={() => setActiveChatRecipient(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 7: Host Controls & Moderation Panel
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isHostControlsOpen && isHost && (
+          <HostControlsPanel
+            room={room}
+            currentUser={user}
+            onClose={() => setIsHostControlsOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 8: Room Friends Invitation Modal
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isInviteModalOpen && (
+          <RoomInviteModal
+            room={room}
+            currentUser={user}
+            onClose={() => setIsInviteModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Floating Animated Hearts Reaction (TikTok Style) */}
+      <FloatingHearts />
+    </div>
+  );
+}

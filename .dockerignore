@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist
+.git
+.gitignore
+.dockerignore
+.oxlintrc.json
+ssmr.zip
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+.vscode
+.idea
