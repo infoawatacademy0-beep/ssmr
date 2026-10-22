@@ -8,6 +8,7 @@ export interface AudienceMember {
   username: string;
   level: number;
   avatar?: string;
+  isVerified?: boolean;
   badges?: Badge[];
   enteredAt: number;
 }

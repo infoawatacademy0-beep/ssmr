@@ -20,6 +20,7 @@ export interface AudienceParticipant {
   username: string;
   level: number;
   avatar?: string;
+  isVerified?: boolean;
   badges?: Badge[];
 }
 
@@ -42,6 +43,7 @@ export function registerAudiencePresence(
         username: user.username,
         level: user.level,
         avatar: user.avatar || '',
+        isVerified: Boolean(user.isVerified),
         badges: user.badges || [],
         enteredAt: Date.now(),
       };

@@ -7,6 +7,7 @@ export interface Post {
   authorUid: string;
   authorName: string;
   authorAvatar: string | null;
+  authorIsVerified?: boolean;
   content: string;
   timestamp: number;
   likesCount: number;
@@ -17,5 +18,6 @@ export interface CreatePostPayload {
   authorUid: string;
   authorName: string;
   authorAvatar?: string | null;
+  authorIsVerified?: boolean;
   content: string;
 }

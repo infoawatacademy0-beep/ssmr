@@ -41,7 +41,7 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
 
   if (!currentEntrance) return null;
 
-  const isVip = currentEntrance.level >= 10;
+  const isVip = Boolean(currentEntrance.isVerified || currentEntrance.level >= 10);
 
   return (
     <div className="pointer-events-none absolute bottom-16 left-3 z-30 max-w-[280px] sm:max-w-[320px]">
@@ -72,29 +72,31 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
           )}
 
           <div className="relative z-10 flex items-center gap-2.5">
-            {/* User Avatar with VIP styling */}
+            {/* User Avatar with VIP Blazing Fire Stroke */}
             <div
               className={`
-                relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl font-bold text-xs text-white shadow
+                relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold text-xs text-white shadow
                 ${
                   isVip
-                    ? 'bg-gradient-to-tr from-amber-400 to-yellow-600 text-black shadow-amber-400/40'
-                    : 'bg-gradient-to-tr from-violet-600 to-indigo-600 shadow-violet-500/30'
+                    ? 'vip-fire-avatar bg-gradient-to-tr from-amber-400 via-orange-500 to-red-600 text-black'
+                    : 'overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-600 shadow-violet-500/30'
                 }
               `}
             >
-              {currentEntrance.avatar ? (
-                <img
-                  src={currentEntrance.avatar}
-                  alt={currentEntrance.username}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span>{currentEntrance.username.charAt(0).toUpperCase()}</span>
-              )}
+              <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+                {currentEntrance.avatar ? (
+                  <img
+                    src={currentEntrance.avatar}
+                    alt={currentEntrance.username}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{currentEntrance.username.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
               {isVip && (
-                <div className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
-                  <Crown className="h-2 w-2 text-black" strokeWidth={3} />
+                <div className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
+                  <Crown className="h-2 w-2 text-black fill-black" strokeWidth={3} />
                 </div>
               )}
             </div>

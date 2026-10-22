@@ -316,6 +316,88 @@ input:-webkit-autofill:focus {
   animation: vip-border-pulse 3s ease-in-out infinite;
 }
 
+/* ─── Blazing Animated Fire Profile Stroke (VIP Fire Ring) ─── */
+@keyframes vip-fire-burn {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px #fde047,
+      0 0 10px 2px #f97316,
+      0 0 20px 5px #ef4444,
+      0 -4px 14px 2px rgba(251, 146, 60, 0.95);
+    border-color: #fde047 !important;
+    filter: drop-shadow(0 -2px 6px rgba(239, 68, 68, 0.85));
+  }
+  25% {
+    box-shadow:
+      0 0 0 2.5px #fb923c,
+      0 -3px 14px 4px #f59e0b,
+      0 0 24px 7px #dc2626,
+      2px -6px 18px 3px rgba(254, 240, 138, 0.9);
+    border-color: #f97316 !important;
+    filter: drop-shadow(0 -3px 8px rgba(249, 115, 22, 0.95));
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px #fef08a,
+      0 0 12px 3px #ea580c,
+      0 -4px 22px 6px #b91c1c,
+      -2px -6px 16px 3px rgba(249, 115, 22, 0.95);
+    border-color: #fef08a !important;
+    filter: drop-shadow(0 -2px 7px rgba(220, 38, 38, 0.9));
+  }
+  75% {
+    box-shadow:
+      0 0 0 2.5px #f59e0b,
+      0 -2px 15px 4px #ef4444,
+      0 0 26px 8px #ea580c,
+      0 -7px 20px 4px rgba(253, 224, 71, 0.9);
+    border-color: #ef4444 !important;
+    filter: drop-shadow(0 -4px 9px rgba(251, 191, 36, 0.95));
+  }
+}
+
+@keyframes vip-fire-spin {
+  0% {
+    transform: rotate(0deg) scale(1.04);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.04);
+  }
+}
+
+.vip-fire-avatar {
+  position: relative;
+  border: 2px solid #fde047 !important;
+  animation: vip-fire-burn 1.1s ease-in-out infinite !important;
+}
+
+.vip-fire-avatar::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from 0deg,
+    #fef08a,
+    #f97316,
+    #dc2626,
+    #fbbf24,
+    #ef4444,
+    #f97316,
+    #fef08a
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: vip-fire-spin 2.2s linear infinite;
+  pointer-events: none;
+  z-index: 15;
+}
+
 .vip-shine-effect {
   position: relative;
   overflow: hidden;

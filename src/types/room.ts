@@ -6,6 +6,7 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   senderAvatar?: string | null;
+  senderIsVerified?: boolean;
   text: string;
   timestamp: number;
 }
@@ -22,6 +23,7 @@ export interface Seat {
   userId: string | null;
   username: string | null;
   avatar: string | null;
+  isVerified?: boolean;
   isMuted: boolean;
   isLocked: boolean;
   role?: SeatRole;
@@ -37,6 +39,7 @@ export interface RoomEntranceEvent {
   username: string;
   level: number;
   avatar?: string;
+  isVerified?: boolean;
   timestamp: number;
 }
 

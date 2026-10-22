@@ -30,6 +30,7 @@ export interface UserSeatInfo {
   uid: string;
   username: string;
   avatar?: string;
+  isVerified?: boolean;
   isMuted?: boolean;
   voiceEffect?: VoiceEffectMode;
 }
@@ -66,6 +67,7 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
       userId: rawSeat.userId ?? null,
       username: rawSeat.username ?? null,
       avatar: rawSeat.avatar ?? null,
+      isVerified: Boolean(rawSeat.isVerified),
       isMuted: Boolean(rawSeat.isMuted),
       isLocked: Boolean(rawSeat.isLocked),
       voiceEffect: (rawSeat.voiceEffect as VoiceEffectMode) || 'normal',
@@ -90,6 +92,7 @@ function normalizeChat(rawChat: unknown): ChatMessage[] {
         senderId: msg?.senderId || '',
         senderName: msg?.senderName || 'Anonymous',
         senderAvatar: msg?.senderAvatar || null,
+        senderIsVerified: Boolean(msg?.senderIsVerified),
         text: msg?.text || '',
         timestamp: msg?.timestamp || Date.now(),
       }))
@@ -227,6 +230,7 @@ export async function joinSeat(
       userId: user.uid,
       username: user.username,
       avatar: user.avatar || '',
+      isVerified: Boolean(user.isVerified),
       isMuted: preservedIsMuted,
       isLocked: false,
       voiceEffect: preservedVoiceEffect,
@@ -314,6 +318,7 @@ export async function sendRoomMessage(
   senderName: string,
   text: string,
   senderAvatar?: string | null,
+  senderIsVerified?: boolean,
 ): Promise<void> {
   const cleanText = (text || '').trim();
   if (!cleanText || !roomId) return;
@@ -327,6 +332,7 @@ export async function sendRoomMessage(
     senderId: senderId || 'user',
     senderName: senderName || 'User',
     senderAvatar: senderAvatar || null,
+    senderIsVerified: Boolean(senderIsVerified),
     text: cleanText,
     timestamp: Date.now(),
   };
@@ -348,7 +354,7 @@ export async function clearRoomChat(roomId: string): Promise<void> {
  */
 export async function broadcastUserEntrance(
   roomId: string,
-  user: { uid: string; username: string; level: number; avatar?: string },
+  user: { uid: string; username: string; level: number; avatar?: string; isVerified?: boolean },
 ): Promise<void> {
   const entranceRef = ref(database, `rooms/${roomId}/latestEntrance`);
   const entranceEvent: RoomEntranceEvent = {
@@ -357,6 +363,7 @@ export async function broadcastUserEntrance(
     username: user.username,
     level: user.level,
     avatar: user.avatar || '',
+    isVerified: Boolean(user.isVerified),
     timestamp: Date.now(),
   };
   await set(entranceRef, entranceEvent);

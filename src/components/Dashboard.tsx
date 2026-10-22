@@ -308,6 +308,7 @@ export default function Dashboard() {
         authorUid: user.uid,
         authorName: user.username,
         authorAvatar: user.avatar || user.profileImage || null,
+        authorIsVerified: Boolean(user.isVerified),
         content: cleanContent,
       });
       setNewPostContent('');
@@ -558,12 +559,21 @@ export default function Dashboard() {
 
             <button
               onClick={() => openUserProfile(user.uid)}
-              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-slate-900 text-xs font-bold text-white"
+              className={`relative flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-xs font-bold text-white ${
+                user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden border border-white/10'
+              }`}
             >
-              {user.avatar || user.profileImage ? (
-                <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
-              ) : (
-                (user.username || 'U').charAt(0).toUpperCase()
+              <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+                {user.avatar || user.profileImage ? (
+                  <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
+                ) : (
+                  (user.username || 'U').charAt(0).toUpperCase()
+                )}
+              </div>
+              {user.isVerified && (
+                <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
+                  <Crown className="h-2 w-2 text-black fill-black" />
+                </span>
               )}
             </button>
           </div>
@@ -719,16 +729,25 @@ export default function Dashboard() {
             <div className="flex items-start gap-3">
               <div
                 onClick={() => openUserProfile(user.uid)}
-                className="relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 text-xs font-black text-black shadow-md transition hover:scale-105"
+                className={`relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 text-xs font-black text-black shadow-md transition hover:scale-105 ${
+                  user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden'
+                }`}
               >
-                {user.avatar || user.profileImage ? (
-                  <img
-                    src={user.avatar || user.profileImage}
-                    alt={user.username}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  (user.username || 'U').charAt(0).toUpperCase()
+                <div className="h-full w-full overflow-hidden rounded-2xl flex items-center justify-center">
+                  {user.avatar || user.profileImage ? (
+                    <img
+                      src={user.avatar || user.profileImage}
+                      alt={user.username}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    (user.username || 'U').charAt(0).toUpperCase()
+                  )}
+                </div>
+                {user.isVerified && (
+                  <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+                    <Crown className="h-2.5 w-2.5 text-black fill-black" />
+                  </span>
                 )}
               </div>
 
@@ -793,6 +812,7 @@ export default function Dashboard() {
               <AnimatePresence>
                 {posts.map((post) => {
                   const isAuthor = post.authorUid === user.uid;
+                  const isPostVip = Boolean(post.authorIsVerified || (isAuthor && user.isVerified));
                   const isLiked = Boolean(post.likedBy && post.likedBy[user.uid]);
                   const likesCount = post.likesCount || 0;
 
@@ -812,15 +832,26 @@ export default function Dashboard() {
                           onClick={() => openUserProfile(post.authorUid)}
                           className="group flex cursor-pointer items-center gap-2.5"
                         >
-                          <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md">
-                            {post.authorAvatar || (isAuthor ? user.avatar || user.profileImage : null) ? (
-                              <img
-                                src={post.authorAvatar || user.avatar || user.profileImage || ''}
-                                alt={post.authorName}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              post.authorName.charAt(0).toUpperCase()
+                          <div
+                            className={`relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
+                              isPostVip ? 'vip-fire-avatar' : 'overflow-hidden'
+                            }`}
+                          >
+                            <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+                              {post.authorAvatar || (isAuthor ? user.avatar || user.profileImage : null) ? (
+                                <img
+                                  src={post.authorAvatar || user.avatar || user.profileImage || ''}
+                                  alt={post.authorName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                post.authorName.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            {isPostVip && (
+                              <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
+                                <Crown className="h-2 w-2 text-black fill-black" />
+                              </span>
                             )}
                           </div>
 
@@ -829,6 +860,12 @@ export default function Dashboard() {
                               <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
                                 {post.authorName}
                               </h4>
+                              {isPostVip && (
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.2 text-[8px] font-black text-amber-300">
+                                  <Crown className="h-2 w-2 text-amber-400 fill-amber-400" />
+                                  VIP
+                                </span>
+                              )}
                               {isAuthor && (
                                 <span className="rounded-md bg-white/[0.06] px-1.5 py-0.2 text-[9px] font-semibold text-slate-400">
                                   You
@@ -941,10 +978,10 @@ export default function Dashboard() {
             <div className="flex items-start gap-3.5">
               <div
                 onClick={() => openUserProfile(user.uid)}
-                className={`relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
+                className={`relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-2xl p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
                   user.isVerified
-                    ? 'bg-gradient-to-tr from-amber-300 via-yellow-400 to-amber-500 shadow-amber-500/30 vip-border-glow'
-                    : 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15'
+                    ? 'vip-fire-avatar bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600'
+                    : 'overflow-hidden bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15'
                 }`}
               >
                 {user.isVerified && (

@@ -31,6 +31,7 @@ export function normalizePosts(rawPosts: unknown): Post[] {
       authorUid: String(p.authorUid),
       authorName: String(p.authorName || 'Anonymous'),
       authorAvatar: p.authorAvatar ? String(p.authorAvatar) : null,
+      authorIsVerified: Boolean(p.authorIsVerified),
       content: String(p.content),
       timestamp: Number(p.timestamp) || Date.now(),
       likesCount: Number(p.likesCount) || 0,
@@ -67,6 +68,7 @@ export async function createPost(payload: CreatePostPayload): Promise<string> {
     authorUid,
     authorName,
     authorAvatar: authorAvatar || null,
+    authorIsVerified: Boolean(payload.authorIsVerified),
     content: cleanContent,
     timestamp: Date.now(),
     likesCount: 0,
@@ -184,8 +186,13 @@ export function subscribeToPosts(
           const usersMap = usersSnap.val() as Record<string, any>;
           normalized.forEach((p) => {
             const u = usersMap[p.authorUid];
-            if (u && (u.avatar || u.profileImage)) {
-              p.authorAvatar = u.avatar || u.profileImage;
+            if (u) {
+              if (u.avatar || u.profileImage) {
+                p.authorAvatar = u.avatar || u.profileImage;
+              }
+              if (u.isVerified) {
+                p.authorIsVerified = true;
+              }
             }
           });
         }

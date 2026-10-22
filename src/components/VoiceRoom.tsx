@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ref, onValue } from 'firebase/database';
+import { database } from '../config/firebase';
 import {
   Mic,
   MicOff,
@@ -29,6 +31,7 @@ import {
   UserPlus,
   BadgeCheck,
   Trash2,
+  User as UserIcon,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts';
@@ -81,6 +84,7 @@ import PrivateChat from './PrivateChat';
 import HostControlsPanel from './HostControlsPanel';
 import RoomInviteModal from './RoomInviteModal';
 import IncomingChatToast from './IncomingChatToast';
+import UserProfileManager from './UserProfileManager';
 
 /* ─────────────────────────────────────────────────────────────
    SSMR — Ultra-Premium Gamified Voice Chat Room & Arena
@@ -175,12 +179,36 @@ export default function VoiceRoom() {
   const [hostRoomBackground, setHostRoomBackground] = useState<string | null>(null);
   const [hostIsVerified, setHostIsVerified] = useState<boolean>(false);
 
-  // Private Chat (DM) state — triggered from seat action sheet or audience click
+  // Private Chat (DM) state — triggered from seat action sheet, chat, or audience click
   const [activeChatRecipient, setActiveChatRecipient] = useState<{
     uid: string;
     username: string;
     avatar?: string;
   } | null>(null);
+
+  // User Profile Modal state inside room
+  const [selectedProfileUid, setSelectedProfileUid] = useState<string | null>(null);
+
+  // Real-time map of VIP (isVerified) and avatars across all users
+  const [vipUsersMap, setVipUsersMap] = useState<Record<string, boolean>>({});
+  const [usersAvatarMap, setUsersAvatarMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const usersRef = ref(database, 'users');
+    const unsub = onValue(usersRef, (snap) => {
+      if (!snap.exists()) return;
+      const val = snap.val() as Record<string, any>;
+      const vMap: Record<string, boolean> = {};
+      const aMap: Record<string, string> = {};
+      Object.entries(val).forEach(([uid, u]) => {
+        if (u?.isVerified) vMap[uid] = true;
+        if (u?.avatar || u?.profileImage) aMap[uid] = u.avatar || u.profileImage;
+      });
+      setVipUsersMap(vMap);
+      setUsersAvatarMap(aMap);
+    });
+    return () => unsub();
+  }, []);
 
   // Identify if current user is seated and on which seat
   const mySeat = room?.seats.find((s) => s.userId === user?.uid) ?? null;
@@ -253,6 +281,7 @@ export default function VoiceRoom() {
         username: user.username,
         level: user.level,
         avatar: myAvatar,
+        isVerified: Boolean(user.isVerified),
         badges: user.badges,
       });
 
@@ -262,6 +291,7 @@ export default function VoiceRoom() {
         username: user.username,
         level: user.level,
         avatar: myAvatar,
+        isVerified: Boolean(user.isVerified),
       }).catch(console.error);
     }
 
@@ -348,6 +378,7 @@ export default function VoiceRoom() {
           uid: user.uid,
           username: user.username,
           avatar: user.avatar || user.profileImage || '',
+          isVerified: Boolean(user.isVerified),
           isMuted: mySeat ? mySeat.isMuted : lastKnownMuteRef.current,
           voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
         });
@@ -450,6 +481,7 @@ export default function VoiceRoom() {
         user.username || 'User',
         messageText,
         user.avatar || user.profileImage || null,
+        Boolean(user.isVerified),
       );
     } catch (err: any) {
       console.error('Failed to send message:', err);
@@ -557,21 +589,41 @@ export default function VoiceRoom() {
          ───────────────────────────────────────────────────────── */}
       <header className="relative z-20 flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-surface-900/80 px-3 py-2.5 backdrop-blur-xl gap-2">
         {/* Left Side: Host Info & Room Name */}
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 font-bold shadow-md shadow-violet-500/20 text-xs">
-            <span>{room.hostName.charAt(0).toUpperCase()}</span>
-            <div className="absolute -top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
-              <Crown className="h-2.5 w-2.5 text-black" strokeWidth={2.5} />
+        <div
+          onClick={() => room.hostId && setSelectedProfileUid(room.hostId)}
+          className="flex cursor-pointer items-center gap-2 min-w-0 group"
+          title="بینینی پڕۆفایلی خاوەنی ژوور"
+        >
+          <div
+            className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 font-bold shadow-md text-xs ${
+              hostIsVerified || vipUsersMap[room.hostId]
+                ? 'vip-fire-avatar'
+                : 'shadow-violet-500/20'
+            }`}
+          >
+            <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+              {room.hostAvatar || usersAvatarMap[room.hostId] ? (
+                <img
+                  src={room.hostAvatar || usersAvatarMap[room.hostId]}
+                  alt={room.hostName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span>{room.hostName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+              <Crown className="h-2.5 w-2.5 text-black fill-black" strokeWidth={2.5} />
             </div>
           </div>
 
           <div className="min-w-0">
-            <h1 className="truncate text-xs sm:text-sm font-bold text-white tracking-wide max-w-[110px] xs:max-w-[140px] sm:max-w-[200px]">
+            <h1 className="truncate text-xs sm:text-sm font-bold text-white tracking-wide max-w-[110px] xs:max-w-[140px] sm:max-w-[200px] group-hover:text-amber-300 transition">
               {room.roomName}
             </h1>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
               <span className="truncate max-w-[110px]">Host: <strong className="text-violet-400">{room.hostName}</strong></span>
-              {hostIsVerified && (
+              {(hostIsVerified || vipUsersMap[room.hostId]) && (
                 <span title="Verified VIP Host" className="inline-flex items-center gap-0.5 shrink-0">
                   <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
                   <BadgeCheck
@@ -710,6 +762,12 @@ export default function VoiceRoom() {
               const isOccupied = Boolean(seat.userId);
               const isCurrentUser = seat.userId === user?.uid;
               const isHostSeat = seat.userId === room.hostId;
+              const isSeatVip = Boolean(
+                isOccupied &&
+                  (seat.isVerified ||
+                    (seat.userId && vipUsersMap[seat.userId]) ||
+                    (isCurrentUser && user?.isVerified)),
+              );
               const isPkActive = pkBattle?.status === 'active';
               const isTeamRed = [1, 2, 5, 6].includes(seat.seatNo);
               // True WebRTC speaking indicator powered by LiveKit Voice Activity Detection
@@ -719,10 +777,12 @@ export default function VoiceRoom() {
                 seat.userId !== null &&
                 speakingUids.has(seat.userId);
 
-              // Dynamic border & glow depending on speaking / PK team status
+              // Dynamic border & glow depending on VIP fire stroke / speaking / PK team status
               let avatarBorderClass = 'border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-violet-500/50 hover:bg-white/[0.04]';
               if (isOccupied) {
-                if (isSpeaking) {
+                if (isSeatVip) {
+                  avatarBorderClass = 'vip-fire-avatar';
+                } else if (isSpeaking) {
                   avatarBorderClass = 'border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)]';
                 } else if (isPkActive) {
                   avatarBorderClass = isTeamRed
@@ -774,6 +834,7 @@ export default function VoiceRoom() {
                           {(() => {
                             const seatAvatarUrl =
                               seat.avatar ||
+                              (seat.userId ? usersAvatarMap[seat.userId] : null) ||
                               (isCurrentUser ? user?.avatar || user?.profileImage : null) ||
                               audience.find((a) => a.uid === seat.userId)?.avatar ||
                               null;
@@ -794,16 +855,26 @@ export default function VoiceRoom() {
 
                           {/* Host Crown Indicator */}
                           {isHostSeat && (
-                            <div className="absolute -top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow z-10">
-                              <Crown className="h-2.5 w-2.5 text-black" strokeWidth={2.5} />
+                            <div className="absolute -top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow z-20">
+                              <Crown className="h-2.5 w-2.5 text-black fill-black" strokeWidth={2.5} />
                             </div>
                           )}
 
-                          {/* FEATURE 3: Seat Floating Shimmering Badges (Top Spender / Diamond / VIP) */}
-                          {isOccupied && !isHostSeat && (
-                            <div className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-md shadow-cyan-400/40 z-10">
-                              <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                          {/* VIP Fire Crown Badge on Seat Profile Icon */}
+                          {isSeatVip ? (
+                            <div
+                              title="VIP Royale"
+                              className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 via-orange-500 to-red-600 shadow-[0_0_10px_#f97316] z-20"
+                            >
+                              <Crown className="h-3 w-3 text-black fill-black" strokeWidth={2.5} />
                             </div>
+                          ) : (
+                            isOccupied &&
+                            !isHostSeat && (
+                              <div className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-md shadow-cyan-400/40 z-10">
+                                <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                              </div>
+                            )
                           )}
 
                           {/* Received Gift Coins Badge on Profile Icon */}
@@ -859,10 +930,13 @@ export default function VoiceRoom() {
                     </div>
                   </div>
 
-                  {/* Seat Title / Colored Username */}
-                  <div className="mt-1.5 flex flex-col items-center max-w-full px-1">
+                  {/* Seat Title / Colored Username + VIP Flame */}
+                  <div className="mt-1.5 flex items-center justify-center gap-0.5 max-w-full px-1">
+                    {isSeatVip && (
+                      <Crown className="h-2.5 w-2.5 shrink-0 text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_#f59e0b]" />
+                    )}
                     <span
-                      className={`truncate text-center text-[11px] leading-tight max-w-[68px] ${
+                      className={`truncate text-center text-[11px] leading-tight max-w-[64px] ${
                         isOccupied
                           ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
                           : 'text-slate-500 font-medium'
@@ -951,9 +1025,16 @@ export default function VoiceRoom() {
           audience={audience}
           seats={room.seats}
           currentUser={user}
+          vipUsersMap={vipUsersMap}
           onSendGiftToUser={(recipient) => {
             setGiftRecipient(recipient);
             setIsGiftModalOpen(true);
+          }}
+          onOpenPrivateChat={(recipient) => {
+            setActiveChatRecipient(recipient);
+          }}
+          onOpenProfile={(uid) => {
+            setSelectedProfileUid(uid);
           }}
         />
 
@@ -1021,34 +1102,77 @@ export default function VoiceRoom() {
 
                 const msgAvatarUrl =
                   msg.senderAvatar ||
+                  usersAvatarMap[msg.senderId] ||
                   (isMe ? user?.avatar || user?.profileImage : null) ||
                   room.seats.find((s) => s.userId === msg.senderId)?.avatar ||
                   audience.find((a) => a.uid === msg.senderId)?.avatar ||
                   null;
+
+                const isSenderVip = Boolean(
+                  msg.senderIsVerified ||
+                    vipUsersMap[msg.senderId] ||
+                    (isMe && user?.isVerified) ||
+                    room.seats.find((s) => s.userId === msg.senderId)?.isVerified ||
+                    audience.find((a) => a.uid === msg.senderId)?.isVerified,
+                );
 
                 return (
                   <div
                     key={msg.id}
                     className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   >
-                    {/* Sender Profile Picture in Room Chat */}
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow">
-                      {msgAvatarUrl ? (
-                        <img
-                          src={msgAvatarUrl}
-                          alt={msg.senderName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        (msg.senderName || 'U').charAt(0).toUpperCase()
+                    {/* Sender Profile Picture in Room Chat (Clickable to open Profile / Chat + Blazing Fire Stroke if VIP) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (msg.senderId && msg.senderId !== 'system') {
+                          setSelectedProfileUid(msg.senderId);
+                        }
+                      }}
+                      title={`بینینی پڕۆفایل و چاتکردن لەگەڵ ${msg.senderName}`}
+                      className={`relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow transition hover:scale-110 ${
+                        isSenderVip ? 'vip-fire-avatar' : 'border border-white/15 overflow-hidden'
+                      }`}
+                    >
+                      <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+                        {msgAvatarUrl ? (
+                          <img
+                            src={msgAvatarUrl}
+                            alt={msg.senderName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          (msg.senderName || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      {isSenderVip && (
+                        <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 shadow">
+                          <Crown className="h-2 w-2 text-black fill-black" strokeWidth={3} />
+                        </span>
                       )}
-                    </div>
+                    </button>
 
                     <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[10px] font-semibold text-slate-400">
+                      <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (msg.senderId && msg.senderId !== 'system') {
+                              setSelectedProfileUid(msg.senderId);
+                            }
+                          }}
+                          className={`text-[10px] font-bold transition hover:underline ${
+                            isSenderVip ? 'text-amber-300' : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
                           {isMe ? 'You' : msg.senderName}
-                        </span>
+                        </button>
+                        {isSenderVip && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-red-500/25 border border-amber-400/50 px-1.5 py-0.2 text-[8px] font-black text-amber-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]">
+                            <Crown className="h-2 w-2 text-amber-400 fill-amber-400" />
+                            <span>VIP</span>
+                          </span>
+                        )}
                         {isHostSender && (
                           <span className="flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.2 text-[8px] font-bold text-amber-300">
                             <Crown className="h-2 w-2" /> HOST
@@ -1213,21 +1337,52 @@ export default function VoiceRoom() {
               className="w-full max-w-sm rounded-3xl border border-white/[0.1] bg-surface-800 p-5 shadow-2xl"
             >
               <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-violet-600 font-bold text-white">
-                    {selectedSeat.avatar ? (
-                      <img
-                        src={selectedSeat.avatar}
-                        alt={selectedSeat.username || 'User'}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      selectedSeat.username?.charAt(0) || 'U'
+                <div
+                  onClick={() => {
+                    if (selectedSeat.userId) {
+                      setIsActionSheetOpen(false);
+                      setSelectedProfileUid(selectedSeat.userId);
+                    }
+                  }}
+                  className="flex cursor-pointer items-center gap-2.5 group"
+                >
+                  <div
+                    className={`relative flex h-11 w-11 items-center justify-center rounded-xl bg-violet-600 font-bold text-white ${
+                      selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])
+                        ? 'vip-fire-avatar'
+                        : 'overflow-hidden'
+                    }`}
+                  >
+                    <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+                      {selectedSeat.avatar || (selectedSeat.userId ? usersAvatarMap[selectedSeat.userId] : null) ? (
+                        <img
+                          src={selectedSeat.avatar || (selectedSeat.userId ? usersAvatarMap[selectedSeat.userId] : '') || ''}
+                          alt={selectedSeat.username || 'User'}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        selectedSeat.username?.charAt(0) || 'U'
+                      )}
+                    </div>
+                    {(selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) && (
+                      <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+                        <Crown className="h-2.5 w-2.5 text-black fill-black" />
+                      </span>
                     )}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">{selectedSeat.username}</h3>
-                    <p className="text-[11px] text-slate-400">Seat #{selectedSeat.seatNo}</p>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition">
+                        {selectedSeat.username}
+                      </h3>
+                      {(selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.2 text-[9px] font-black text-amber-300">
+                          <Crown className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
+                          VIP
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400">Seat #{selectedSeat.seatNo} · کرتە بکە بۆ پڕۆفایل</p>
                   </div>
                 </div>
                 <button
@@ -1371,6 +1526,19 @@ export default function VoiceRoom() {
                       </p>
                     </div>
 
+                    {/* View User Profile button */}
+                    <button
+                      onClick={() => {
+                        const targetId = selectedSeat.userId!;
+                        setIsActionSheetOpen(false);
+                        setSelectedProfileUid(targetId);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.1]"
+                    >
+                      <UserIcon className="h-4 w-4 text-amber-400" />
+                      <span>بینینی پڕۆفایل (View Profile)</span>
+                    </button>
+
                     {/* Direct Message button for seated user */}
                     <button
                       onClick={() => {
@@ -1378,13 +1546,16 @@ export default function VoiceRoom() {
                         setActiveChatRecipient({
                           uid: selectedSeat.userId!,
                           username: selectedSeat.username || 'User',
-                          avatar: undefined,
+                          avatar:
+                            selectedSeat.avatar ||
+                            (selectedSeat.userId ? usersAvatarMap[selectedSeat.userId] : undefined) ||
+                            undefined,
                         });
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.05] py-3 text-xs font-semibold text-cyan-300 transition-colors hover:bg-white/[0.1]"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/15 py-3 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/25"
                     >
                       <MessageCircle className="h-4 w-4 text-cyan-400" />
-                      Direct Message {selectedSeat.username}
+                      <span>ناردنی نامەی تایبەتی · Chat with {selectedSeat.username}</span>
                     </button>
 
                     <button
@@ -1597,6 +1768,32 @@ export default function VoiceRoom() {
             currentUser={user}
             recipientUser={activeChatRecipient}
             onClose={() => setActiveChatRecipient(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 6B: User Profile Card Inside Room (Click Profile -> Chat / Gift)
+         ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {selectedProfileUid && (
+          <UserProfileManager
+            currentUser={user}
+            targetUid={selectedProfileUid}
+            onClose={() => setSelectedProfileUid(null)}
+            onOpenPrivateChat={(recipient) => {
+              setSelectedProfileUid(null);
+              setActiveChatRecipient({
+                uid: recipient.uid,
+                username: recipient.username,
+                avatar: recipient.avatar ?? undefined,
+              });
+            }}
+            onOpenGiftStore={(target) => {
+              setSelectedProfileUid(null);
+              setGiftRecipient(target);
+              setIsGiftModalOpen(true);
+            }}
           />
         )}
       </AnimatePresence>

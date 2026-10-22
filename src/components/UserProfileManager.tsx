@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User as UserIcon,
   Camera,
@@ -93,6 +94,8 @@ export default function UserProfileManager({
   onOpenGiftStore,
   onOpenPrivateChat,
 }: UserProfileManagerProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const isViewingSelf = !targetUid || targetUid === currentUser.uid;
   const activeUid = targetUid || currentUser.uid;
 
@@ -202,6 +205,38 @@ export default function UserProfileManager({
     }
   };
 
+  // Auto-save profile picture immediately and navigate to Dashboard
+  const handleAutoSaveAvatar = async (newAvatarUrl: string) => {
+    if (!isViewingSelf || !newAvatarUrl) return;
+    setAvatarInput(newAvatarUrl);
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      await updateUserSocialProfile(currentUser.uid, {
+        bio: bioInput.trim(),
+        avatar: newAvatarUrl.trim(),
+        profileImage: newAvatarUrl.trim(),
+      });
+      const updated = {
+        ...profileData,
+        bio: bioInput.trim(),
+        avatar: newAvatarUrl.trim(),
+        profileImage: newAvatarUrl.trim(),
+      };
+      setProfileData(updated);
+      onProfileUpdated?.(updated);
+      setSaveSuccess(true);
+      onClose();
+      if (location.pathname !== '/dashboard') {
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'نەتوانرا وێنەی پڕۆفایل خەزن بکرێت.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Handle Save
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +263,10 @@ export default function UserProfileManager({
       onProfileUpdated?.(updated);
 
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
+      onClose();
+      if (location.pathname !== '/dashboard') {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to update social profile.');
     } finally {
@@ -365,15 +403,15 @@ export default function UserProfileManager({
 
                 <div className="p-5 pt-0 relative z-10">
                   <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 -mt-8 sm:-mt-6">
-                    {/* Avatar Display with Presence Indicator & VIP Crown */}
+                    {/* Avatar Display with Presence Indicator & VIP Blazing Fire Stroke */}
                     <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl p-0.5 shadow-xl ring-4 ring-slate-950 ${
                       profileData.isVerified
-                        ? 'bg-gradient-to-tr from-amber-300 via-yellow-400 to-amber-500 shadow-amber-500/30 vip-border-glow'
+                        ? 'vip-fire-avatar bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600'
                         : 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/20'
                     }`}>
                       {profileData.isVerified && (
-                        <div className="absolute -top-3.5 -right-1 z-20 pointer-events-none">
-                          <Crown className="h-6 w-6 text-amber-400 fill-amber-400 vip-crown-animation drop-shadow-[0_2px_8px_rgba(251,191,36,0.85)]" />
+                        <div className="absolute -top-3.5 -right-1 z-20 pointer-events-none flex items-center gap-0.5">
+                          <Crown className="h-6 w-6 text-amber-400 fill-amber-400 vip-crown-animation drop-shadow-[0_2px_8px_rgba(251,191,36,0.95)]" />
                         </div>
                       )}
                       <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#0d0d16]">
@@ -537,20 +575,7 @@ export default function UserProfileManager({
                             setErrorMessage(null);
                             try {
                               const hostedUrl = await uploadImageToImgBB(file, `avatar_${currentUser.uid}`);
-                              setAvatarInput(hostedUrl);
-                              await updateUserSocialProfile(currentUser.uid, {
-                                avatar: hostedUrl,
-                                profileImage: hostedUrl,
-                              });
-                              const updated = {
-                                ...profileData,
-                                avatar: hostedUrl,
-                                profileImage: hostedUrl,
-                              };
-                              setProfileData(updated);
-                              onProfileUpdated?.(updated);
-                              setSaveSuccess(true);
-                              setTimeout(() => setSaveSuccess(false), 2500);
+                              await handleAutoSaveAvatar(hostedUrl);
                             } catch (err: any) {
                               setErrorMessage(err.message || 'نەتوانرا وێنەکە بەرزبکرێتەوە بۆ ImgBB.');
                             } finally {
@@ -571,17 +596,18 @@ export default function UserProfileManager({
                       />
                     </div>
 
-                    {/* Quick Avatar Presets (24 Options) */}
+                    {/* Quick Avatar Presets (24 Options) — Auto-saves & redirects to Dashboard on click */}
                     <div className="mt-3">
                       <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                        هەڵبژاردنی وێنەی پڕۆفایل ({AVATAR_PRESETS.length} وێنە):
+                        هەڵبژاردنی وێنەی پڕۆفایل ({AVATAR_PRESETS.length} وێنە · خەزنکردنی خۆکار):
                       </span>
                       <div className="mt-2 grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 overflow-y-auto p-1">
                         {AVATAR_PRESETS.map((preset, idx) => (
                           <button
                             key={idx}
                             type="button"
-                            onClick={() => setAvatarInput(preset)}
+                            disabled={isSaving}
+                            onClick={() => handleAutoSaveAvatar(preset)}
                             className={`h-11 w-11 overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${
                               avatarInput === preset
                                 ? 'border-amber-400 ring-2 ring-amber-400/50 scale-105'
