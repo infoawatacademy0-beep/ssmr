@@ -48,14 +48,15 @@ export default function MusicPlayerPanel({
 }: MusicPlayerPanelProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [localVolume, setLocalVolume] = useState<number>(musicState.volume ?? 0.7);
-  const [showCustomUrl, setShowCustomUrl] = useState(false);
 
-  // Custom track form inputs
+  // Custom track form inputs (Always visible in modal for easy Add Song)
   const [trackTitle, setTrackTitle] = useState('');
+  const [trackArtist, setTrackArtist] = useState('');
   const [trackUrl, setTrackUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync modal state with parent button in VoiceRoom header
   useEffect(() => {
@@ -254,19 +255,45 @@ export default function MusicPlayerPanel({
     try {
       await changeCurrentTrack(roomId, {
         title: trackTitle.trim(),
-        artist: currentUser.username,
+        artist: trackArtist.trim() || currentUser.username,
         duration: 180,
         url: trackUrl.trim(),
         addedBy: currentUser.uid,
         addedByName: currentUser.username,
       });
       setTrackTitle('');
+      setTrackArtist('');
       setTrackUrl('');
-      setShowCustomUrl(false);
     } catch (err: any) {
       alert(err.message || 'نەتوانرا گۆرانییەکە پێبکرێت.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Allow choosing an audio file (.mp3, .m4a, .wav, .ogg) directly from phone/device
+  const handleLocalAudioFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !canControlMusic) return;
+
+    const cleanName = file.name.replace(/\.[^/.]+$/, '');
+    const objectUrl = URL.createObjectURL(file);
+
+    setIsSubmitting(true);
+    try {
+      await changeCurrentTrack(roomId, {
+        title: cleanName,
+        artist: currentUser.username,
+        duration: 210,
+        url: objectUrl,
+        addedBy: currentUser.uid,
+        addedByName: currentUser.username,
+      });
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا فایلەکە پێبکرێت.');
+    } finally {
+      setIsSubmitting(false);
+      e.target.value = '';
     }
   };
 
@@ -277,50 +304,61 @@ export default function MusicPlayerPanel({
       {/* Hidden Synchronized HTML5 Audio Element */}
       <audio ref={audioRef} onEnded={handleAudioEnded} preload="auto" />
 
-      {/* ── Ultra-Clean Compact Mini Bar (Only shown when a song is active) ── */}
-      {currentTrack && (
-        <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-2xl border border-violet-500/30 bg-surface-800/90 px-3 py-2 shadow-lg backdrop-blur-xl">
-          {/* Spinning Disc + Song Title */}
-          <div
-            onClick={openModal}
-            className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
-          >
-            <motion.div
-              animate={musicState.isPlaying ? { rotate: 360 } : { rotate: 0 }}
-              transition={
-                musicState.isPlaying
-                  ? { duration: 4, repeat: Infinity, ease: 'linear' }
-                  : { duration: 0.3 }
-              }
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-surface-900 to-violet-900 border border-violet-400"
-            >
-              <Disc3 className="h-4 w-4 text-violet-300" />
-            </motion.div>
+      {/* Hidden File Input for Local Device Songs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        onChange={handleLocalAudioFileSelect}
+        className="hidden"
+      />
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-bold text-white flex items-center gap-1.5">
-                {musicState.isRepeat && <span className="text-emerald-400 text-[10px]">🔁</span>}
-                <span className="truncate">{currentTrack.title}</span>
-              </p>
-              <p className="truncate text-[10px] text-slate-400">
-                دەنگ: {volumePercent}% · کرتە بکە بۆ کۆنترۆڵی گۆرانی
-              </p>
-            </div>
+      {/* ── Always-Visible Clean Music Bar Inside the Room ── */}
+      <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-2xl border border-violet-500/30 bg-surface-800/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+        {/* Spinning Disc + Song Title */}
+        <div
+          onClick={openModal}
+          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+        >
+          <motion.div
+            animate={musicState.isPlaying ? { rotate: 360 } : { rotate: 0 }}
+            transition={
+              musicState.isPlaying
+                ? { duration: 4, repeat: Infinity, ease: 'linear' }
+                : { duration: 0.3 }
+            }
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-surface-900 to-violet-900 border border-violet-400"
+          >
+            <Disc3 className="h-4 w-4 text-violet-300" />
+          </motion.div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-bold text-white flex items-center gap-1.5">
+              {musicState.isRepeat && <span className="text-emerald-400 text-[10px]">🔁</span>}
+              <span className="truncate">
+                {currentTrack ? currentTrack.title : 'بەشی گۆرانی ژوور'}
+              </span>
+            </p>
+            <p className="truncate text-[10px] text-slate-400">
+              {currentTrack
+                ? `دەنگ: ${volumePercent}% · ${currentTrack.artist}`
+                : 'کرتە بکە بۆ زیادکردن و پێکردنی گۆرانی'}
+            </p>
           </div>
-
-          {/* ONE Single Unified Button to Open Music Control */}
-          <button
-            onClick={openModal}
-            className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-xs font-black text-white shadow-md transition-transform active:scale-95 shrink-0"
-          >
-            <Music className="h-3.5 w-3.5" />
-            <span>کۆنترۆڵی گۆرانی</span>
-          </button>
         </div>
-      )}
+
+        {/* Add Song / Control Music Button Always Visible in Room */}
+        <button
+          onClick={openModal}
+          className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-xs font-black text-white shadow-md transition-transform active:scale-95 shrink-0"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>{currentTrack ? 'گۆرانی / زیادکردن' : 'زیادکردنی گۆرانی'}</span>
+        </button>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────
-         SINGLE UNIFIED MUSIC CONTROL MODAL (No clutter, all-in-one)
+         SINGLE UNIFIED MUSIC & ADD SONG MODAL
          ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isModalOpen && (
@@ -329,7 +367,7 @@ export default function MusicPlayerPanel({
               initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.92, opacity: 0 }}
-              className="w-full max-w-sm rounded-3xl border border-white/[0.1] bg-surface-800 p-5 shadow-2xl space-y-4"
+              className="w-full max-w-sm max-h-[88vh] overflow-y-auto rounded-3xl border border-white/[0.1] bg-surface-800 p-5 shadow-2xl space-y-4"
             >
               {/* Header */}
               <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
@@ -338,8 +376,8 @@ export default function MusicPlayerPanel({
                     <Music className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-white">بەشی گۆرانی ژوور</h3>
-                    <p className="text-[10px] text-slate-400">
+                    <h3 className="text-sm font-black text-white">زیادکردن و کۆنترۆڵی گۆرانی</h3>
+                    <p className="text-[10px] text-slate-400 truncate max-w-[200px]">
                       {currentTrack ? currentTrack.title : 'هیچ گۆرانییەک هەڵنەبژێردراوە'}
                     </p>
                   </div>
@@ -446,56 +484,70 @@ export default function MusicPlayerPanel({
                 </div>
               )}
 
-              {/* 3. CHANGE / SELECT SONG LIST (گۆڕین و هەڵبژاردنی گۆرانی) */}
+              {/* 3. ADD SONG SECTION (بەشی زیادکردنی گۆرانی) */}
               {canControlMusic && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-300">
-                      گۆڕین یان هەڵبژاردنی گۆرانی:
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomUrl((v) => !v)}
-                      className="text-[11px] font-bold text-violet-400 hover:text-violet-300"
-                    >
-                      {showCustomUrl ? 'داخستنی لینک' : '+ دانانی لینکی MP3'}
-                    </button>
-                  </div>
+                <div className="space-y-3 rounded-2xl border border-violet-500/25 bg-surface-900/70 p-3">
+                  <p className="text-xs font-black text-violet-300 flex items-center gap-1.5">
+                    <Plus className="h-4 w-4" />
+                    <span>زیادکردنی گۆرانی نوێ</span>
+                  </p>
 
-                  {/* Optional Custom URL Input */}
-                  {showCustomUrl && (
-                    <form
-                      onSubmit={handleCustomSongSubmit}
-                      className="space-y-2 rounded-2xl border border-white/[0.08] bg-surface-900 p-2.5"
-                    >
+                  {/* Option A: Pick Audio File from Phone/Device */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 py-2.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/25 active:scale-95"
+                  >
+                    <Music className="h-4 w-4" />
+                    <span>هەڵبژاردنی گۆرانی لە ناو مۆبایل / ئامێر</span>
+                  </button>
+
+                  {/* Option B: Add by Title & MP3 Link */}
+                  <form onSubmit={handleCustomSongSubmit} className="space-y-2 border-t border-white/[0.06] pt-2.5">
+                    <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
                         value={trackTitle}
                         onChange={(e) => setTrackTitle(e.target.value)}
                         placeholder="ناوی گۆرانی..."
                         required
-                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
+                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
                       />
                       <input
-                        type="url"
-                        value={trackUrl}
-                        onChange={(e) => setTrackUrl(e.target.value)}
-                        placeholder="https://...audio.mp3"
-                        required
-                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
+                        type="text"
+                        value={trackArtist}
+                        onChange={(e) => setTrackArtist(e.target.value)}
+                        placeholder="ناوی هونەرمەند..."
+                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
                       />
-                      <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full rounded-xl bg-violet-600 py-2 text-xs font-bold text-white"
-                      >
-                        پێکردنی ئەم گۆرانییە
-                      </button>
-                    </form>
-                  )}
+                    </div>
+                    <input
+                      type="url"
+                      value={trackUrl}
+                      onChange={(e) => setTrackUrl(e.target.value)}
+                      placeholder="لینکی گۆرانی (https://...mp3)"
+                      required
+                      className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !trackTitle.trim() || !trackUrl.trim()}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>{isSubmitting ? 'خەریکە...' : 'زیادکردن و پێکردنی گۆرانی'}</span>
+                    </button>
+                  </form>
+                </div>
+              )}
 
-                  {/* 1-Click Song Selection List */}
-                  <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
+              {/* 4. READY SONGS LIST (گۆرانییە ئامادەکان بۆ پێکردن و گۆڕین) */}
+              {canControlMusic && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-300">
+                    گۆرانییە ئامادەکان (کرتە بکە بۆ پێکردن یان گۆڕین):
+                  </p>
+                  <div className="max-h-40 space-y-1.5 overflow-y-auto pr-1">
                     {SAMPLE_MUSIC_TRACKS.map((sample) => {
                       const isCurrent = currentTrack?.url === sample.url;
                       return (

@@ -1,31 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Sparkles, UserCheck } from 'lucide-react';
+import { Crown, Sparkles, UserCheck, Volume2 } from 'lucide-react';
 import type { RoomEntranceEvent } from '../types';
+import { speakUserEntrance } from '../services';
 
 interface EntranceAnimationProps {
   entranceEvent: RoomEntranceEvent | null;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Luxury User Entrance Visual Banner System
-   Displays floating tier-based banners in the lower-left area.
+   Luxury User Entrance Visual Banner & Voice Name Reader System
+   Displays floating tier-based banners and reads out the member's
+   name when they enter the room.
    ───────────────────────────────────────────────────────────── */
 
 export default function EntranceAnimation({ entranceEvent }: EntranceAnimationProps) {
   const [currentEntrance, setCurrentEntrance] = useState<RoomEntranceEvent | null>(null);
+  const lastSpokenIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!entranceEvent) return;
 
-    // Discard entrance events older than 6 seconds to prevent stale popups on room load
-    if (Date.now() - entranceEvent.timestamp > 6000) return;
+    // Discard entrance events older than 8 seconds to prevent stale popups on room load
+    if (Date.now() - entranceEvent.timestamp > 8000) return;
 
     setCurrentEntrance(entranceEvent);
 
+    // Read the entering member's name out loud once per entrance event
+    if (lastSpokenIdRef.current !== entranceEvent.id) {
+      lastSpokenIdRef.current = entranceEvent.id;
+      speakUserEntrance(entranceEvent.username, entranceEvent.level);
+    }
+
     const timer = setTimeout(() => {
       setCurrentEntrance(null);
-    }, 3500);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, [entranceEvent?.id, entranceEvent?.timestamp]);
@@ -101,15 +110,16 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
               </div>
 
               <p className="flex items-center gap-1 text-[10px] text-slate-300">
+                <Volume2 className="h-2.5 w-2.5 text-emerald-400 animate-pulse shrink-0" />
                 {isVip ? (
                   <>
                     <Sparkles className="h-2.5 w-2.5 text-amber-300 animate-spin" />
-                    <span className="font-semibold text-amber-300">Royal Arrival in Room</span>
+                    <span className="font-semibold text-amber-300">بەخێربێیت VIP هاتە ژوورەوە</span>
                   </>
                 ) : (
                   <>
                     <UserCheck className="h-2.5 w-2.5 text-violet-400" />
-                    <span>Entered the room</span>
+                    <span>هاتە ناو ژوورەوە</span>
                   </>
                 )}
               </p>

@@ -101,7 +101,7 @@ export {
 
 export type { AudienceParticipant } from './presenceService';
 
-export { speakAnnouncement } from './ttsService';
+export { speakAnnouncement, speakUserEntrance } from './ttsService';
 
 export {
   viewUserProfile,
