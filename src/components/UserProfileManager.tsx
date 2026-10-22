@@ -23,7 +23,8 @@ import {
   BadgeCheck,
   Crown,
 } from 'lucide-react';
-import type { User, ProfileVisitor } from '../types';
+import { getVipAvatarClass, type User, type ProfileVisitor } from '../types';
+import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
 import {
   updateUserSocialProfile,
   getUserSocialProfile,
@@ -384,9 +385,16 @@ export default function UserProfileManager({
                         ? profileData.profileCover.startsWith('http') || profileData.profileCover.startsWith('data:')
                           ? { backgroundImage: `url(${profileData.profileCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                           : { background: profileData.profileCover }
-                        : { background: 'linear-gradient(-45deg, #78350f 0%, #b45309 25%, #fef08a 50%, #d97706 75%, #451a03 100%)' }
+                        : { background: 'linear-gradient(180deg, #1a0500 0%, #450a0a 35%, #9a3412 70%, #ea580c 90%, #fde047 100%)' }
                     }
                   >
+                    {(!profileData.profileCover ||
+                      (!profileData.profileCover.startsWith('http') &&
+                        !profileData.profileCover.startsWith('data:'))) && (
+                      <AnimatedThemeOverlay
+                        themeValue={profileData.profileCover || 'real_fire'}
+                      />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/20 to-slate-950" />
                     {profileData.isVerified && (
                       <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-amber-400/60 shadow-xl shadow-amber-500/30">
@@ -406,7 +414,7 @@ export default function UserProfileManager({
                     {/* Avatar Display with Presence Indicator & VIP Blazing Fire Stroke */}
                     <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full p-0.5 shadow-xl ring-4 ring-slate-950 ${
                       profileData.isVerified
-                        ? 'vip-fire-avatar bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600'
+                        ? `${getVipAvatarClass(profileData.isVerified, profileData.vipFrame)} bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600`
                         : 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/20'
                     }`}>
                       {profileData.isVerified && (

@@ -5,8 +5,10 @@ export type {
   CreateUserPayload,
   ProfileVisitor,
   AccountDeletionRequest,
+  VipFrameStyle,
+  VipFrameOption,
 } from './user';
-export { buildDefaultUser, formatCoinsK } from './user';
+export { buildDefaultUser, formatCoinsK, VIP_FRAME_CATALOG, getVipAvatarClass } from './user';
 
 export type { Post, CreatePostPayload } from './post';
 

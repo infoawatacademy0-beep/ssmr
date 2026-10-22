@@ -42,7 +42,16 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
-import { formatCoinsK, type Room, type RoomCategory, type Post, type ProfileVisitor, type User } from '../types';
+import {
+  formatCoinsK,
+  getVipAvatarClass,
+  type Room,
+  type RoomCategory,
+  type Post,
+  type ProfileVisitor,
+  type User,
+} from '../types';
+import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
 import {
   subscribeToFeaturedRooms,
   createRoom,
@@ -834,7 +843,9 @@ export default function Dashboard() {
                         >
                           <div
                             className={`relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
-                              isPostVip ? 'vip-fire-avatar' : 'overflow-hidden'
+                              isPostVip
+                                ? getVipAvatarClass(true, isAuthor ? user.vipFrame : undefined)
+                                : 'overflow-hidden'
                             }`}
                           >
                             <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
@@ -953,7 +964,7 @@ export default function Dashboard() {
           {/* VIP / Custom Cover Preview if verified or has cover */}
           {(user.profileCover || user.isVerified) && (
             <div
-              className={`relative h-20 w-full overflow-hidden transition-all duration-500 ${
+              className={`relative h-24 w-full overflow-hidden transition-all duration-500 ${
                 user.isVerified ? 'vip-animated-cover vip-shine-effect' : ''
               }`}
               style={
@@ -961,12 +972,19 @@ export default function Dashboard() {
                   ? user.profileCover.startsWith('http') || user.profileCover.startsWith('data:')
                     ? { backgroundImage: `url(${user.profileCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                     : { background: user.profileCover }
-                  : { background: 'linear-gradient(-45deg, #78350f 0%, #b45309 25%, #fef08a 50%, #d97706 75%, #451a03 100%)' }
+                  : { background: 'linear-gradient(180deg, #1a0500 0%, #450a0a 35%, #9a3412 70%, #ea580c 90%, #fde047 100%)' }
               }
             >
+              {(!user.profileCover ||
+                (!user.profileCover.startsWith('http') && !user.profileCover.startsWith('data:'))) && (
+                <AnimatedThemeOverlay
+                  themeValue={user.profileCover || 'real_fire'}
+                  compact
+                />
+              )}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/40 to-slate-950" />
               {user.isVerified && (
-                <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-amber-400/50 text-amber-300 shadow-md">
+                <div className="absolute top-2 right-2 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-amber-400/50 text-amber-300 shadow-md">
                   <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
                   <span className="text-[9px] font-black tracking-wider uppercase bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 bg-clip-text text-transparent">VIP</span>
                 </div>
@@ -980,7 +998,7 @@ export default function Dashboard() {
                 onClick={() => openUserProfile(user.uid)}
                 className={`relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-full p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
                   user.isVerified
-                    ? 'vip-fire-avatar bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600'
+                    ? `${getVipAvatarClass(user.isVerified, user.vipFrame)} bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600`
                     : 'overflow-hidden bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15'
                 }`}
               >

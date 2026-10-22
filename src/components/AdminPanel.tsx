@@ -37,11 +37,18 @@ import {
 } from 'lucide-react';
 import {
   formatCoinsK,
+  VIP_FRAME_CATALOG,
+  getVipAvatarClass,
   type User,
   type ReportItem,
   type VoiceEffectMode,
   type AccountDeletionRequest,
+  type VipFrameStyle,
 } from '../types';
+import {
+  CURATED_ANIMATED_THEMES,
+  AnimatedThemeOverlay,
+} from './AnimatedThemeEffect';
 import {
   fetchAllUsers,
   subscribeToAllReports,
@@ -206,6 +213,7 @@ export default function AdminPanel({
   const [cosmeticsTarget, setCosmeticsTarget] = useState<User | null>(null);
   const [coverInput, setCoverInput] = useState('');
   const [bgInput, setBgInput] = useState('');
+  const [vipFrameInput, setVipFrameInput] = useState<VipFrameStyle>('fire');
   const [isSavingCosmetics, setIsSavingCosmetics] = useState(false);
 
   // Coin Adjustment Modal State
@@ -397,8 +405,8 @@ export default function AdminPanel({
     if (!cosmeticsTarget) return;
     setIsSavingCosmetics(true);
     try {
-      await assignPremiumCosmetics(cosmeticsTarget.uid, coverInput, bgInput);
-      showToast(`Custom room & profile themes updated for ${cosmeticsTarget.username}.`);
+      await assignPremiumCosmetics(cosmeticsTarget.uid, coverInput, bgInput, vipFrameInput);
+      showToast(`VIP Frame (${vipFrameInput}) & Animated Themes updated for ${cosmeticsTarget.username}!`);
       setCosmeticsTarget(null);
       await loadUsersList();
     } catch (err: any) {
@@ -927,8 +935,9 @@ export default function AdminPanel({
                                   setCosmeticsTarget(targetUser);
                                   setCoverInput(targetUser.profileCover || '');
                                   setBgInput(targetUser.roomBackground || '');
+                                  setVipFrameInput(targetUser.vipFrame || 'fire');
                                 }}
-                                title="Assign Bespoke Themes & Backgrounds"
+                                title="Assign VIP Frame Colors & Animated Themes"
                                 className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:border-purple-500/30 hover:bg-purple-500/10 hover:text-purple-300 transition"
                               >
                                 <Palette className="h-3.5 w-3.5" />
@@ -1608,46 +1617,120 @@ export default function AdminPanel({
                 initial={{ scale: 0.94, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.94, opacity: 0 }}
-                className="w-full max-w-lg rounded-3xl border border-purple-500/40 bg-slate-900 p-6 shadow-2xl space-y-4"
+                className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-purple-500/40 bg-slate-900 p-6 shadow-2xl space-y-5"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                    <Palette className="h-6 w-6" />
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      <Palette className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
+                        Assign VIP Frames &amp; Animated Themes
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        بەخشینی چوارچێوەی جوڵاوی پڕۆفایل و تیمی ئاگرین بۆ <strong>{cosmeticsTarget.username}</strong>
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                      Assign Bespoke Cosmetics
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Curating visuals for <strong>{cosmeticsTarget.username}</strong>
-                    </p>
-                  </div>
+                  <button
+                    onClick={() => setCosmeticsTarget(null)}
+                    className="rounded-full p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
+                  {/* 1. VIP ANIMATED AVATAR FRAMES (8 COLORS: FIRE, PINK, CRIMSON, CYAN, PURPLE, EMERALD, GOLD, RAINBOW) */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                      Curated Animated Themes
+                    <label className="block text-[11px] font-black text-amber-300 mb-2 uppercase tracking-wider">
+                      🔥 VIP Animated Avatar Frames (ڕەنگی چوارچێوەی جوڵاوی پڕۆفایل هەڵبژێرە)
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {ANIMATED_COVER_PRESETS.map((preset) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {VIP_FRAME_CATALOG.map((frameOpt) => {
+                        const isSelected = vipFrameInput === frameOpt.id;
+                        return (
+                          <button
+                            key={frameOpt.id}
+                            type="button"
+                            onClick={() => setVipFrameInput(frameOpt.id)}
+                            className={`flex flex-col items-center gap-2 rounded-2xl border p-3 text-center transition-all ${
+                              isSelected
+                                ? 'border-amber-400 bg-amber-500/15 ring-2 ring-amber-400/50 scale-[1.03]'
+                                : 'border-slate-800 bg-slate-950/80 hover:border-slate-600'
+                            }`}
+                          >
+                            {/* Live Circular Animated Frame Preview */}
+                            <div
+                              className={`relative flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-xs font-black text-white ${frameOpt.cssClass}`}
+                            >
+                              <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+                                {cosmeticsTarget.avatar ? (
+                                  <img
+                                    src={cosmeticsTarget.avatar}
+                                    alt={cosmeticsTarget.username}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  cosmeticsTarget.username.charAt(0).toUpperCase()
+                                )}
+                              </div>
+                              <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+                                <Crown className="h-2.5 w-2.5 text-black fill-black" />
+                              </span>
+                            </div>
+                            <div className="min-w-0 w-full">
+                              <span className="block text-[10px] font-black text-white truncate">
+                                {frameOpt.badge}
+                              </span>
+                              <span className="block text-[9px] text-slate-400 truncate">
+                                {frameOpt.name.split('·')[0]}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. CURATED ANIMATED THEMES (WITH REAL RISING FIRE, PINK SAKURA PETALS, LIGHTNING, DRAGON FIRE) */}
+                  <div>
+                    <label className="block text-[11px] font-black text-purple-300 mb-2 uppercase tracking-wider">
+                      ✨ Curated Animated Themes (تیمە جوڵاوە نایابەکان · ئاگری ڕاستەقینە و گوڵی پەمەیی)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      {CURATED_ANIMATED_THEMES.map((preset) => (
                         <button
                           key={preset.id}
                           type="button"
                           onClick={() => {
-                            setCoverInput(preset.backgroundCss);
-                            setBgInput(preset.backgroundCss);
+                            setCoverInput(preset.themeValue);
+                            setBgInput(preset.themeValue);
+                            // Also auto-match VIP frame color to the chosen theme!
+                            if (preset.effectType === 'pink_sakura') setVipFrameInput('pink');
+                            else if (preset.effectType === 'crimson_lava') setVipFrameInput('crimson');
+                            else if (preset.effectType === 'cyber_lightning') setVipFrameInput('cyan');
+                            else if (preset.effectType === 'dragon_emerald') setVipFrameInput('emerald');
+                            else if (preset.effectType === 'galaxy_meteor') setVipFrameInput('purple');
+                            else if (preset.effectType === 'royal_gold') setVipFrameInput('gold');
+                            else if (preset.effectType === 'rainbow_aurora') setVipFrameInput('rainbow');
+                            else setVipFrameInput('fire');
                           }}
-                          className={`group relative flex flex-col items-start justify-end rounded-2xl border p-2.5 text-left transition overflow-hidden h-20 ${
-                            coverInput === preset.backgroundCss
-                              ? 'border-purple-400 ring-2 ring-purple-500/50 scale-[1.02]'
+                          className={`group relative flex flex-col items-start justify-end rounded-2xl border p-2.5 text-left transition overflow-hidden h-24 vip-animated-cover ${
+                            coverInput === preset.themeValue
+                              ? 'border-amber-400 ring-2 ring-amber-400/60 scale-[1.02]'
                               : 'border-slate-800 hover:border-purple-400/60 hover:scale-[1.02]'
                           }`}
-                          style={{ background: preset.backgroundCss }}
+                          style={{ background: preset.baseGradient }}
                         >
-                          <div className="absolute inset-0 bg-slate-950/40 group-hover:bg-slate-950/20 transition-colors" />
+                          {/* Live Animated Flames / Petals / Lightning inside Preset Card */}
+                          <AnimatedThemeOverlay themeValue={preset.themeValue} compact />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent" />
                           <div className="relative z-10 w-full">
-                            <span className="text-xs">{preset.badge}</span>
+                            <span className="inline-block rounded-full bg-black/60 border border-white/15 px-2 py-0.5 text-[10px] font-black text-amber-300 mb-0.5">
+                              {preset.badge}
+                            </span>
                             <span className="block text-[10px] font-bold text-white truncate drop-shadow">
                               {preset.name}
                             </span>
@@ -1669,11 +1752,13 @@ export default function AdminPanel({
                       className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-400"
                     />
                     {coverInput && (
-                      <div className="mt-2 h-20 w-full overflow-hidden rounded-xl border border-slate-800">
+                      <div className="relative mt-2 h-24 w-full overflow-hidden rounded-2xl border border-slate-800">
                         {coverInput.startsWith('http') || coverInput.startsWith('data:') ? (
                           <img src={coverInput} alt="Cover Preview" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="h-full w-full vip-animated-cover" style={{ background: coverInput }} />
+                          <div className="relative h-full w-full vip-animated-cover" style={{ background: coverInput }}>
+                            <AnimatedThemeOverlay themeValue={coverInput} />
+                          </div>
                         )}
                       </div>
                     )}
@@ -1691,11 +1776,13 @@ export default function AdminPanel({
                       className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-400"
                     />
                     {bgInput && (
-                      <div className="mt-2 h-20 w-full overflow-hidden rounded-xl border border-slate-800">
+                      <div className="relative mt-2 h-24 w-full overflow-hidden rounded-2xl border border-slate-800">
                         {bgInput.startsWith('http') || bgInput.startsWith('data:') ? (
                           <img src={bgInput} alt="Room Theme Preview" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="h-full w-full vip-animated-cover" style={{ background: bgInput }} />
+                          <div className="relative h-full w-full vip-animated-cover" style={{ background: bgInput }}>
+                            <AnimatedThemeOverlay themeValue={bgInput} />
+                          </div>
                         )}
                       </div>
                     )}
@@ -1712,9 +1799,9 @@ export default function AdminPanel({
                   <button
                     onClick={handleSaveCosmetics}
                     disabled={isSavingCosmetics}
-                    className="flex-1 rounded-2xl bg-purple-600 py-3 text-xs font-bold text-white shadow-lg shadow-purple-600/20 hover:bg-purple-500 transition"
+                    className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 py-3 text-xs font-black text-white shadow-lg shadow-purple-600/30 hover:opacity-95 transition"
                   >
-                    {isSavingCosmetics ? 'Saving Themes...' : 'Save Bespoke Themes'}
+                    {isSavingCosmetics ? 'Saving...' : 'Save VIP Frame & Themes'}
                   </button>
                 </div>
               </motion.div>

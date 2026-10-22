@@ -1,6 +1,6 @@
 import { ref, update, get, set, remove, onValue, type Unsubscribe } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { User, VoiceEffectMode, AccountDeletionRequest } from '../types';
+import type { User, VoiceEffectMode, AccountDeletionRequest, VipFrameStyle } from '../types';
 
 /**
  * Permanently bans a user account.
@@ -79,12 +79,13 @@ export async function toggleVerificationBadge(
 }
 
 /**
- * Assigns premium graphic cosmetics: Custom Profile Cover and Room Background.
+ * Assigns premium graphic cosmetics: Custom Profile Cover, Room Background, and Animated VIP Avatar Frame.
  */
 export async function assignPremiumCosmetics(
   targetUid: string,
   profileCoverUrl?: string | null,
   roomBackgroundUrl?: string | null,
+  vipFrame?: VipFrameStyle | null,
 ): Promise<void> {
   if (!targetUid) throw new Error('Target UID is required.');
 
@@ -94,6 +95,12 @@ export async function assignPremiumCosmetics(
   }
   if (roomBackgroundUrl !== undefined) {
     updates.roomBackground = roomBackgroundUrl && roomBackgroundUrl.trim() !== '' ? roomBackgroundUrl.trim() : null;
+  }
+  if (vipFrame !== undefined) {
+    updates.vipFrame = vipFrame || 'fire';
+    if (vipFrame) {
+      updates.isVerified = true;
+    }
   }
 
   const userRef = ref(database, `users/${targetUid}`);

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Crown, Gift, X, Sparkles, Star, Shield, MessageCircle, User as UserIcon, Flame } from 'lucide-react';
-import type { AudienceMember, Seat, User } from '../types';
+import { getVipAvatarClass, type AudienceMember, type Seat, type User } from '../types';
 
 interface AudienceGridProps {
   audience: AudienceMember[];
   seats: Seat[];
   currentUser: User;
   vipUsersMap?: Record<string, boolean>;
+  vipFramesMap?: Record<string, string>;
   onSendGiftToUser: (recipient: { uid: string; username: string }) => void;
   onOpenPrivateChat?: (recipient: { uid: string; username: string; avatar?: string }) => void;
   onOpenProfile?: (uid: string) => void;
@@ -18,6 +19,7 @@ export default function AudienceGrid({
   seats,
   currentUser,
   vipUsersMap = {},
+  vipFramesMap = {},
   onSendGiftToUser,
   onOpenPrivateChat,
   onOpenProfile,
@@ -64,7 +66,7 @@ export default function AudienceGrid({
                       flex h-7 w-7 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-white transition-transform group-hover:scale-110 shadow
                       ${
                         isVip
-                          ? 'vip-fire-avatar bg-gradient-to-tr from-amber-500 via-orange-500 to-red-600 text-black'
+                          ? `${getVipAvatarClass(isVip, vipFramesMap[member.uid])} bg-gradient-to-tr from-amber-500 via-orange-500 to-red-600 text-black`
                           : 'border border-white/20 bg-gradient-to-tr from-violet-600 to-indigo-600'
                       }
                     `}
@@ -128,7 +130,9 @@ export default function AudienceGrid({
                         }
                       }}
                       className={`relative mx-auto -mt-2 mb-3 flex h-16 w-16 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-cyan-500 font-display text-xl font-bold text-white shadow-xl ${
-                        isSelectedVip ? 'vip-fire-avatar' : 'shadow-violet-500/25'
+                        isSelectedVip
+                          ? getVipAvatarClass(isSelectedVip, vipFramesMap[selectedMember.uid])
+                          : 'shadow-violet-500/25'
                       }`}
                     >
                       <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">

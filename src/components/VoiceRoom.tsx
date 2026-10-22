@@ -40,6 +40,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts';
 import {
   formatCoinsK,
+  getVipAvatarClass,
   type Room,
   type Seat,
   type JackarooGame,
@@ -96,6 +97,7 @@ import {
   SeatEmojiPickerModal,
   AnimatedEmojiGraphic,
 } from './SeatEmojiSystem';
+import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
 
 /* ─────────────────────────────────────────────────────────────
    SSMR — Ultra-Premium Gamified Voice Chat Room & Arena
@@ -227,8 +229,9 @@ export default function VoiceRoom() {
     return () => clearInterval(timer);
   }, []);
 
-  // Real-time map of VIP (isVerified) and avatars across all users
+  // Real-time map of VIP (isVerified), VIP Frame styles, and avatars across all users
   const [vipUsersMap, setVipUsersMap] = useState<Record<string, boolean>>({});
+  const [vipFramesMap, setVipFramesMap] = useState<Record<string, string>>({});
   const [usersAvatarMap, setUsersAvatarMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -237,12 +240,15 @@ export default function VoiceRoom() {
       if (!snap.exists()) return;
       const val = snap.val() as Record<string, any>;
       const vMap: Record<string, boolean> = {};
+      const fMap: Record<string, string> = {};
       const aMap: Record<string, string> = {};
       Object.entries(val).forEach(([uid, u]) => {
         if (u?.isVerified) vMap[uid] = true;
+        if (u?.vipFrame) fMap[uid] = u.vipFrame;
         if (u?.avatar || u?.profileImage) aMap[uid] = u.avatar || u.profileImage;
       });
       setVipUsersMap(vMap);
+      setVipFramesMap(fMap);
       setUsersAvatarMap(aMap);
     });
     return () => unsub();
@@ -642,7 +648,8 @@ export default function VoiceRoom() {
           : undefined
       }
     >
-      {/* ── Background Glow Effects ── */}
+      {/* ── Background Glow Effects & Curated Animated Theme Overlay ── */}
+      {isGradientBg && <AnimatedThemeOverlay themeValue={hostRoomBackground} />}
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
         <div
           className="absolute -top-24 -left-24 h-72 w-72 rounded-full opacity-20 blur-3xl"
@@ -681,7 +688,7 @@ export default function VoiceRoom() {
           <div
             className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 font-bold shadow-md text-xs ${
               hostIsVerified || vipUsersMap[room.hostId]
-                ? 'vip-fire-avatar'
+                ? getVipAvatarClass(true, vipFramesMap[room.hostId])
                 : 'shadow-violet-500/20'
             }`}
           >
@@ -872,7 +879,10 @@ export default function VoiceRoom() {
               let avatarBorderClass = 'border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-violet-500/50 hover:bg-white/[0.04]';
               if (isOccupied) {
                 if (isSeatVip) {
-                  avatarBorderClass = 'vip-fire-avatar';
+                  avatarBorderClass = getVipAvatarClass(
+                    true,
+                    seat.userId ? vipFramesMap[seat.userId] : undefined,
+                  );
                 } else if (isSpeaking) {
                   avatarBorderClass = 'border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)]';
                 } else if (isPkActive) {
@@ -1116,6 +1126,7 @@ export default function VoiceRoom() {
             seats={room.seats}
             currentUser={user}
             vipUsersMap={vipUsersMap}
+            vipFramesMap={vipFramesMap}
             onSendGiftToUser={(recipient) => {
               setGiftRecipient(recipient);
               setIsGiftModalOpen(true);
@@ -1480,7 +1491,10 @@ export default function VoiceRoom() {
                   <div
                     className={`relative flex h-11 w-11 items-center justify-center rounded-full bg-violet-600 font-bold text-white ${
                       selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])
-                        ? 'vip-fire-avatar'
+                        ? getVipAvatarClass(
+                            true,
+                            selectedSeat.userId ? vipFramesMap[selectedSeat.userId] : undefined,
+                          )
                         : 'overflow-hidden'
                     }`}
                   >

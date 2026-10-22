@@ -25,6 +25,108 @@ export interface ProfileVisitor {
   timestamp: number;
 }
 
+export type VipFrameStyle =
+  | 'fire'
+  | 'pink'
+  | 'crimson'
+  | 'cyan'
+  | 'purple'
+  | 'emerald'
+  | 'gold'
+  | 'rainbow';
+
+export interface VipFrameOption {
+  id: VipFrameStyle;
+  name: string;
+  badge: string;
+  cssClass: string;
+  previewGradient: string;
+}
+
+export const VIP_FRAME_CATALOG: VipFrameOption[] = [
+  {
+    id: 'fire',
+    name: 'ئاگری ڕاستەقینە · Real Inferno Fire',
+    badge: '🔥 Fire',
+    cssClass: 'vip-fire-avatar',
+    previewGradient: 'linear-gradient(135deg, #fde047, #f97316, #dc2626)',
+  },
+  {
+    id: 'pink',
+    name: 'پەمەیی شاژن · Pink Sakura Flame',
+    badge: '🌸 Pink Queen',
+    cssClass: 'vip-fire-avatar vip-frame-pink',
+    previewGradient: 'linear-gradient(135deg, #fbcfe8, #ec4899, #be185d)',
+  },
+  {
+    id: 'crimson',
+    name: 'بورکانی سوور · Hellfire Crimson',
+    badge: '🩸 Crimson',
+    cssClass: 'vip-fire-avatar vip-frame-crimson',
+    previewGradient: 'linear-gradient(135deg, #fca5a5, #ef4444, #7f1d1d)',
+  },
+  {
+    id: 'cyan',
+    name: 'بروسکەی کارەبایی · Cyber Ice Lightning',
+    badge: '⚡ Cyber Ice',
+    cssClass: 'vip-fire-avatar vip-frame-cyan',
+    previewGradient: 'linear-gradient(135deg, #a5f3fc, #06b6d4, #1d4ed8)',
+  },
+  {
+    id: 'purple',
+    name: 'مۆری شاهانە · Royal Galaxy Violet',
+    badge: '👑 Royal Purple',
+    cssClass: 'vip-fire-avatar vip-frame-purple',
+    previewGradient: 'linear-gradient(135deg, #e9d5ff, #a855f7, #581c87)',
+  },
+  {
+    id: 'emerald',
+    name: 'ئاگری ئەژدیها · Dragon Emerald Fire',
+    badge: '🐉 Dragon Green',
+    cssClass: 'vip-fire-avatar vip-frame-emerald',
+    previewGradient: 'linear-gradient(135deg, #a7f3d0, #10b981, #065f46)',
+  },
+  {
+    id: 'gold',
+    name: 'زێڕی عەیار ٢٤ · Pure 24K Diamond Gold',
+    badge: '✨ 24K Gold',
+    cssClass: 'vip-fire-avatar vip-frame-gold',
+    previewGradient: 'linear-gradient(135deg, #fef9c3, #facc15, #b45309)',
+  },
+  {
+    id: 'rainbow',
+    name: 'ئیمپراتۆری حەوت ڕەنگ · Mythic Chroma RGB',
+    badge: '🌈 Rainbow RGB',
+    cssClass: 'vip-fire-avatar vip-frame-rainbow',
+    previewGradient: 'linear-gradient(135deg, #f43f5e, #f59e0b, #10b981, #06b6d4, #a855f7)',
+  },
+];
+
+export function getVipAvatarClass(
+  isVip?: boolean,
+  vipFrame?: VipFrameStyle | string | null,
+): string {
+  if (!isVip && !vipFrame) return '';
+  switch (vipFrame) {
+    case 'pink':
+      return 'vip-fire-avatar vip-frame-pink';
+    case 'crimson':
+      return 'vip-fire-avatar vip-frame-crimson';
+    case 'cyan':
+      return 'vip-fire-avatar vip-frame-cyan';
+    case 'purple':
+      return 'vip-fire-avatar vip-frame-purple';
+    case 'emerald':
+      return 'vip-fire-avatar vip-frame-emerald';
+    case 'gold':
+      return 'vip-fire-avatar vip-frame-gold';
+    case 'rainbow':
+      return 'vip-fire-avatar vip-frame-rainbow';
+    default:
+      return 'vip-fire-avatar';
+  }
+}
+
 /** A pending or resolved account deletion request sent from Settings to Admin. */
 export interface AccountDeletionRequest {
   uid: string;
@@ -66,6 +168,7 @@ export interface User {
   banReason?: string | null;
   banUntil?: number | null;
   isVerified?: boolean;
+  vipFrame?: VipFrameStyle | null;
   forcedVoiceEffect?: 'normal' | 'child' | 'venom' | null;
   allowDirectMessages?: boolean;
   activityNotifications?: boolean;
