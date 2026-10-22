@@ -63,6 +63,7 @@ import NotificationCenter from './NotificationCenter';
 import Leaderboard from './Leaderboard';
 import ArenaShop from './ArenaShop';
 import StoriesBar from './StoriesBar';
+import SettingsModal from './SettingsModal';
 
 const CATEGORIES: { label: string; value: RoomCategory | 'All'; icon: React.ElementType; color: string }[] = [
   { label: 'All Arenas', value: 'All', icon: Flame, color: 'text-amber-400' },
@@ -158,6 +159,7 @@ export default function Dashboard() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isChatCenterOpen, setIsChatCenterOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
@@ -465,16 +467,16 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => openUserProfile(user.uid)}
+              onClick={() => setIsSettingsOpen(true)}
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <Settings className="h-4 w-4" />
-              <span>Profile Settings</span>
+              <span>Settings</span>
             </button>
           </nav>
         </div>
 
-        {/* Host Quick Action & Logout Button */}
+        {/* Host Quick Action Button */}
         <div className="space-y-3 pt-6 border-t border-slate-800/60">
           <button
             onClick={() => setIsCreateModalOpen(true)}
@@ -482,14 +484,6 @@ export default function Dashboard() {
           >
             <Plus className="h-4 w-4" />
             <span>HOST ARENA</span>
-          </button>
-
-          <button
-            onClick={() => logout()}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-800/80 bg-slate-900/40 py-2.5 text-xs font-bold text-slate-400 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -1125,11 +1119,11 @@ export default function Dashboard() {
         </button>
 
         <button
-          onClick={() => openUserProfile(user.uid)}
+          onClick={() => setIsSettingsOpen(true)}
           className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500"
         >
           <Settings className="h-5 w-5" />
-          <span>Profile</span>
+          <span>Settings</span>
         </button>
       </nav>
 
@@ -1470,6 +1464,18 @@ export default function Dashboard() {
           <ArenaShop
             currentUser={user}
             onClose={() => setIsShopOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── SYSTEM SETTINGS & SIGN OUT MODAL ── */}
+      <AnimatePresence>
+        {isSettingsOpen && user && (
+          <SettingsModal
+            currentUser={user}
+            onClose={() => setIsSettingsOpen(false)}
+            onLogout={logout}
+            onOpenEditProfile={() => openUserProfile(user.uid)}
           />
         )}
       </AnimatePresence>
