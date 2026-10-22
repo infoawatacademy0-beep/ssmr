@@ -297,6 +297,20 @@ export async function restartCurrentTrack(roomId: string): Promise<void> {
 }
 
 /**
+ * Updates the synchronized room music volume (0.0 to 1.0).
+ */
+export async function setMusicVolume(
+  roomId: string,
+  volume: number,
+): Promise<void> {
+  const clamped = Math.max(0, Math.min(1, Number(volume)));
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  await update(playerRef, {
+    volume: clamped,
+  });
+}
+
+/**
  * Subscribes to the synchronized music state (queue + player controls).
  */
 export function subscribeToMusicState(
@@ -311,6 +325,7 @@ export function subscribeToMusicState(
         currentTrackId: null,
         isPlaying: false,
         isRepeat: false,
+        volume: 0.7,
         playbackPosition: 0,
         lastSyncTimestamp: Date.now(),
         queue: [],
@@ -326,6 +341,7 @@ export function subscribeToMusicState(
       currentTrackId: player.currentTrackId ?? (queue[0]?.id || null),
       isPlaying: Boolean(player.isPlaying),
       isRepeat: Boolean(player.isRepeat),
+      volume: typeof player.volume === 'number' ? Math.max(0, Math.min(1, player.volume)) : 0.7,
       playbackPosition: Number(player.playbackPosition) || 0,
       lastSyncTimestamp: Number(player.lastSyncTimestamp) || Date.now(),
       queue,

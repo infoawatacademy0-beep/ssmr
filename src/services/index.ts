@@ -90,6 +90,7 @@ export {
   selectTrackFromQueue,
   toggleMusicRepeat,
   restartCurrentTrack,
+  setMusicVolume,
   subscribeToMusicState,
 } from './musicService';
 

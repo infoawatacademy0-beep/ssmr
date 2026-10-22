@@ -915,16 +915,16 @@ export default function VoiceRoom() {
         </section>
 
         {/* ── FEATURE 1: Collaborative Music Room & Media Queue ── */}
-        {(room.category === 'Music' || musicState.queue.length > 0 || isMusicPanelVisible) && (
-          <MusicPlayerPanel
-            roomId={room.id}
-            currentUser={user}
-            isHost={Boolean(isHost || user.isAdmin)}
-            seats={room.seats}
-            musicState={musicState}
-            onClosePanel={() => setIsMusicPanelVisible(false)}
-          />
-        )}
+        <MusicPlayerPanel
+          roomId={room.id}
+          currentUser={user}
+          isHost={Boolean(isHost || user.isAdmin)}
+          seats={room.seats}
+          musicState={musicState}
+          isOpenModal={isMusicPanelVisible}
+          onOpenPanel={() => setIsMusicPanelVisible(true)}
+          onClosePanel={() => setIsMusicPanelVisible(false)}
+        />
 
         {/* ── FEATURE 2: Live Room Audience Strip Row ── */}
         <AudienceGrid

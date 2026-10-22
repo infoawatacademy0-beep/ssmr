@@ -13,6 +13,7 @@ export interface RoomMusicState {
   currentTrackId: string | null;
   isPlaying: boolean;
   isRepeat?: boolean; // loop/repeat current track
+  volume?: number; // 0.0 to 1.0 (default 0.7)
   playbackPosition: number; // in seconds
   lastSyncTimestamp: number;
   queue: MusicTrack[];
