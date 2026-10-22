@@ -64,22 +64,26 @@ export async function sendGift(
     return recipientData;
   });
 
-  // 3. Track total gift coins received by the recipient during this room session
-  const seatCoinsRef = ref(database, `rooms/${roomId}/seatGiftCoins/${recipient.uid}`);
-  await runTransaction(seatCoinsRef, (current) => (current || 0) + gift.cost);
-
-  // 4. If a 4v4 PK battle is active, award points to the recipient's team
+  // 3. ONLY if a 4v4 PK battle is currently active, track per-seat PK points and award team points
   // Seats 1, 2, 5, 6 are Team Red; Seats 3, 4, 7, 8 are Team Blue
   try {
-    const seatsSnapshot = await get(ref(database, `rooms/${roomId}/seats`));
-    if (seatsSnapshot.exists()) {
-      const seats = seatsSnapshot.val();
-      const seatList = Array.isArray(seats) ? seats : Object.values(seats);
-      const recipientSeat = seatList.find((s: any) => s?.userId === recipient.uid);
-      if (recipientSeat && typeof recipientSeat.seatNo === 'number') {
-        const isRed = [1, 2, 5, 6].includes(recipientSeat.seatNo);
-        const team: PkTeam = isRed ? 'red' : 'blue';
-        await addPkBattlePoints(roomId, team, gift.cost);
+    const pkSnapshot = await get(ref(database, `rooms/${roomId}/pkBattle`));
+    const isPkActive = pkSnapshot.exists() && pkSnapshot.val()?.status === 'active';
+
+    if (isPkActive) {
+      const seatCoinsRef = ref(database, `rooms/${roomId}/seatGiftCoins/${recipient.uid}`);
+      await runTransaction(seatCoinsRef, (current) => (current || 0) + gift.cost);
+
+      const seatsSnapshot = await get(ref(database, `rooms/${roomId}/seats`));
+      if (seatsSnapshot.exists()) {
+        const seats = seatsSnapshot.val();
+        const seatList = Array.isArray(seats) ? seats : Object.values(seats);
+        const recipientSeat = seatList.find((s: any) => s?.userId === recipient.uid);
+        if (recipientSeat && typeof recipientSeat.seatNo === 'number') {
+          const isRed = [1, 2, 5, 6].includes(recipientSeat.seatNo);
+          const team: PkTeam = isRed ? 'red' : 'blue';
+          await addPkBattlePoints(roomId, team, gift.cost);
+        }
       }
     }
   } catch (err) {

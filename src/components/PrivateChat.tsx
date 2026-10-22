@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ref, onValue } from 'firebase/database';
+import { database } from '../config/firebase';
 import {
   Send,
   ImagePlus,
@@ -16,6 +18,7 @@ import {
   Paperclip,
   Radio,
   Sparkles,
+  Crown,
 } from 'lucide-react';
 import type { User, DirectMessage, DirectMessageType } from '../types';
 import {
@@ -58,6 +61,26 @@ export default function PrivateChat({
     lastSeen: Date.now(),
     statusText: 'Connecting…',
   });
+
+  // Live Recipient Profile Avatar & VIP State
+  const [recipientLiveAvatar, setRecipientLiveAvatar] = useState<string | null>(
+    recipientUser.avatar || null,
+  );
+  const [recipientIsVip, setRecipientIsVip] = useState<boolean>(false);
+
+  useEffect(() => {
+    const userRef = ref(database, `users/${recipientUser.uid}`);
+    const unsub = onValue(userRef, (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        if (val.avatar || val.profileImage) {
+          setRecipientLiveAvatar(val.avatar || val.profileImage);
+        }
+        setRecipientIsVip(Boolean(val.isVerified));
+      }
+    });
+    return () => unsub();
+  }, [recipientUser.uid]);
 
   // Follow State
   const [isFollowing, setIsFollowing] = useState(false);
@@ -310,15 +333,26 @@ export default function PrivateChat({
         {/* ── CHAT HEADER ── */}
         <header className="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 p-4 backdrop-blur-xl">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md">
-              {recipientUser.avatar ? (
-                <img
-                  src={recipientUser.avatar}
-                  alt={recipientUser.username}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                recipientUser.username.charAt(0).toUpperCase()
+            <div
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
+                recipientIsVip ? 'border-2 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : ''
+              }`}
+            >
+              <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+                {recipientLiveAvatar || recipientUser.avatar ? (
+                  <img
+                    src={recipientLiveAvatar || recipientUser.avatar || ''}
+                    alt={recipientUser.username}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  recipientUser.username.charAt(0).toUpperCase()
+                )}
+              </div>
+              {recipientIsVip && (
+                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+                  <Crown className="h-2.5 w-2.5 text-black fill-black" strokeWidth={2.5} />
+                </span>
               )}
               {/* Presence Indicator Dot */}
               <span
@@ -395,90 +429,125 @@ export default function PrivateChat({
           ) : (
             messages.map((msg) => {
               const isMine = msg.senderUid === currentUser.uid;
+              const senderAvatarUrl = isMine
+                ? currentUser.avatar || currentUser.profileImage || msg.senderAvatar || null
+                : recipientLiveAvatar || recipientUser.avatar || msg.senderAvatar || null;
+              const isSenderVip = isMine ? Boolean(currentUser.isVerified) : recipientIsVip;
+              const senderInitial = (isMine ? currentUser.username : recipientUser.username)
+                .charAt(0)
+                .toUpperCase();
 
               return (
                 <div
                   key={msg.id}
-                  className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}
+                  className={`flex items-end gap-2.5 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
                 >
+                  {/* Sender Profile Picture in Chat */}
                   <div
-                    className={`max-w-[82%] rounded-3xl p-3 shadow-md ${
-                      isMine
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-medium'
-                        : 'border border-slate-800 bg-slate-900 text-slate-200'
+                    className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[11px] font-black text-white shadow ${
+                      isSenderVip
+                        ? 'border-2 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.45)]'
+                        : 'border border-white/15'
                     }`}
                   >
-                    {/* Variant 1: Text message */}
-                    {msg.type === 'text' && (
-                      <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
-                        {msg.text}
-                      </p>
-                    )}
-
-                    {/* Variant 2: Image attachment message */}
-                    {msg.type === 'image' && msg.imageUrl && (
-                      <div className="space-y-1.5">
+                    <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+                      {senderAvatarUrl ? (
                         <img
-                          src={msg.imageUrl}
-                          alt="Attachment"
-                          className="max-h-48 w-full rounded-2xl object-cover cursor-pointer hover:opacity-95"
-                          onClick={() => window.open(msg.imageUrl, '_blank')}
+                          src={senderAvatarUrl}
+                          alt={isMine ? currentUser.username : recipientUser.username}
+                          className="h-full w-full object-cover"
                         />
-                        {msg.text && (
-                          <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Variant 3: Voice memo message */}
-                    {msg.type === 'voice' && msg.audioUrl && (
-                      <div className="flex items-center gap-3 py-1">
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePlayAudio(msg.id, msg.audioUrl)}
-                          className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition ${
-                            isMine
-                              ? 'bg-black text-amber-400 hover:bg-slate-950'
-                              : 'bg-amber-400 text-black hover:bg-amber-300'
-                          }`}
-                        >
-                          {activeAudioPlayingId === msg.id ? (
-                            <Pause className="h-4 w-4" />
-                          ) : (
-                            <Play className="h-4 w-4 ml-0.5" />
-                          )}
-                        </button>
-
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <Volume2 className="h-3.5 w-3.5" />
-                            <span className="text-[11px] font-bold">Voice Memo</span>
-                          </div>
-                          {/* Animated Audio Waveform Mock */}
-                          <div className="flex items-center gap-0.5">
-                            {Array.from({ length: 14 }).map((_, i) => (
-                              <span
-                                key={i}
-                                className={`w-0.5 rounded-full transition-all ${
-                                  isMine ? 'bg-black/60' : 'bg-slate-400'
-                                } ${
-                                  activeAudioPlayingId === msg.id
-                                    ? 'h-3 animate-pulse'
-                                    : i % 2 === 0
-                                    ? 'h-2'
-                                    : 'h-4'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                      ) : (
+                        senderInitial
+                      )}
+                    </div>
+                    {isSenderVip && (
+                      <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
+                        <Crown className="h-2 w-2 text-black fill-black" strokeWidth={3} />
+                      </span>
                     )}
                   </div>
 
-                  <span className="mt-1 px-1.5 text-[9px] text-slate-500">
-                    {formatChatTime(msg.timestamp)}
-                  </span>
+                  <div className={`flex flex-col max-w-[76%] ${isMine ? 'items-end' : 'items-start'}`}>
+                    <div
+                      className={`rounded-3xl p-3 shadow-md ${
+                        isMine
+                          ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-medium rounded-br-sm'
+                          : 'border border-slate-800 bg-slate-900 text-slate-200 rounded-bl-sm'
+                      }`}
+                    >
+                      {/* Variant 1: Text message */}
+                      {msg.type === 'text' && (
+                        <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                          {msg.text}
+                        </p>
+                      )}
+
+                      {/* Variant 2: Image attachment message */}
+                      {msg.type === 'image' && msg.imageUrl && (
+                        <div className="space-y-1.5">
+                          <img
+                            src={msg.imageUrl}
+                            alt="Attachment"
+                            className="max-h-48 w-full rounded-2xl object-cover cursor-pointer hover:opacity-95"
+                            onClick={() => window.open(msg.imageUrl, '_blank')}
+                          />
+                          {msg.text && (
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Variant 3: Voice memo message */}
+                      {msg.type === 'voice' && msg.audioUrl && (
+                        <div className="flex items-center gap-3 py-1">
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePlayAudio(msg.id, msg.audioUrl)}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition ${
+                              isMine
+                                ? 'bg-black text-amber-400 hover:bg-slate-950'
+                                : 'bg-amber-400 text-black hover:bg-amber-300'
+                            }`}
+                          >
+                            {activeAudioPlayingId === msg.id ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4 ml-0.5" />
+                            )}
+                          </button>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <Volume2 className="h-3.5 w-3.5" />
+                              <span className="text-[11px] font-bold">Voice Memo</span>
+                            </div>
+                            {/* Animated Audio Waveform Mock */}
+                            <div className="flex items-center gap-0.5">
+                              {Array.from({ length: 14 }).map((_, i) => (
+                                <span
+                                  key={i}
+                                  className={`w-0.5 rounded-full transition-all ${
+                                    isMine ? 'bg-black/60' : 'bg-slate-400'
+                                  } ${
+                                    activeAudioPlayingId === msg.id
+                                      ? 'h-3 animate-pulse'
+                                      : i % 2 === 0
+                                      ? 'h-2'
+                                      : 'h-4'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <span className="mt-1 px-1.5 text-[9px] text-slate-500">
+                      {formatChatTime(msg.timestamp)}
+                    </span>
+                  </div>
                 </div>
               );
             })

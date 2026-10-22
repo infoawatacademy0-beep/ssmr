@@ -63,6 +63,7 @@ import {
   broadcastUserEntrance,
   subscribeToRoomEntrance,
   subscribeToMusicState,
+  setMusicModeActive,
   registerAudiencePresence,
   subscribeToAudience,
   getUserSocialProfile,
@@ -740,13 +741,20 @@ export default function VoiceRoom() {
           {/* Host Music Player Toggle Button */}
           {(isHost || user.isAdmin) && (
             <button
-              onClick={() => setIsMusicPanelVisible((v) => !v)}
+              onClick={async () => {
+                if (!musicState.isMusicModeActive && !musicState.isPlaying) {
+                  await setMusicModeActive(room.id, true).catch(console.error);
+                  setIsMusicPanelVisible(true);
+                } else {
+                  setIsMusicPanelVisible((v) => !v);
+                }
+              }}
               className={`flex h-8 w-8 items-center justify-center rounded-xl border text-xs font-bold transition-colors ${
-                isMusicPanelVisible || musicState.isPlaying
+                isMusicPanelVisible || musicState.isPlaying || musicState.isMusicModeActive
                   ? 'border-violet-400 bg-violet-500/25 text-violet-200'
                   : 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20'
               }`}
-              title="پێکردنی گۆرانی (Music Player)"
+              title="مۆدی گۆرانی (Music Mode)"
             >
               <Music className="h-3.5 w-3.5" />
             </button>
@@ -957,10 +965,10 @@ export default function VoiceRoom() {
                             )
                           )}
 
-                          {/* Received Gift Coins Badge on Profile Icon */}
-                          {seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
+                          {/* PK Points Badge on Seat Profile Icon — Shown ONLY during an active PK Battle */}
+                          {isPkActive && seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
                             <div
-                              title={`${formatCoinsK(seatGiftCoins[seat.userId] ?? 0)} coins received`}
+                              title={`${formatCoinsK(seatGiftCoins[seat.userId] ?? 0)} PK Points`}
                               className="absolute -bottom-2 -left-1.5 z-20 flex items-center gap-0.5 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-500 to-yellow-500 px-1.5 py-0.5 text-[8px] font-black text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
                             >
                               <Coins className="h-2.5 w-2.5 text-slate-950 shrink-0" />
@@ -1168,7 +1176,7 @@ export default function VoiceRoom() {
           {/* Chat Messages Stream */}
           <div
             ref={chatScrollRef}
-            className="flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1 text-xs"
+            className="flex-1 space-y-2.5 overflow-y-auto overflow-x-hidden pt-1.5 pr-1 text-xs"
           >
             {room.activeChat.length === 0 ? (
               <div className="flex h-full items-center justify-center text-slate-500 text-center">
@@ -1191,12 +1199,13 @@ export default function VoiceRoom() {
                   );
                 }
 
+                // Always prioritize the user's live profile photo from Firebase so profile photos always show in chat
                 const msgAvatarUrl =
-                  msg.senderAvatar ||
                   usersAvatarMap[msg.senderId] ||
                   (isMe ? user?.avatar || user?.profileImage : null) ||
                   room.seats.find((s) => s.userId === msg.senderId)?.avatar ||
                   audience.find((a) => a.uid === msg.senderId)?.avatar ||
+                  msg.senderAvatar ||
                   null;
 
                 const isSenderVip = Boolean(
@@ -1394,27 +1403,17 @@ export default function VoiceRoom() {
             </div>
           )}
 
-          {/* VIP JACKAROO (2, 3, OR 4 PLAYERS) GAME BUTTON */}
-          <button
-            onClick={() => setIsJackarooOpen(true)}
-            className="flex items-center gap-1.5 rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-rose-500/20 px-3 py-2 text-xs font-black text-amber-300 shadow-md shadow-amber-500/15 transition-transform active:scale-95"
-          >
-            <Gamepad2 className="h-3.5 w-3.5 text-amber-400" />
-            <span>جاکۆرۆ · Jackaroo</span>
-            {activeJackarooGame && (
-              <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-            )}
-          </button>
-
-          {/* 3D ANIMATED EMOJIS BUTTON */}
+          {/* VIP JACKAROO GAME BUTTON — Compact Game Emoji Only */}
           <button
             type="button"
-            onClick={() => setIsEmojiPickerOpen(true)}
-            className="flex items-center gap-1 rounded-2xl border border-amber-400/40 bg-amber-500/15 px-2.5 py-2 text-xs font-bold text-amber-300 shadow-sm transition-transform hover:bg-amber-500/25 active:scale-95"
-            title="ئیمۆجی جوڵاو لەسەر کورسی (Animated Seat Emojis)"
+            onClick={() => setIsJackarooOpen(true)}
+            title="یاری جاکۆرۆ (VIP Jackaroo Game)"
+            className="relative flex h-9 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-rose-500/20 text-base shadow-md shadow-amber-500/15 transition-transform active:scale-95"
           >
-            <Smile className="h-3.5 w-3.5 text-amber-400" />
-            <span className="hidden xs:inline">Emoji</span>
+            <span>🎮</span>
+            {activeJackarooGame && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping" />
+            )}
           </button>
 
           {/* INTERACTIVE GIFTS BUTTON */}
@@ -1437,7 +1436,7 @@ export default function VoiceRoom() {
               title="Leave current seat"
             >
               <PhoneOff className="h-3 w-3 text-rose-400" />
-              <span>Leave Seat</span>
+              <span className="hidden xs:inline">Leave</span>
             </button>
           )}
         </div>
@@ -1927,7 +1926,10 @@ export default function VoiceRoom() {
             room={room}
             currentUser={user}
             activeJackarooGame={activeJackarooGame}
-            onOpenMusicPlayer={() => setIsMusicPanelVisible(true)}
+            onOpenMusicPlayer={async () => {
+              await setMusicModeActive(room.id, true).catch(console.error);
+              setIsMusicPanelVisible(true);
+            }}
             onClose={() => setIsHostControlsOpen(false)}
           />
         )}

@@ -116,7 +116,8 @@ export async function setMusicPlayback(
 }
 
 /**
- * Skips the current track and advances to the next track in queue.
+ * Skips the current track and advances to the next track in queue
+ * WITHOUT deleting tracks from the preserved song list.
  */
 export async function skipToNextTrack(roomId: string): Promise<void> {
   const queueRef = ref(database, `rooms/${roomId}/musicQueue`);
@@ -129,27 +130,16 @@ export async function skipToNextTrack(roomId: string): Promise<void> {
   if (queueSnap.exists()) {
     const queue = normalizeMusicQueue(queueSnap.val());
 
-    // Remove the current track from queue
-    if (currentTrackId) {
-      await remove(ref(database, `rooms/${roomId}/musicQueue/${currentTrackId}`));
-    }
-
-    const remainingTracks = queue.filter((t) => t.id !== currentTrackId);
-
-    if (remainingTracks.length > 0) {
-      const nextTrack = remainingTracks[0];
+    if (queue.length > 0) {
+      const currentIdx = queue.findIndex((t) => t.id === currentTrackId);
+      const nextTrack = queue[(currentIdx + 1) % queue.length];
       await update(playerRef, {
         currentTrackId: nextTrack.id,
         isPlaying: true,
+        isMusicModeActive: true,
         playbackPosition: 0,
         lastSyncTimestamp: Date.now(),
       });
-      await sendRoomMessage(
-        roomId,
-        'system',
-        'System',
-        `[Now Playing] "${nextTrack.title}" by ${nextTrack.artist}`,
-      );
     } else {
       await update(playerRef, {
         currentTrackId: null,
@@ -198,16 +188,16 @@ export async function removeTrackFromQueue(
 }
 
 /**
- * Cancels and removes the currently playing song and clears the music player.
+ * Ends Music Mode on the room screen and stops playback,
+ * while keeping the entire song list (musicQueue) 100% preserved!
  */
 export async function cancelAndClearMusic(roomId: string): Promise<void> {
-  const queueRef = ref(database, `rooms/${roomId}/musicQueue`);
   const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
 
-  await remove(queueRef);
-  await set(playerRef, {
+  await update(playerRef, {
     currentTrackId: null,
     isPlaying: false,
+    isMusicModeActive: false,
     isRepeat: false,
     playbackPosition: 0,
     lastSyncTimestamp: Date.now(),
@@ -215,41 +205,71 @@ export async function cancelAndClearMusic(roomId: string): Promise<void> {
 }
 
 /**
- * Immediately changes the currently playing song to a new track (replaces current active song).
+ * Toggles whether the Music Mode bar is visible on the room screen (Admin only).
+ */
+export async function setMusicModeActive(
+  roomId: string,
+  isActive: boolean,
+): Promise<void> {
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  if (isActive) {
+    await update(playerRef, {
+      isMusicModeActive: true,
+      lastSyncTimestamp: Date.now(),
+    });
+  } else {
+    await update(playerRef, {
+      isMusicModeActive: false,
+      isPlaying: false,
+      currentTrackId: null,
+      playbackPosition: 0,
+      lastSyncTimestamp: Date.now(),
+    });
+  }
+}
+
+/**
+ * Immediately plays a song or adds a new song to the preserved room song list
+ * WITHOUT deleting any existing songs from the list.
  */
 export async function changeCurrentTrack(
   roomId: string,
   trackData: Omit<MusicTrack, 'id' | 'addedAt'>,
 ): Promise<void> {
   const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
-  const playerSnap = await get(playerRef);
-  const oldTrackId = playerSnap.val()?.currentTrackId;
-
-  // Remove the previous active track so changing song cleanly swaps it
-  if (oldTrackId) {
-    await remove(ref(database, `rooms/${roomId}/musicQueue/${oldTrackId}`));
-  }
-
   const queueRef = ref(database, `rooms/${roomId}/musicQueue`);
-  const newTrackRef = push(queueRef);
-  const trackId = newTrackRef.key || `track_${Date.now()}`;
+  const queueSnap = await get(queueRef);
+  const existingQueue = queueSnap.exists() ? normalizeMusicQueue(queueSnap.val()) : [];
 
-  const newTrack: MusicTrack = {
-    id: trackId,
-    title: trackData.title.trim(),
-    artist: trackData.artist.trim(),
-    duration: trackData.duration,
-    url: trackData.url.trim(),
-    addedBy: trackData.addedBy,
-    addedByName: trackData.addedByName,
-    addedAt: Date.now(),
-  };
+  const cleanUrl = trackData.url.trim();
+  const existingTrack = existingQueue.find((t) => t.url === cleanUrl);
 
-  await set(newTrackRef, newTrack);
+  let trackId: string;
+
+  if (existingTrack) {
+    trackId = existingTrack.id;
+  } else {
+    const newTrackRef = push(queueRef);
+    trackId = newTrackRef.key || `track_${Date.now()}`;
+
+    const newTrack: MusicTrack = {
+      id: trackId,
+      title: trackData.title.trim(),
+      artist: trackData.artist.trim(),
+      duration: trackData.duration,
+      url: cleanUrl,
+      addedBy: trackData.addedBy,
+      addedByName: trackData.addedByName,
+      addedAt: Date.now(),
+    };
+
+    await set(newTrackRef, newTrack);
+  }
 
   await update(playerRef, {
     currentTrackId: trackId,
     isPlaying: true,
+    isMusicModeActive: true,
     playbackPosition: 0,
     lastSyncTimestamp: Date.now(),
   });
@@ -324,6 +344,7 @@ export function subscribeToMusicState(
       onUpdate({
         currentTrackId: null,
         isPlaying: false,
+        isMusicModeActive: false,
         isRepeat: false,
         volume: 0.7,
         playbackPosition: 0,
@@ -338,8 +359,12 @@ export function subscribeToMusicState(
     const player = val.musicPlayer || {};
 
     onUpdate({
-      currentTrackId: player.currentTrackId ?? (queue[0]?.id || null),
+      currentTrackId: player.currentTrackId ?? null,
       isPlaying: Boolean(player.isPlaying),
+      isMusicModeActive:
+        typeof player.isMusicModeActive === 'boolean'
+          ? player.isMusicModeActive
+          : Boolean(player.isPlaying),
       isRepeat: Boolean(player.isRepeat),
       volume: typeof player.volume === 'number' ? Math.max(0, Math.min(1, player.volume)) : 0.7,
       playbackPosition: Number(player.playbackPosition) || 0,

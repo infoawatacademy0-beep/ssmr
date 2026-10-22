@@ -73,16 +73,31 @@ export default function MusicPlayerPanel({
     if (onClosePanel) onClosePanel();
   };
 
-  // User is seated on stage OR is Room Host / Admin
-  const canControlMusic = Boolean(
-    isHost || currentUser.isAdmin || seats.some((s) => s.userId === currentUser.uid),
-  );
+  // ONLY Room Admin / Host (or Global Admin) can add songs and control Music Mode
+  const canControlMusic = Boolean(isHost || currentUser.isAdmin);
 
   // Find currently active track
   const currentTrack =
-    musicState.queue.find((t) => t.id === musicState.currentTrackId) ||
-    musicState.queue[0] ||
-    null;
+    (musicState.currentTrackId
+      ? musicState.queue.find((t) => t.id === musicState.currentTrackId)
+      : null) || null;
+
+  // Combine saved custom room songs (musicState.queue) + ready sample songs without duplicates
+  const allSavedSongs = [
+    ...musicState.queue,
+    ...SAMPLE_MUSIC_TRACKS.filter(
+      (sample) => !musicState.queue.some((q) => q.url === sample.url),
+    ).map((sample, idx) => ({
+      id: `sample_${idx}`,
+      title: sample.title,
+      artist: sample.artist,
+      duration: sample.duration,
+      url: sample.url,
+      addedBy: 'system',
+      addedByName: 'System',
+      addedAt: 0,
+    })),
+  ];
 
   // Sync volume from Firebase room state when updated by host
   useEffect(() => {
@@ -313,49 +328,71 @@ export default function MusicPlayerPanel({
         className="hidden"
       />
 
-      {/* ── Always-Visible Clean Music Bar Inside the Room ── */}
-      <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-2xl border border-violet-500/30 bg-surface-800/90 px-3 py-2 shadow-lg backdrop-blur-xl">
-        {/* Spinning Disc + Song Title */}
-        <div
-          onClick={openModal}
-          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
-        >
-          <motion.div
-            animate={musicState.isPlaying ? { rotate: 360 } : { rotate: 0 }}
-            transition={
-              musicState.isPlaying
-                ? { duration: 4, repeat: Infinity, ease: 'linear' }
-                : { duration: 0.3 }
-            }
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-surface-900 to-violet-900 border border-violet-400"
+      {/* ── Room Screen Music Bar (Shown ONLY when Music Mode is active; Room Admin can end/remove it from screen) ── */}
+      {(musicState.isMusicModeActive || musicState.isPlaying) && (
+        <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-2xl border border-violet-500/30 bg-surface-800/90 px-3 py-2 shadow-lg backdrop-blur-xl">
+          {/* Spinning Disc + Song Title */}
+          <div
+            onClick={() => {
+              if (canControlMusic) openModal();
+            }}
+            className={`flex items-center gap-2.5 min-w-0 flex-1 ${
+              canControlMusic ? 'cursor-pointer' : ''
+            }`}
           >
-            <Disc3 className="h-4 w-4 text-violet-300" />
-          </motion.div>
+            <motion.div
+              animate={musicState.isPlaying ? { rotate: 360 } : { rotate: 0 }}
+              transition={
+                musicState.isPlaying
+                  ? { duration: 4, repeat: Infinity, ease: 'linear' }
+                  : { duration: 0.3 }
+              }
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-surface-900 to-violet-900 border border-violet-400"
+            >
+              <Disc3 className="h-4 w-4 text-violet-300" />
+            </motion.div>
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-bold text-white flex items-center gap-1.5">
-              {musicState.isRepeat && <span className="text-emerald-400 text-[10px]">🔁</span>}
-              <span className="truncate">
-                {currentTrack ? currentTrack.title : 'بەشی گۆرانی ژوور'}
-              </span>
-            </p>
-            <p className="truncate text-[10px] text-slate-400">
-              {currentTrack
-                ? `دەنگ: ${volumePercent}% · ${currentTrack.artist}`
-                : 'کرتە بکە بۆ زیادکردن و پێکردنی گۆرانی'}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-white flex items-center gap-1.5">
+                {musicState.isRepeat && <span className="text-emerald-400 text-[10px]">🔁</span>}
+                <span className="truncate">
+                  {currentTrack ? currentTrack.title : 'بەشی گۆرانی ژوور'}
+                </span>
+              </p>
+              <p className="truncate text-[10px] text-slate-400">
+                {currentTrack
+                  ? `دەنگ: ${volumePercent}% · ${currentTrack.artist}`
+                  : canControlMusic
+                    ? 'کرتە بکە بۆ هەڵبژاردن یان زیادکردنی گۆرانی'
+                    : 'مۆدی گۆرانی ژوور چالاکە'}
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Add Song / Control Music Button Always Visible in Room */}
-        <button
-          onClick={openModal}
-          className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 text-xs font-black text-white shadow-md transition-transform active:scale-95 shrink-0"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>{currentTrack ? 'گۆرانی / زیادکردن' : 'زیادکردنی گۆرانی'}</span>
-        </button>
-      </div>
+          {/* Admin-Only Controls: Open Song List / Add Song + End Music Mode on Screen */}
+          {canControlMusic && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={openModal}
+                className="flex h-8 items-center gap-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-2.5 text-xs font-black text-white shadow-md transition-transform active:scale-95"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>{currentTrack ? 'گۆرانی' : 'زیادکردنی گۆرانی'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancelAndRemoveMusic}
+                title="کۆتایی پێهێنان و لابردنی مۆدی گۆرانی لەسەر شاشەی ژوور"
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/40 bg-rose-500/20 text-rose-300 transition hover:bg-rose-500/30 active:scale-95"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────
          SINGLE UNIFIED MUSIC & ADD SONG MODAL
@@ -472,24 +509,36 @@ export default function MusicPlayerPanel({
                     <span>{musicState.isRepeat ? 'دووبارە: چالاکە' : 'دووبارەکردنەوە'}</span>
                   </button>
 
-                  {/* Cancel & Remove Song (لابردنی گۆرانی) */}
+                  {/* End Music Mode on Room Screen (کۆتایی پێهێنانی مۆدی گۆرانی) */}
                   <button
                     type="button"
                     onClick={handleCancelAndRemoveMusic}
                     className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-rose-500/40 bg-rose-500/15 py-2.5 text-xs font-black text-rose-300 hover:bg-rose-500/25 active:scale-95"
                   >
                     <Trash2 className="h-4 w-4" />
-                    <span>لابردن</span>
+                    <span>داخستنی مۆد</span>
                   </button>
                 </div>
               )}
 
-              {/* 3. ADD SONG SECTION (بەشی زیادکردنی گۆرانی) */}
+              {/* Quick End Music Mode button even if no song is currently playing */}
+              {canControlMusic && !currentTrack && musicState.isMusicModeActive && (
+                <button
+                  type="button"
+                  onClick={handleCancelAndRemoveMusic}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/40 bg-rose-500/15 py-2.5 text-xs font-black text-rose-300 hover:bg-rose-500/25 active:scale-95"
+                >
+                  <X className="h-4 w-4" />
+                  <span>لابردنی مۆدی گۆرانی لەسەر شاشەی ژوور</span>
+                </button>
+              )}
+
+              {/* 3. ADD SONG SECTION (بەشی زیادکردنی گۆرانی — تەنها بۆ ئەدمینی ژوور) */}
               {canControlMusic && (
                 <div className="space-y-3 rounded-2xl border border-violet-500/25 bg-surface-900/70 p-3">
                   <p className="text-xs font-black text-violet-300 flex items-center gap-1.5">
                     <Plus className="h-4 w-4" />
-                    <span>زیادکردنی گۆرانی نوێ</span>
+                    <span>زیادکردنی گۆرانی نوێ (تەنها ئەدمین)</span>
                   </p>
 
                   {/* Option A: Pick Audio File from Phone/Device */}
@@ -535,27 +584,39 @@ export default function MusicPlayerPanel({
                       className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
                     >
                       <Plus className="h-4 w-4" />
-                      <span>{isSubmitting ? 'خەریکە...' : 'زیادکردن و پێکردنی گۆرانی'}</span>
+                      <span>{isSubmitting ? 'خەریکە...' : 'زیادکردن بۆ لیستی گۆرانییەکان'}</span>
                     </button>
                   </form>
                 </div>
               )}
 
-              {/* 4. READY SONGS LIST (گۆرانییە ئامادەکان بۆ پێکردن و گۆڕین) */}
+              {/* 4. PRESERVED SONGS LIST (لیستی گۆرانییە پارێزراوەکان — هەر دەمێنێتەوە) */}
               {canControlMusic && (
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-slate-300">
-                    گۆرانییە ئامادەکان (کرتە بکە بۆ پێکردن یان گۆڕین):
-                  </p>
-                  <div className="max-h-40 space-y-1.5 overflow-y-auto pr-1">
-                    {SAMPLE_MUSIC_TRACKS.map((sample) => {
-                      const isCurrent = currentTrack?.url === sample.url;
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-300">
+                      لیستی گۆرانییە پارێزراوەکان ({allSavedSongs.length}):
+                    </p>
+                    <span className="text-[10px] text-emerald-400 font-semibold">
+                      پارێزراوە ✓
+                    </span>
+                  </div>
+                  <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
+                    {allSavedSongs.map((song) => {
+                      const isCurrent = Boolean(currentTrack && currentTrack.url === song.url);
                       return (
                         <button
-                          key={sample.title}
+                          key={song.id || song.url}
                           type="button"
                           disabled={isSubmitting}
-                          onClick={() => handleSelectSong(sample)}
+                          onClick={() =>
+                            handleSelectSong({
+                              title: song.title,
+                              artist: song.artist,
+                              duration: song.duration || 180,
+                              url: song.url,
+                            })
+                          }
                           className={`flex w-full items-center justify-between rounded-2xl border p-2.5 text-left text-xs transition-all ${
                             isCurrent
                               ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200'
@@ -563,8 +624,8 @@ export default function MusicPlayerPanel({
                           }`}
                         >
                           <div className="min-w-0 pr-2">
-                            <p className="font-bold truncate">{sample.title}</p>
-                            <p className="text-[10px] text-slate-400 truncate">{sample.artist}</p>
+                            <p className="font-bold truncate">{song.title}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{song.artist}</p>
                           </div>
                           <span
                             className={`shrink-0 rounded-xl px-2.5 py-1 text-[10px] font-black ${

@@ -12,6 +12,7 @@ export interface MusicTrack {
 export interface RoomMusicState {
   currentTrackId: string | null;
   isPlaying: boolean;
+  isMusicModeActive?: boolean; // Whether Music Mode banner is shown on the room screen
   isRepeat?: boolean; // loop/repeat current track
   volume?: number; // 0.0 to 1.0 (default 0.7)
   playbackPosition: number; // in seconds

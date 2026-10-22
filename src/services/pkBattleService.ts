@@ -35,6 +35,8 @@ export async function startPkBattle(
   };
 
   await set(battleRef, battleState);
+  // Reset per-seat PK points so only points received during this PK battle are shown
+  await set(ref(database, `rooms/${roomId}/seatGiftCoins`), null);
 
   await sendRoomMessage(
     roomId,
@@ -102,6 +104,7 @@ export async function endPkBattle(roomId: string): Promise<void> {
 export async function resetPkBattle(roomId: string): Promise<void> {
   const battleRef = ref(database, `rooms/${roomId}/pkBattle`);
   await set(battleRef, null);
+  await set(ref(database, `rooms/${roomId}/seatGiftCoins`), null);
 }
 
 /**
