@@ -53,6 +53,7 @@ import {
   sendRoomMessage,
   clearRoomChat,
   closeJackarooGame,
+  updateRoomPassword,
   setAdminForcedVoice,
   subscribeToJackarooGame,
   broadcastUserEntrance,
@@ -613,6 +614,24 @@ export default function VoiceRoom() {
               title="پێکردنی گۆرانی (Music Player)"
             >
               <Music className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          {/* Quick 1-Click Remove Password Button in Header (when room has password) */}
+          {(isHost || user.isAdmin) && room.isPrivate && room.password && (
+            <button
+              onClick={async () => {
+                try {
+                  await updateRoomPassword(room.id, null);
+                } catch (err: any) {
+                  alert(err.message || 'نەتوانرا پاسۆرد لاببرێت');
+                }
+              }}
+              className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-2 text-[10px] font-black text-rose-300 transition-colors hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300"
+              title="کرتە بکە بۆ لابردنی پاسۆردی ژوورەکە (Remove Room Password)"
+            >
+              <Lock className="h-3 w-3" />
+              <span className="hidden xs:inline">لابردنی پاسۆرد</span>
             </button>
           )}
 

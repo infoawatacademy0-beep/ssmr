@@ -24,6 +24,7 @@ import {
   sendRoomMessage,
   clearRoomChat,
   closeJackarooGame,
+  updateRoomPassword,
 } from '../services';
 
 interface HostControlsPanelProps {
@@ -45,6 +46,41 @@ export default function HostControlsPanel({
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [announcementSuccess, setAnnouncementSuccess] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState(room.password || '');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordSavedMsg, setPasswordSavedMsg] = useState<string | null>(null);
+
+  const handleRemovePassword = async () => {
+    setIsSavingPassword(true);
+    setActionError(null);
+    try {
+      await updateRoomPassword(room.id, null);
+      setPasswordInput('');
+      setPasswordSavedMsg('پاسۆرد لەسەر ژوورەکە لادرا!');
+      setTimeout(() => setPasswordSavedMsg(null), 2500);
+    } catch (err: any) {
+      setActionError(err.message || 'نەتوانرا پاسۆرد لاببرێت');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
+  const handleSaveNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingPassword(true);
+    setActionError(null);
+    try {
+      await updateRoomPassword(room.id, passwordInput.trim() || null);
+      setPasswordSavedMsg(
+        passwordInput.trim() ? 'پاسۆردی نوێ دانرا!' : 'پاسۆرد لەسەر ژوورەکە لادرا!',
+      );
+      setTimeout(() => setPasswordSavedMsg(null), 2500);
+    } catch (err: any) {
+      setActionError(err.message || 'نەتوانرا پاسۆرد بگۆڕدرێت');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
 
   const handleKick = async (seat: Seat) => {
     if (!seat.userId) return;
@@ -189,6 +225,62 @@ export default function HostControlsPanel({
               <Music className="h-4 w-4 text-violet-400" />
               <span>پێکردنی گۆرانی</span>
             </button>
+          </div>
+
+          {/* Room Password Management Card (Remove or Set Password) */}
+          <div className="rounded-2xl border border-amber-500/30 bg-slate-950/80 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {room.isPrivate && room.password ? (
+                  <Lock className="h-4 w-4 text-rose-400" />
+                ) : (
+                  <Unlock className="h-4 w-4 text-emerald-400" />
+                )}
+                <div>
+                  <h4 className="text-xs font-bold text-white">
+                    پاسۆردی ژوور (Room Password)
+                  </h4>
+                  <p className="text-[10px] text-slate-400">
+                    {room.isPrivate && room.password
+                      ? `ژوورەکە قفڵدراوە · پاسۆرد: ${room.password}`
+                      : 'ژوورەکە کراوەیە و بێ پاسۆردە'}
+                  </p>
+                </div>
+              </div>
+
+              {room.isPrivate && room.password && (
+                <button
+                  type="button"
+                  onClick={handleRemovePassword}
+                  disabled={isSavingPassword}
+                  className="flex items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-xs font-black text-emerald-300 transition hover:bg-emerald-500/30 active:scale-95 disabled:opacity-50"
+                >
+                  <Unlock className="h-3.5 w-3.5" />
+                  <span>لابردنی پاسۆرد</span>
+                </button>
+              )}
+            </div>
+
+            {passwordSavedMsg && (
+              <p className="text-[11px] font-bold text-emerald-400">{passwordSavedMsg}</p>
+            )}
+
+            <form onSubmit={handleSaveNewPassword} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="پاسۆردی نوێ بنووسە (بەتاڵی بهێڵەوە بۆ لابردن)..."
+                className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+              />
+              <button
+                type="submit"
+                disabled={isSavingPassword}
+                className="shrink-0 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-black text-black transition hover:bg-amber-400 active:scale-95 disabled:opacity-50"
+              >
+                {passwordInput.trim() ? 'دانانی پاسۆرد' : 'لابردن'}
+              </button>
+            </form>
           </div>
 
           <div className="flex items-center justify-between px-1">

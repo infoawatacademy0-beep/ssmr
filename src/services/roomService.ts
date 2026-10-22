@@ -582,3 +582,20 @@ export async function muteSeatByHost(
   await update(seatRef, { isMuted });
 }
 
+/**
+ * Host Control: Removes or updates the room password (`isPrivate` & `password`).
+ * Passing an empty string or null removes the password and makes the room public.
+ */
+export async function updateRoomPassword(
+  roomId: string,
+  newPassword: string | null,
+): Promise<void> {
+  if (!roomId) return;
+  const cleanPassword = (newPassword || '').trim();
+  const roomRef = ref(database, `rooms/${roomId}`);
+  await update(roomRef, {
+    isPrivate: Boolean(cleanPassword),
+    password: cleanPassword,
+  });
+}
+
