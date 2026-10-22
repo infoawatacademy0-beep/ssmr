@@ -12,24 +12,33 @@ import {
   Check,
   AlertTriangle,
   Crown,
+  Trash2,
+  Gamepad2,
+  Music,
 } from 'lucide-react';
-import type { Room, Seat, User } from '../types';
+import type { Room, Seat, User, JackarooGame } from '../types';
 import {
   kickUserFromSeat,
   toggleSeatLock,
   muteSeatByHost,
   sendRoomMessage,
+  clearRoomChat,
+  closeJackarooGame,
 } from '../services';
 
 interface HostControlsPanelProps {
   room: Room;
   currentUser: User;
+  activeJackarooGame?: JackarooGame | null;
+  onOpenMusicPlayer?: () => void;
   onClose: () => void;
 }
 
 export default function HostControlsPanel({
   room,
   currentUser,
+  activeJackarooGame,
+  onOpenMusicPlayer,
   onClose,
 }: HostControlsPanelProps) {
   const [announcementText, setAnnouncementText] = useState('');
@@ -136,6 +145,52 @@ export default function HostControlsPanel({
 
         {/* Seats List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          {/* Quick Host Room Actions: Clear Chat, Cancel Game, Play Music */}
+          <div className="grid grid-cols-3 gap-2 pb-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await clearRoomChat(room.id);
+                } catch (err: any) {
+                  setActionError(err.message || 'نەتوانرا چات بسڕدرێتەوە');
+                }
+              }}
+              className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-center text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 active:scale-95"
+            >
+              <Trash2 className="h-4 w-4 text-rose-400" />
+              <span>سڕینەوەی چات</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await closeJackarooGame(room.id);
+                } catch (err: any) {
+                  setActionError(err.message || 'نەتوانرا یاری هەڵبوەشێنرێتەوە');
+                }
+              }}
+              disabled={!activeJackarooGame}
+              className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-center text-[11px] font-bold text-amber-300 transition hover:bg-amber-500/20 active:scale-95 disabled:opacity-40"
+            >
+              <Gamepad2 className="h-4 w-4 text-amber-400" />
+              <span>داخستنی یاری</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onOpenMusicPlayer?.();
+                onClose();
+              }}
+              className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-violet-500/30 bg-violet-500/10 p-2.5 text-center text-[11px] font-bold text-violet-300 transition hover:bg-violet-500/20 active:scale-95"
+            >
+              <Music className="h-4 w-4 text-violet-400" />
+              <span>پێکردنی گۆرانی</span>
+            </button>
+          </div>
+
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
               Seat Moderation (8 Slots)

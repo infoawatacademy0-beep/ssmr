@@ -14,6 +14,7 @@ export {
   toggleSeatMute,
   setSeatVoiceEffect,
   sendRoomMessage,
+  clearRoomChat,
   broadcastUserEntrance,
   subscribeToRoomEntrance,
   subscribeToRoom,
@@ -190,6 +191,7 @@ export {
   toggleVerificationBadge,
   assignPremiumCosmetics,
   modifyUserCoins,
+  setAdminForcedVoice,
   checkUserBanStatus,
 } from './adminAssetsService';
 

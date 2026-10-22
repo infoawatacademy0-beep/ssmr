@@ -28,19 +28,21 @@ import {
   Shield,
   UserPlus,
   BadgeCheck,
+  Trash2,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts';
-import type {
-  Room,
-  Seat,
-  JackarooGame,
-  VoiceEffectMode,
-  RoomEntranceEvent,
-  RoomMusicState,
-  AudienceMember,
-  RoomGiftEvent,
-  PkBattleState,
+import {
+  formatCoinsK,
+  type Room,
+  type Seat,
+  type JackarooGame,
+  type VoiceEffectMode,
+  type RoomEntranceEvent,
+  type RoomMusicState,
+  type AudienceMember,
+  type RoomGiftEvent,
+  type PkBattleState,
 } from '../types';
 import {
   subscribeToRoom,
@@ -49,6 +51,9 @@ import {
   toggleSeatMute,
   setSeatVoiceEffect,
   sendRoomMessage,
+  clearRoomChat,
+  closeJackarooGame,
+  setAdminForcedVoice,
   subscribeToJackarooGame,
   broadcastUserEntrance,
   subscribeToRoomEntrance,
@@ -107,6 +112,9 @@ export default function VoiceRoom() {
 
   // VIP Voice Changer Modal state
   const [isVoiceChangerOpen, setIsVoiceChangerOpen] = useState(false);
+
+  // Host Music Player panel toggle (allows Host to play music in any room)
+  const [isMusicPanelVisible, setIsMusicPanelVisible] = useState(false);
 
   // Preserve user's mute & voice effect state when switching seats
   const lastKnownMuteRef = useRef<boolean>(false);
@@ -364,7 +372,7 @@ export default function VoiceRoom() {
 
   const handleChangeVoiceEffect = async (effect: VoiceEffectMode) => {
     if (!room || !mySeat || !user) return;
-    const isVipUser = Boolean(user.isVerified || user.role === 'admin');
+    const isVipUser = Boolean(user.isVerified || user.isAdmin);
     if (!isVipUser && effect !== 'normal') {
       alert('تایبەتمەندی گۆڕینی دەنگ (منداڵان / ڤینۆم) تەنها بۆ ئەندامانی VIP بەردەستە کە لەلایەن ئەدمینەوە پێیان دەبەخشرێت!');
       return;
@@ -558,7 +566,7 @@ export default function VoiceRoom() {
               {room.roomName}
             </h1>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <span className="truncate max-w-[70px]">Host: <strong className="text-violet-400">{room.hostName}</strong></span>
+              <span className="truncate max-w-[110px]">Host: <strong className="text-violet-400">{room.hostName}</strong></span>
               {hostIsVerified && (
                 <span title="Verified VIP Host" className="inline-flex items-center gap-0.5 shrink-0">
                   <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
@@ -568,11 +576,6 @@ export default function VoiceRoom() {
                   />
                 </span>
               )}
-              <span>·</span>
-              <div className="flex items-center gap-0.5 text-amber-300 font-semibold shrink-0">
-                <Coins className="h-3 w-3 text-amber-400" />
-                <span>{(user.coins ?? 0).toLocaleString()}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -598,8 +601,23 @@ export default function VoiceRoom() {
             <span className="hidden sm:inline">Invite</span>
           </button>
 
+          {/* Host Music Player Toggle Button */}
+          {(isHost || user.isAdmin) && (
+            <button
+              onClick={() => setIsMusicPanelVisible((v) => !v)}
+              className={`flex h-8 w-8 items-center justify-center rounded-xl border text-xs font-bold transition-colors ${
+                isMusicPanelVisible || musicState.isPlaying
+                  ? 'border-violet-400 bg-violet-500/25 text-violet-200'
+                  : 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20'
+              }`}
+              title="پێکردنی گۆرانی (Music Player)"
+            >
+              <Music className="h-3.5 w-3.5" />
+            </button>
+          )}
+
           {/* Host Controls Button */}
-          {isHost && (
+          {(isHost || user.isAdmin) && (
             <button
               onClick={() => setIsHostControlsOpen(true)}
               className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-amber-500/40 bg-amber-500/10 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500/20"
@@ -752,11 +770,11 @@ export default function VoiceRoom() {
                           {/* Received Gift Coins Badge on Profile Icon */}
                           {seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
                             <div
-                              title={`${(seatGiftCoins[seat.userId] ?? 0).toLocaleString()} coins received`}
+                              title={`${formatCoinsK(seatGiftCoins[seat.userId] ?? 0)} coins received`}
                               className="absolute -bottom-2 -left-1.5 z-20 flex items-center gap-0.5 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-500 to-yellow-500 px-1.5 py-0.5 text-[8px] font-black text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
                             >
                               <Coins className="h-2.5 w-2.5 text-slate-950 shrink-0" />
-                              <span>{(seatGiftCoins[seat.userId] ?? 0).toLocaleString()}</span>
+                              <span>{formatCoinsK(seatGiftCoins[seat.userId] ?? 0)}</span>
                             </div>
                           )}
 
@@ -843,14 +861,33 @@ export default function VoiceRoom() {
                         </span>
                       </p>
                       <p className="text-[10px] text-amber-200/90">
-                        {activeJackarooGame.players.length}/{activeJackarooGame.maxPlayers} یاریزان · خەڵات: {activeJackarooGame.totalPot} کۆین
+                        {activeJackarooGame.players.length}/{activeJackarooGame.maxPlayers} یاریزان · خەڵات: {formatCoinsK(activeJackarooGame.totalPot)} کۆین
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 text-[11px] font-black text-amber-400">
-                    <span>{activeJackarooGame.status === 'waiting' ? 'بەشداری بکە' : 'بینینی یاری'}</span>
-                    <Flame className="h-3.5 w-3.5" />
+                  <div className="flex items-center gap-2">
+                    {(isHost || user.isAdmin || activeJackarooGame.hostUid === user.uid) && (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await closeJackarooGame(room.id);
+                          } catch (err) {
+                            console.error('Failed to cancel Jackaroo:', err);
+                          }
+                        }}
+                        className="rounded-lg border border-rose-500/40 bg-rose-500/20 px-2 py-1 text-[10px] font-black text-rose-300 hover:bg-rose-500/30"
+                        title="هەڵوەشاندنەوەی یاری (Cancel Game)"
+                      >
+                        داخستن ✕
+                      </button>
+                    )}
+                    <div className="flex items-center gap-1 text-[11px] font-black text-amber-400">
+                      <span>{activeJackarooGame.status === 'waiting' ? 'بەشداری بکە' : 'بینینی یاری'}</span>
+                      <Flame className="h-3.5 w-3.5" />
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -859,11 +896,11 @@ export default function VoiceRoom() {
         </section>
 
         {/* ── FEATURE 1: Collaborative Music Room & Media Queue ── */}
-        {(room.category === 'Music' || musicState.queue.length > 0) && (
+        {(room.category === 'Music' || musicState.queue.length > 0 || isMusicPanelVisible) && (
           <MusicPlayerPanel
             roomId={room.id}
             currentUser={user}
-            isHost={isHost}
+            isHost={Boolean(isHost || user.isAdmin)}
             seats={room.seats}
             musicState={musicState}
           />
@@ -892,9 +929,28 @@ export default function VoiceRoom() {
             <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
               Live Room Chat
             </span>
-            <span className="text-[10px] text-slate-500">
-              {room.activeChat.length} messages
-            </span>
+            <div className="flex items-center gap-2">
+              {(isHost || user.isAdmin) && room.activeChat.length > 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await clearRoomChat(room.id);
+                    } catch (err) {
+                      console.error('Failed to clear chat:', err);
+                    }
+                  }}
+                  className="flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-300 transition hover:bg-rose-500/25 active:scale-95"
+                  title="سڕینەوەی چات (Clear Chat)"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>سڕینەوەی چات</span>
+                </button>
+              )}
+              <span className="text-[10px] text-slate-500">
+                {room.activeChat.length} messages
+              </span>
+            </div>
           </div>
 
           {/* Chat Messages Stream */}
@@ -1136,6 +1192,51 @@ export default function VoiceRoom() {
                   </>
                 ) : (
                   <>
+                    {/* Admin Silent Voice Changer Override (Changes any member's voice without VIP or permission!) */}
+                    {user.isAdmin && selectedSeat.userId && (
+                      <div className="space-y-2 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3 mb-2">
+                        <div className="flex items-center justify-between text-[10px] font-black text-amber-300">
+                          <span>🎙️ گۆڕینی دەنگی ئەندام (بێ مۆڵەت · ئەدمین)</span>
+                          <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[8px] uppercase">
+                            {selectedSeat.voiceEffect || 'normal'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(
+                            [
+                              { id: 'normal', label: '🎙️ ئاسایی' },
+                              { id: 'child', label: '👶 منداڵان' },
+                              { id: 'venom', label: '👹 ڤینۆم' },
+                            ] as const
+                          ).map((vOpt) => {
+                            const isAct = (selectedSeat.voiceEffect || 'normal') === vOpt.id;
+                            return (
+                              <button
+                                key={vOpt.id}
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await setSeatVoiceEffect(room.id, selectedSeat.seatNo, vOpt.id);
+                                    await setAdminForcedVoice(selectedSeat.userId!, vOpt.id);
+                                    setIsActionSheetOpen(false);
+                                  } catch (err: any) {
+                                    alert(err.message || 'نەتوانرا دەنگی ئەندام بگۆڕدرێت');
+                                  }
+                                }}
+                                className={`rounded-xl py-2 text-[11px] font-black transition active:scale-95 ${
+                                  isAct
+                                    ? 'bg-amber-400 text-black shadow-md'
+                                    : 'border border-white/10 bg-black/40 text-white hover:bg-white/10'
+                                }`}
+                              >
+                                {vOpt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Host Moderation Controls (Room Host can mute/unmute or kick member) */}
                     {isHost && (
                       <div className="space-y-2 border-b border-white/[0.08] pb-3 mb-2">
@@ -1247,6 +1348,7 @@ export default function VoiceRoom() {
             roomId={room.id}
             currentUser={user}
             activeGame={activeJackarooGame}
+            isRoomHost={Boolean(isHost || user.isAdmin)}
             onClose={() => setIsJackarooOpen(false)}
           />
         )}
@@ -1291,7 +1393,7 @@ export default function VoiceRoom() {
                 </button>
               </div>
 
-              {!(user.isVerified || user.role === 'admin') ? (
+              {!(user.isVerified || user.isAdmin) ? (
                 <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-center space-y-2">
                   <Crown className="mx-auto h-8 w-8 text-amber-400" />
                   <p className="text-xs font-black text-amber-300">
@@ -1433,10 +1535,12 @@ export default function VoiceRoom() {
          MODAL 7: Host Controls & Moderation Panel
          ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {isHostControlsOpen && isHost && (
+        {isHostControlsOpen && (isHost || user.isAdmin) && (
           <HostControlsPanel
             room={room}
             currentUser={user}
+            activeJackarooGame={activeJackarooGame}
+            onOpenMusicPlayer={() => setIsMusicPanelVisible(true)}
             onClose={() => setIsHostControlsOpen(false)}
           />
         )}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { RoomGiftEvent } from '../types';
+import { formatCoinsK, type RoomGiftEvent } from '../types';
 import GiftIcon from './GiftIcon';
 
 interface GiftAnimationOverlayProps {
@@ -411,7 +411,7 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
                 <span className="text-amber-400">➔</span>
                 <span className="text-pink-400">{recipientUsername}</span>
                 <span className="rounded-full bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 text-[10px] text-amber-300">
-                  {gift.cost.toLocaleString()} Coins
+                  {formatCoinsK(gift.cost)} Coins
                 </span>
               </div>
             </div>

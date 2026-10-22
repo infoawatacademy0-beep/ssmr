@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import {
   JACKAROO_COLOR_META,
+  formatCoinsK,
   type JackarooGame,
   type JackarooCard,
   type User,
@@ -34,6 +35,7 @@ interface JackarooGamePanelProps {
   roomId: string;
   currentUser: User;
   activeGame: JackarooGame | null;
+  isRoomHost?: boolean;
   onClose: () => void;
 }
 
@@ -54,6 +56,7 @@ export default function JackarooGamePanel({
   roomId,
   currentUser,
   activeGame,
+  isRoomHost = false,
   onClose,
 }: JackarooGamePanelProps) {
   const [selectedMaxPlayers, setSelectedMaxPlayers] = useState<2 | 3 | 4>(4);
@@ -71,6 +74,11 @@ export default function JackarooGamePanel({
   const myPlayer = myPlayerIndex >= 0 ? activeGame?.players[myPlayerIndex] : null;
   const isMyTurn =
     activeGame?.status === 'playing' && activeGame.currentTurnIndex === myPlayerIndex;
+  const canManageGame = Boolean(
+    isRoomHost ||
+      currentUser.isAdmin ||
+      (activeGame && activeGame.hostUid === currentUser.uid),
+  );
 
   // Auto-select first card in hand when it becomes my turn
   useEffect(() => {
@@ -312,6 +320,16 @@ export default function JackarooGamePanel({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {activeGame && canManageGame && (
+              <button
+                onClick={handleCloseTable}
+                disabled={busy}
+                className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-2.5 text-[10px] font-black text-rose-300 hover:bg-rose-500/25 active:scale-95"
+                title="هەڵوەشاندنەوەی یاری (Cancel Game)"
+              >
+                <span>داخستنی یاری</span>
+              </button>
+            )}
             <button
               onClick={() => setShowRules((v) => !v)}
               className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-amber-300 hover:bg-white/10"
@@ -527,7 +545,7 @@ export default function JackarooGamePanel({
                     </button>
                   )}
 
-                {activeGame.hostUid === currentUser.uid && (
+                {canManageGame && (
                   <button
                     onClick={handleCloseTable}
                     disabled={busy}

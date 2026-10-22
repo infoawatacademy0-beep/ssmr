@@ -1,13 +1,16 @@
 import type { VoiceEffectMode } from '../types';
 
 /* ─────────────────────────────────────────────────────────────
-   VIP Real-Time Web Audio Voice Changer Engine
-   Provides zero-dependency, sample-accurate Hann-windowed
-   pitch shifting and vocal formant synthesis for:
-   • 'normal' — Clean studio pass-through
-   • 'child'  — High-pitched cheerful kid voice (+6.8 semitones + formant shift)
-   • 'venom'  — Dual-layered deep symbiote monster voice (-6.5 & -11 semitones,
-                guttural growl modulation, sub-bass boost & dark symbiote slapback)
+   VIP & Studio Real-Time Web Audio Voice Processor
+   1. Studio Vocal Noise-Reduction & Clarity Pre-Chain (All Modes):
+      • 90 Hz High-Pass filter removes room rumble, wind & mic thumps
+      • 11.5 kHz Low-Pass filter removes high-frequency static hiss
+      • 2.8 kHz Vocal Presence boost ensures crystal-clear speech
+      • Broadcast DynamicsCompressor prevents clipping & loud clatter
+   2. Voice Modes:
+      • 'normal' — Studio Noise-Free HD Voice
+      • 'child'  — High-pitched cheerful kid voice (+6.8 semitones)
+      • 'venom'  — Deep symbiote monster voice (-6.5 & -11 semitones)
    ───────────────────────────────────────────────────────────── */
 
 export class VoiceChangerProcessor {
@@ -20,27 +23,26 @@ export class VoiceChangerProcessor {
   private currentMode: VoiceEffectMode = 'normal';
   private rawTrack: MediaStreamTrack | null = null;
 
-  /**
-   * Initializes the Web Audio processing pipeline for a given microphone MediaStreamTrack
-   * and returns the processed output MediaStreamTrack.
-   */
   public start(inputTrack: MediaStreamTrack, initialMode: VoiceEffectMode = 'normal'): MediaStreamTrack {
     if (this.rawTrack === inputTrack && this.ctx && this.destinationNode) {
-      this.setMode(initialMode);
+      if (this.currentMode !== initialMode) {
+        this.setMode(initialMode);
+      }
       return this.destinationNode.stream.getAudioTracks()[0] || inputTrack;
     }
 
     this.stop();
     this.rawTrack = inputTrack;
 
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    this.ctx = new AudioCtx();
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    this.ctx = new AudioCtx({ latencyHint: 'interactive' });
 
     const inputStream = new MediaStream([inputTrack]);
     this.sourceNode = this.ctx.createMediaStreamSource(inputStream);
     this.destinationNode = this.ctx.createMediaStreamDestination();
 
-    // Optional self-monitoring node (muted by default so user doesn't get feedback unless testing)
     this.monitorGainNode = this.ctx.createGain();
     this.monitorGainNode.gain.value = 0;
     this.monitorGainNode.connect(this.ctx.destination);
@@ -54,9 +56,6 @@ export class VoiceChangerProcessor {
     return this.destinationNode.stream.getAudioTracks()[0] || inputTrack;
   }
 
-  /**
-   * Toggle local self-monitoring so the VIP user can test their own Child / Venom voice.
-   */
   public setSelfMonitor(enabled: boolean): void {
     if (this.monitorGainNode && this.ctx) {
       if (this.ctx.state === 'suspended') {
@@ -67,8 +66,52 @@ export class VoiceChangerProcessor {
   }
 
   /**
-   * Switches the active real-time voice effect without interrupting the output MediaStreamTrack.
+   * Builds the studio noise-suppression & anti-clatter vocal conditioner.
    */
+  private buildStudioCleanChain(ctx: AudioContext, rawInput: AudioNode): AudioNode {
+    // 1. Cut low-end rumble, mic bumps, and wind noise (< 95 Hz)
+    const rumbleFilter = ctx.createBiquadFilter();
+    rumbleFilter.type = 'highpass';
+    rumbleFilter.frequency.value = 95;
+    rumbleFilter.Q.value = 0.707;
+
+    // 2. Cut 50/60Hz electrical hum
+    const humNotch = ctx.createBiquadFilter();
+    humNotch.type = 'notch';
+    humNotch.frequency.value = 55;
+    humNotch.Q.value = 4.0;
+
+    // 3. Cut harsh ultrasonic static & background hiss (> 11,500 Hz)
+    const deHissFilter = ctx.createBiquadFilter();
+    deHissFilter.type = 'lowpass';
+    deHissFilter.frequency.value = 11500;
+    deHissFilter.Q.value = 0.707;
+
+    // 4. Boost vocal clarity band (2.8 kHz)
+    const clarityBoost = ctx.createBiquadFilter();
+    clarityBoost.type = 'peaking';
+    clarityBoost.frequency.value = 2800;
+    clarityBoost.Q.value = 1.1;
+    clarityBoost.gain.value = 2.5;
+
+    // 5. Broadcast Dynamics Compressor to eliminate sudden loud clatter/peaks
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -24;
+    compressor.knee.value = 18;
+    compressor.ratio.value = 4.5;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.16;
+
+    rawInput.connect(rumbleFilter);
+    rumbleFilter.connect(humNotch);
+    humNotch.connect(deHissFilter);
+    deHissFilter.connect(clarityBoost);
+    clarityBoost.connect(compressor);
+
+    this.activeNodes.push(rumbleFilter, humNotch, deHissFilter, clarityBoost, compressor);
+    return compressor;
+  }
+
   public setMode(mode: VoiceEffectMode): void {
     this.currentMode = mode;
     if (!this.ctx || !this.sourceNode || !this.destinationNode || !this.monitorGainNode) {
@@ -79,27 +122,26 @@ export class VoiceChangerProcessor {
       this.ctx.resume().catch(() => {});
     }
 
-    // Disconnect and clean up previous effect graph
     this.cleanupGraph();
 
     const ctx = this.ctx;
-    const input = this.sourceNode;
+    const cleanInput = this.buildStudioCleanChain(ctx, this.sourceNode);
     const output = this.destinationNode;
     const monitor = this.monitorGainNode;
 
+    // Final limiter / output gain
     const masterOut = ctx.createGain();
-    masterOut.gain.value = 1.0;
+    masterOut.gain.value = 1.05;
     masterOut.connect(output);
     masterOut.connect(monitor);
     this.activeNodes.push(masterOut);
 
     if (mode === 'normal') {
-      input.connect(masterOut);
+      cleanInput.connect(masterOut);
       return;
     }
 
     if (mode === 'child') {
-      // ── CHILD / BABY VOICE (+6.8 semitones pitch shift + bright vocal formants) ──
       const highpass = ctx.createBiquadFilter();
       highpass.type = 'highpass';
       highpass.frequency.value = 210;
@@ -113,16 +155,16 @@ export class VoiceChangerProcessor {
       const presenceShelf = ctx.createBiquadFilter();
       presenceShelf.type = 'highshelf';
       presenceShelf.frequency.value = 3400;
-      presenceShelf.gain.value = 3.5;
+      presenceShelf.gain.value = 3.0;
 
-      const pitchOut = this.createPitchShifterNode(ctx, input, 1.48, 0.055);
+      const pitchOut = this.createPitchShifterNode(ctx, cleanInput, 1.48, 0.055);
 
       pitchOut.connect(highpass);
       highpass.connect(formantBoost);
       formantBoost.connect(presenceShelf);
 
       const childGain = ctx.createGain();
-      childGain.gain.value = 1.35;
+      childGain.gain.value = 1.3;
       presenceShelf.connect(childGain);
       childGain.connect(masterOut);
 
@@ -131,22 +173,18 @@ export class VoiceChangerProcessor {
     }
 
     if (mode === 'venom') {
-      // ── VENOM SYMBIOTE MONSTER VOICE ──
-      // Dual-layered deep pitch shift (-6.5 semitones main + -10.5 semitones sub-growl)
-      // + guttural ring modulation + symbiote distortion + dark cave resonance
-      const mainDeepPitch = this.createPitchShifterNode(ctx, input, 0.68, 0.065);
-      const subMonsterPitch = this.createPitchShifterNode(ctx, input, 0.54, 0.075);
+      const mainDeepPitch = this.createPitchShifterNode(ctx, cleanInput, 0.68, 0.065);
+      const subMonsterPitch = this.createPitchShifterNode(ctx, cleanInput, 0.54, 0.075);
 
-      // Guttural growl ring modulator (34 Hz) on a parallel texture branch
       const growlOsc = ctx.createOscillator();
       growlOsc.type = 'sine';
       growlOsc.frequency.value = 34;
 
       const growlModGain = ctx.createGain();
-      growlModGain.gain.value = 0.35;
+      growlModGain.gain.value = 0.32;
 
       const ringModNode = ctx.createGain();
-      ringModNode.gain.value = 0.65;
+      ringModNode.gain.value = 0.68;
       growlOsc.connect(growlModGain);
       growlModGain.connect(ringModNode.gain);
       growlOsc.start();
@@ -154,49 +192,43 @@ export class VoiceChangerProcessor {
 
       mainDeepPitch.connect(ringModNode);
 
-      // Mix main deep layer + sub-octave monster layer
       const preDistortionMix = ctx.createGain();
       preDistortionMix.gain.value = 1.0;
 
       const subGain = ctx.createGain();
-      subGain.gain.value = 0.65;
+      subGain.gain.value = 0.6;
       subMonsterPitch.connect(subGain);
 
       ringModNode.connect(preDistortionMix);
       subGain.connect(preDistortionMix);
 
-      // Subtle symbiote saturation (WaveShaper)
       const shaper = ctx.createWaveShaper();
-      shaper.curve = this.makeDistortionCurve(18);
+      shaper.curve = this.makeDistortionCurve(15);
       shaper.oversample = '2x';
 
-      // Chest / Sub-bass resonance boost (110 Hz)
       const bassBoost = ctx.createBiquadFilter();
       bassBoost.type = 'lowshelf';
       bassBoost.frequency.value = 150;
-      bassBoost.gain.value = 7.5;
+      bassBoost.gain.value = 7.0;
 
-      // Darken harsh highs while keeping consonant articulation
       const lowpass = ctx.createBiquadFilter();
       lowpass.type = 'lowpass';
-      lowpass.frequency.value = 3200;
-      lowpass.Q.value = 0.9;
+      lowpass.frequency.value = 3400;
+      lowpass.Q.value = 0.85;
 
-      // Symbiote dark chamber slapback echo (42 ms)
       const slapDelay = ctx.createDelay(0.2);
-      slapDelay.delayTime.value = 0.042;
+      slapDelay.delayTime.value = 0.04;
       const slapFeedback = ctx.createGain();
-      slapFeedback.gain.value = 0.26;
+      slapFeedback.gain.value = 0.24;
       const slapWet = ctx.createGain();
-      slapWet.gain.value = 0.32;
+      slapWet.gain.value = 0.28;
 
       preDistortionMix.connect(shaper);
       shaper.connect(bassBoost);
       bassBoost.connect(lowpass);
 
-      // Dry + Chamber Wet to master
       const venomMaster = ctx.createGain();
-      venomMaster.gain.value = 1.45;
+      venomMaster.gain.value = 1.4;
 
       lowpass.connect(venomMaster);
       lowpass.connect(slapDelay);
@@ -223,10 +255,6 @@ export class VoiceChangerProcessor {
     }
   }
 
-  /**
-   * Builds a click-free dual-grain Hann-windowed pitch shifter using looping AudioBuffers
-   * so the two grains remain 100% phase-locked indefinitely.
-   */
   private createPitchShifterNode(
     ctx: AudioContext,
     input: AudioNode,
@@ -236,9 +264,6 @@ export class VoiceChangerProcessor {
     const sampleRate = ctx.sampleRate;
     const grainSamples = Math.floor(grainDurationSec * sampleRate);
 
-    // 4-channel control buffer:
-    // ch0: delayA curve, ch1: delayB curve (offset by 50%)
-    // ch2: gainA Hann window, ch3: gainB Hann window (offset by 50%)
     const controlBuffer = ctx.createBuffer(4, grainSamples, sampleRate);
     const delayAData = controlBuffer.getChannelData(0);
     const delayBData = controlBuffer.getChannelData(1);
@@ -253,7 +278,6 @@ export class VoiceChangerProcessor {
       const phaseA = i / grainSamples;
       const phaseB = (phaseA + 0.5) % 1.0;
 
-      // Pitch up (ratio > 1): delay ramps DOWN; Pitch down (ratio < 1): delay ramps UP
       if (pitchRatio >= 1) {
         delayAData[i] = minDelaySec + (1 - phaseA) * maxSweepSec;
         delayBData[i] = minDelaySec + (1 - phaseB) * maxSweepSec;
@@ -262,7 +286,6 @@ export class VoiceChangerProcessor {
         delayBData[i] = minDelaySec + phaseB * maxSweepSec;
       }
 
-      // Smooth sin^2 Hann window envelope (gainA + gainB === 1.0 everywhere)
       const winA = Math.sin(Math.PI * phaseA);
       const winB = Math.sin(Math.PI * phaseB);
       gainAData[i] = winA * winA;
@@ -286,13 +309,11 @@ export class VoiceChangerProcessor {
     grainGainA.gain.value = 0;
     grainGainB.gain.value = 0;
 
-    // Connect control signals to AudioParams
     splitter.connect(delayA.delayTime, 0);
     splitter.connect(delayB.delayTime, 1);
     splitter.connect(grainGainA.gain, 2);
     splitter.connect(grainGainB.gain, 3);
 
-    // Connect audio signal through both grains
     const outputMix = ctx.createGain();
     outputMix.gain.value = 1.0;
 

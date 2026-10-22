@@ -332,6 +332,15 @@ export async function sendRoomMessage(
 }
 
 /**
+ * Clears all chat messages in the room (Host / Admin action).
+ */
+export async function clearRoomChat(roomId: string): Promise<void> {
+  if (!roomId) return;
+  const chatRef = ref(database, `rooms/${roomId}/activeChat`);
+  await set(chatRef, null);
+}
+
+/**
  * Broadcasts a live user entrance event into `/rooms/{roomId}/latestEntrance`.
  */
 export async function broadcastUserEntrance(

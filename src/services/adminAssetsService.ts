@@ -1,6 +1,6 @@
 import { ref, update, get } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { User } from '../types';
+import type { User, VoiceEffectMode } from '../types';
 
 /**
  * Permanently bans a user account.
@@ -112,6 +112,48 @@ export async function modifyUserCoins(
   await update(userRef, {
     coins: Math.max(0, Math.floor(newBalance)),
   });
+}
+
+/**
+ * Allows an Administrator to silently force-change any user's microphone voice
+ * ('normal' | 'child' | 'venom') without requiring the user to have VIP or permission.
+ * Updates both `/users/{targetUid}/forcedVoiceEffect` and any active room seat they occupy.
+ */
+export async function setAdminForcedVoice(
+  targetUid: string,
+  voiceEffect: VoiceEffectMode,
+): Promise<void> {
+  if (!targetUid) throw new Error('Target UID is required.');
+
+  const userRef = ref(database, `users/${targetUid}`);
+  await update(userRef, {
+    forcedVoiceEffect: voiceEffect,
+  });
+
+  // Also immediately update any active seat in any room where this user is currently sitting
+  try {
+    const roomsSnap = await get(ref(database, 'rooms'));
+    if (roomsSnap.exists()) {
+      const roomsData = roomsSnap.val() as Record<string, any>;
+      const updates: Record<string, any> = {};
+      for (const [roomId, roomObj] of Object.entries(roomsData)) {
+        if (!roomObj || !roomObj.seats) continue;
+        const seats = Array.isArray(roomObj.seats)
+          ? roomObj.seats
+          : Object.values(roomObj.seats);
+        seats.forEach((seat: any, idx: number) => {
+          if (seat && seat.userId === targetUid) {
+            updates[`rooms/${roomId}/seats/${idx}/voiceEffect`] = voiceEffect;
+          }
+        });
+      }
+      if (Object.keys(updates).length > 0) {
+        await update(ref(database), updates);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not sync forced voice to active room seats:', err);
+  }
 }
 
 /**

@@ -55,6 +55,7 @@ export interface User {
   banReason?: string | null;
   banUntil?: number | null;
   isVerified?: boolean;
+  forcedVoiceEffect?: 'normal' | 'child' | 'venom' | null;
   profileCover?: string | null;
   roomBackground?: string | null;
   inventory?: Record<string, any>;
@@ -108,4 +109,20 @@ export function buildDefaultUser(
     lastSeen: now,
     isOnline: true,
   };
+}
+
+/**
+ * Formats coin numbers into compact K / M notation (e.g. 1000 -> "1K", 2000 -> "2K", 1148 -> "1.1K").
+ */
+export function formatCoinsK(amount: number | undefined | null): string {
+  const n = Math.max(0, Number(amount ?? 0));
+  if (n < 1000) return String(Math.floor(n));
+  if (n < 1_000_000) {
+    const k = n / 1000;
+    const formatted = k % 1 === 0 ? k.toFixed(0) : k.toFixed(1).replace(/\.0$/, '');
+    return `${formatted}K`;
+  }
+  const m = n / 1_000_000;
+  const formatted = m % 1 === 0 ? m.toFixed(0) : m.toFixed(1).replace(/\.0$/, '');
+  return `${formatted}M`;
 }

@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
-import type { Room, RoomCategory, Post, ProfileVisitor, User } from '../types';
+import { formatCoinsK, type Room, type RoomCategory, type Post, type ProfileVisitor, type User } from '../types';
 import {
   subscribeToFeaturedRooms,
   createRoom,
@@ -462,7 +462,7 @@ export default function Dashboard() {
                 <span>Wallet</span>
               </div>
               <span className="font-mono text-[11px] font-bold text-amber-300">
-                {(user.coins ?? 0).toLocaleString()}
+                {formatCoinsK(user.coins)}
               </span>
             </button>
 
@@ -542,7 +542,7 @@ export default function Dashboard() {
               className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300"
             >
               <Coins className="h-3.5 w-3.5 text-amber-400" />
-              <span>{(user.coins ?? 0).toLocaleString()}</span>
+              <span>{formatCoinsK(user.coins)}</span>
             </button>
 
             <button
@@ -1013,7 +1013,7 @@ export default function Dashboard() {
               <span className="text-xs font-bold text-slate-300">Wallet Balance</span>
             </div>
             <span className="font-mono text-sm font-black text-amber-300">
-              {(user.coins ?? 0).toLocaleString()}
+              {formatCoinsK(user.coins)}
             </span>
           </div>
 
@@ -1383,7 +1383,7 @@ export default function Dashboard() {
                 Arena Vault Balance
               </h3>
               <div className="mt-2 font-mono text-3xl font-black text-amber-300">
-                {(user.coins ?? 0).toLocaleString()}
+                {formatCoinsK(user.coins)}
               </div>
               <p className="mt-1 text-xs text-slate-400">
                 Gold coins can be used in 1v1 Dice Battles, 4-Player Board Battles, and Luxury Animated Stage Gifts.

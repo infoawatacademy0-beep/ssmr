@@ -699,14 +699,15 @@ export async function burnJackarooCard(
 }
 
 /**
- * Cancels / closes the Jackaroo table and refunds players if still waiting.
+ * Cancels / closes the Jackaroo table (by Room Host or Table Host)
+ * and refunds players if the match has not completed yet.
  */
 export async function closeJackarooGame(roomId: string): Promise<void> {
   const gameRef = ref(database, `rooms/${roomId}/jackarooGame`);
   const snap = await get(gameRef);
   const game = normalizeJackarooGame(snap.val());
 
-  if (game && game.status === 'waiting' && game.betAmount > 0) {
+  if (game && game.status !== 'completed' && game.betAmount > 0) {
     for (const p of game.players) {
       await creditCoins(p.uid, game.betAmount);
     }

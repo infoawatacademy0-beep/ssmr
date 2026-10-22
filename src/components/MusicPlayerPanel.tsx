@@ -49,8 +49,10 @@ export default function MusicPlayerPanel({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // User is seated on stage check
-  const isUserSeated = seats.some((s) => s.userId === currentUser.uid);
+  // User is seated on stage OR is Room Host / Admin
+  const canControlMusic = Boolean(
+    isHost || currentUser.isAdmin || seats.some((s) => s.userId === currentUser.uid),
+  );
 
   // Find currently active track
   const currentTrack = musicState.queue.find((t) => t.id === musicState.currentTrackId) || musicState.queue[0] || null;
@@ -220,6 +222,32 @@ export default function MusicPlayerPanel({
               </>
             )}
 
+            {/* Quick Play Preset if Queue is Empty (Host) */}
+            {isHost && !currentTrack && (
+              <button
+                onClick={async () => {
+                  const firstSample = SAMPLE_MUSIC_TRACKS[0];
+                  if (firstSample) {
+                    await addTrackToQueue(roomId, {
+                      title: firstSample.title,
+                      artist: firstSample.artist,
+                      duration: firstSample.duration || 180,
+                      url: firstSample.url,
+                      addedBy: currentUser.uid,
+                      addedByName: currentUser.username,
+                    });
+                  } else {
+                    setIsAddModalOpen(true);
+                  }
+                }}
+                className="flex h-8 items-center gap-1 rounded-xl bg-emerald-500 px-2.5 text-xs font-black text-black shadow-md transition-transform active:scale-95"
+                title="پێکردنی گۆرانی (Play Music)"
+              >
+                <Play className="h-3.5 w-3.5 fill-black" />
+                <span>Play</span>
+              </button>
+            )}
+
             {/* View Queue Drawer */}
             <button
               onClick={() => setIsQueueOpen(true)}
@@ -234,14 +262,14 @@ export default function MusicPlayerPanel({
               )}
             </button>
 
-            {/* Add Track Button (if seated on mic) */}
-            {isUserSeated && (
+            {/* Add Track Button (Host or seated speaker) */}
+            {canControlMusic && (
               <button
                 onClick={() => setIsAddModalOpen(true)}
                 className="flex h-8 items-center gap-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-2.5 text-xs font-bold text-white shadow transition-transform active:scale-95"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Add</span>
+                <span className="hidden sm:inline">گۆرانی</span>
               </button>
             )}
           </div>
@@ -330,7 +358,7 @@ export default function MusicPlayerPanel({
               </div>
 
               {/* Add Track CTA */}
-              {isUserSeated && (
+              {canControlMusic && (
                 <button
                   onClick={() => {
                     setIsQueueOpen(false);
@@ -339,7 +367,7 @@ export default function MusicPlayerPanel({
                   className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3 text-xs font-bold text-white shadow-md active:scale-95"
                 >
                   <Plus className="h-4 w-4" />
-                  <span>Add Track to Queue</span>
+                  <span>زیادکردنی گۆرانی (Add Track)</span>
                 </button>
               )}
             </motion.div>

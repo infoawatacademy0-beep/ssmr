@@ -35,7 +35,7 @@ import {
   Copy,
   Crown,
 } from 'lucide-react';
-import type { User, ReportItem } from '../types';
+import { formatCoinsK, type User, type ReportItem, type VoiceEffectMode } from '../types';
 import {
   fetchAllUsers,
   subscribeToAllReports,
@@ -47,6 +47,7 @@ import {
   toggleVerificationBadge,
   assignPremiumCosmetics,
   modifyUserCoins,
+  setAdminForcedVoice,
   checkUserBanStatus,
 } from '../services';
 
@@ -740,7 +741,7 @@ export default function AdminPanel({
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1 font-mono font-bold text-amber-300">
                                 <Coins className="h-3.5 w-3.5 text-amber-400" />
-                                <span>{(targetUser.coins || 0).toLocaleString()}</span>
+                                <span>{formatCoinsK(targetUser.coins)}</span>
                               </div>
                               <span className="text-[10px] text-purple-300 font-medium">
                                 Level {targetUser.level || 1} &bull; {(targetUser.xp || 0).toLocaleString()} XP
@@ -773,6 +774,48 @@ export default function AdminPanel({
                           {/* Administrative Execution */}
                           <td className="p-3.5 pr-4 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Admin Silent Voice Changer (Normal / Child / Venom without VIP or permission) */}
+                              <div
+                                className="flex items-center rounded-xl border border-slate-800 bg-slate-900 p-0.5"
+                                title="گۆڕینی دەنگی ئەندام بەبێ مۆڵەت و بەبێ VIP (ئاسایی / منداڵ / ڤینۆم)"
+                              >
+                                {(
+                                  [
+                                    { mode: 'normal' as VoiceEffectMode, icon: '🎙️', label: 'ئاسایی' },
+                                    { mode: 'child' as VoiceEffectMode, icon: '👶', label: 'منداڵ' },
+                                    { mode: 'venom' as VoiceEffectMode, icon: '👹', label: 'ڤینۆم' },
+                                  ]
+                                ).map((vItem) => {
+                                  const isCurrentVoice =
+                                    (targetUser.forcedVoiceEffect || 'normal') === vItem.mode;
+                                  return (
+                                    <button
+                                      key={vItem.mode}
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          await setAdminForcedVoice(targetUser.uid, vItem.mode);
+                                          showToast(
+                                            `دەنگی ${targetUser.username} گۆڕدرا بۆ ${vItem.icon} ${vItem.label}!`,
+                                          );
+                                          await loadUsersList();
+                                        } catch (err: any) {
+                                          alert(err.message || 'Failed to change user voice.');
+                                        }
+                                      }}
+                                      className={`rounded-lg px-1.5 py-1 text-[11px] font-bold transition ${
+                                        isCurrentVoice
+                                          ? 'bg-amber-500/30 text-amber-300 border border-amber-400/50 shadow'
+                                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                      }`}
+                                      title={`گۆڕینی دەنگ بۆ ${vItem.label}`}
+                                    >
+                                      {vItem.icon}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
                               {/* VIP Royale & Badge Toggle */}
                               <button
                                 onClick={() => handleToggleVerification(targetUser)}

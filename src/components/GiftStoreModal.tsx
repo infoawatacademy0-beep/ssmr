@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Coins, X, Send, Sparkles, Flame, Film } from 'lucide-react';
-import { AVAILABLE_GIFTS, type GiftItem, type GiftTier, type User, type Seat } from '../types';
+import { AVAILABLE_GIFTS, formatCoinsK, type GiftItem, type GiftTier, type User, type Seat } from '../types';
 import { sendGift } from '../services';
 import GiftIcon from './GiftIcon';
 
@@ -150,7 +150,7 @@ export default function GiftStoreModal({
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-400/40 px-3 py-1 text-xs font-black text-amber-300 shadow">
               <Coins className="h-3.5 w-3.5 text-amber-400" />
-              <span>{(currentUser.coins ?? 0).toLocaleString()}</span>
+              <span>{formatCoinsK(currentUser.coins)}</span>
             </div>
             <button
               onClick={onClose}
@@ -234,7 +234,7 @@ export default function GiftStoreModal({
                   {/* Coin Price */}
                   <div className="mt-0.5 flex items-center gap-0.5 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
                     <Coins className="h-2.5 w-2.5 text-amber-400" />
-                    <span>{gift.cost.toLocaleString()}</span>
+                    <span>{formatCoinsK(gift.cost)}</span>
                   </div>
                 </button>
               );
@@ -255,7 +255,7 @@ export default function GiftStoreModal({
                   {selectedGift.name}
                 </p>
                 <p className="truncate text-[10px] text-amber-300 font-bold">
-                  کۆی گشتی: {totalCost.toLocaleString()} کۆین
+                  کۆی گشتی: {formatCoinsK(totalCost)} کۆین
                 </p>
               </div>
             </div>

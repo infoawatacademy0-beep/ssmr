@@ -63,6 +63,12 @@ export function useVoiceRoom({
         autoGainControl: true,
         echoCancellation: true,
         noiseSuppression: true,
+        channelCount: 1,
+        sampleRate: 48000,
+      },
+      publishDefaults: {
+        dtx: true,
+        red: true,
       },
     });
 
@@ -199,7 +205,10 @@ export function useVoiceRoom({
               rawMicTrackRef.current = localAudioTrack.mediaStreamTrack;
             }
 
-            const effectMode: VoiceEffectMode = mySeat.voiceEffect || 'normal';
+            const effectMode: VoiceEffectMode =
+              (mySeat.voiceEffect && mySeat.voiceEffect !== 'normal'
+                ? mySeat.voiceEffect
+                : currentUser?.forcedVoiceEffect) || 'normal';
             const processor = voiceProcessorRef.current;
 
             if (processor && rawMicTrackRef.current) {
@@ -207,11 +216,7 @@ export function useVoiceRoom({
               const sender = (localAudioTrack as unknown as { sender?: RTCRtpSender }).sender;
 
               if (sender && typeof sender.replaceTrack === 'function') {
-                if (effectMode === 'normal') {
-                  await sender.replaceTrack(rawMicTrackRef.current);
-                } else {
-                  await sender.replaceTrack(processedTrack);
-                }
+                await sender.replaceTrack(processedTrack);
               }
             }
           }
@@ -229,7 +234,7 @@ export function useVoiceRoom({
     }
 
     syncMicrophoneAndVoiceEffect();
-  }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.voiceEffect, isConnected]);
+  }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.voiceEffect, currentUser?.forcedVoiceEffect, isConnected]);
 
   /* ─────────────────────────────────────────────────────────────
      3. Toggle Local Voice Self-Monitor (for VIP testing)
