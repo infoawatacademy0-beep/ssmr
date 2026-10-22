@@ -18,8 +18,55 @@ import type { User, Seat, VoiceEffectMode } from '../types';
    useVoiceRoom Hook — WebRTC LiveKit Audio Integration
    Connects client to LiveKit Room, syncs microphone state
    with Firebase seat state, applies real-time VIP Voice Changer
-   (Normal / Child / Venom), and exposes speaking indicators.
+   (Normal / Child / Venom), and keeps microphone & room audio
+   active in the background when switching to other mobile apps
+   (e.g., Snapchat) until the user manually mutes their mic.
    ───────────────────────────────────────────────────────────── */
+
+/**
+ * Generates a tiny valid 1-second silent stereo WAV Data URI.
+ * Playing this in a looped <audio playsInline> element combined with
+ * navigator.mediaSession prevents mobile browsers (iOS Safari / Android Chrome)
+ * from suspending the tab or cutting off WebRTC microphone/audio in background apps.
+ */
+function createSilentWavDataUri(): string {
+  const sampleRate = 8000;
+  const numSamples = sampleRate; // 1 second
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM chunk size
+  view.setUint16(20, 1, true);  // PCM format
+  view.setUint16(22, 1, true);  // Mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  // Sub-audible 1-LSB pulse prevents OS silent-stream killer from pausing the audio session
+  for (let i = 0; i < numSamples; i++) {
+    view.setInt16(44 + i * 2, i % 2 === 0 ? 1 : -1, true);
+  }
+
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return `data:audio/wav;base64,${btoa(binary)}`;
+}
 
 interface UseVoiceRoomProps {
   roomId: string;
@@ -48,6 +95,11 @@ export function useVoiceRoom({
   const voiceProcessorRef = useRef<VoiceChangerProcessor | null>(null);
   // Original raw microphone MediaStreamTrack before WebAudio processing
   const rawMicTrackRef = useRef<MediaStreamTrack | null>(null);
+  // Background keep-alive audio element & WakeLock sentinel
+  const keepAliveAudioRef = useRef<HTMLAudioElement | null>(null);
+  const wakeLockRef = useRef<any>(null);
+  const mySeatRef = useRef<Seat | null>(mySeat);
+  mySeatRef.current = mySeat;
 
   /* ─────────────────────────────────────────────────────────────
      1. Initialize & Connect to LiveKit Room
@@ -63,6 +115,10 @@ export function useVoiceRoom({
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
+      // CRITICAL for mobile background apps (Snapchat, Instagram, Home screen):
+      // Prevent LiveKit from disconnecting when switching apps or locking screen
+      disconnectOnPageLeave: false,
+      stopLocalTrackOnUnpublish: false,
       audioCaptureDefaults: {
         autoGainControl: isNoiseSuppEnabled,
         echoCancellation: isNoiseSuppEnabled,
@@ -73,6 +129,7 @@ export function useVoiceRoom({
       publishDefaults: {
         dtx: true,
         red: true,
+        stopMicTrackOnMute: false,
       },
     });
 
@@ -90,6 +147,21 @@ export function useVoiceRoom({
       document.body.appendChild(container);
     }
     audioContainerRef.current = container;
+
+    // Create persistent background keep-alive <audio> element so iOS/Android
+    // treats the browser tab as an active VoIP call even when Snapchat or another app is opened
+    let keepAliveAudio = document.getElementById('ssmr-voip-keepalive') as HTMLAudioElement | null;
+    if (!keepAliveAudio) {
+      keepAliveAudio = document.createElement('audio');
+      keepAliveAudio.id = 'ssmr-voip-keepalive';
+      keepAliveAudio.src = createSilentWavDataUri();
+      keepAliveAudio.loop = true;
+      keepAliveAudio.volume = 0.01;
+      keepAliveAudio.setAttribute('playsinline', 'true');
+      keepAliveAudio.setAttribute('webkit-playsinline', 'true');
+      container.appendChild(keepAliveAudio);
+    }
+    keepAliveAudioRef.current = keepAliveAudio;
 
     // Attach active speakers listener (real-time voice activity detection)
     room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
@@ -110,6 +182,8 @@ export function useVoiceRoom({
         if (track.kind === Track.Kind.Audio && audioContainerRef.current) {
           const audioElement = (track as RemoteAudioTrack).attach();
           audioElement.id = `audio-${participant.identity}-${publication.trackSid}`;
+          audioElement.setAttribute('playsinline', 'true');
+          audioElement.setAttribute('webkit-playsinline', 'true');
           audioContainerRef.current.appendChild(audioElement);
 
           // Handle browser autoplay policy
@@ -168,6 +242,14 @@ export function useVoiceRoom({
 
     return () => {
       isMounted = false;
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release?.().catch(() => {});
+        wakeLockRef.current = null;
+      }
+      if (keepAliveAudioRef.current) {
+        keepAliveAudioRef.current.pause();
+        keepAliveAudioRef.current = null;
+      }
       if (voiceProcessorRef.current) {
         voiceProcessorRef.current.stop();
         voiceProcessorRef.current = null;
@@ -184,24 +266,70 @@ export function useVoiceRoom({
   }, [roomId, currentUser?.uid]);
 
   /* ─────────────────────────────────────────────────────────────
-     2. Mute/Unmute & VIP Voice Changer Synchronization
+     2. Mute/Unmute, VIP Voice Changer & Background App Keep-Alive
      ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const room = roomRef.current;
     if (!room || room.state !== ConnectionState.Connected) return;
 
+    const isMicOpen = Boolean(mySeat && !mySeat.isMuted);
+    const effectMode: VoiceEffectMode =
+      (mySeat?.voiceEffect && mySeat.voiceEffect !== 'normal'
+        ? mySeat.voiceEffect
+        : currentUser?.forcedVoiceEffect) || 'normal';
+
     async function syncMicrophoneAndVoiceEffect() {
       try {
-        if (mySeat && !mySeat.isMuted) {
-          // User is seated on stage and unmuted → Enable microphone in LiveKit
+        if (isMicOpen) {
+          // 1. Start silent VoIP keep-alive loop & MediaSession so iOS/Android keeps mic alive in Snapchat/background
+          if (keepAliveAudioRef.current && keepAliveAudioRef.current.paused) {
+            keepAliveAudioRef.current.play().catch(() => {});
+          }
+          if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+            try {
+              navigator.mediaSession.metadata = new MediaMetadata({
+                title: 'مایک کراوەیە — ژووری دەنگی ڕاستەوخۆ',
+                artist: currentUser?.username || 'White House Live',
+                album: 'White House Voice Room',
+              });
+              navigator.mediaSession.playbackState = 'playing';
+              navigator.mediaSession.setActionHandler('play', () => {
+                keepAliveAudioRef.current?.play().catch(() => {});
+              });
+              navigator.mediaSession.setActionHandler('pause', () => {
+                // Keep playing while mic is open so OS does not suspend background VoIP
+                if (mySeatRef.current && !mySeatRef.current.isMuted) {
+                  keepAliveAudioRef.current?.play().catch(() => {});
+                }
+              });
+            } catch {
+              // Ignore unsupported MediaSession actions
+            }
+          }
+          if (
+            typeof navigator !== 'undefined' &&
+            'wakeLock' in navigator &&
+            document.visibilityState === 'visible' &&
+            !wakeLockRef.current
+          ) {
+            (navigator as any).wakeLock
+              .request('screen')
+              .then((lock: any) => {
+                wakeLockRef.current = lock;
+                lock.addEventListener?.('release', () => {
+                  wakeLockRef.current = null;
+                });
+              })
+              .catch(() => {});
+          }
+
+          // 2. Enable microphone in LiveKit
           await room!.localParticipant.setMicrophoneEnabled(true);
 
-          // Apply VIP Voice Changer effect ('normal' | 'child' | 'venom')
           const pub = room!.localParticipant.getTrackPublication(Track.Source.Microphone);
           const localAudioTrack = pub?.audioTrack as LocalAudioTrack | undefined;
 
           if (localAudioTrack && localAudioTrack.mediaStreamTrack) {
-            // Save original raw track reference if not saved or if device changed
             if (
               !rawMicTrackRef.current ||
               rawMicTrackRef.current.readyState === 'ended'
@@ -209,27 +337,54 @@ export function useVoiceRoom({
               rawMicTrackRef.current = localAudioTrack.mediaStreamTrack;
             }
 
-            const effectMode: VoiceEffectMode =
-              (mySeat.voiceEffect && mySeat.voiceEffect !== 'normal'
-                ? mySeat.voiceEffect
-                : currentUser?.forcedVoiceEffect) || 'normal';
+            // Ensure hardware microphone track stays enabled even in background apps
+            rawMicTrackRef.current.enabled = true;
+            if ('contentHint' in rawMicTrackRef.current) {
+              try {
+                rawMicTrackRef.current.contentHint = 'speech';
+              } catch {
+                // Ignore
+              }
+            }
+
             const processor = voiceProcessorRef.current;
+            const sender = (localAudioTrack as unknown as { sender?: RTCRtpSender }).sender;
+            const isTabHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
 
-            if (processor && rawMicTrackRef.current) {
-              const processedTrack = processor.start(rawMicTrackRef.current, effectMode);
-              const sender = (localAudioTrack as unknown as { sender?: RTCRtpSender }).sender;
-
-              if (sender && typeof sender.replaceTrack === 'function') {
-                await sender.replaceTrack(processedTrack);
+            // CRITICAL FOR MOBILE BACKGROUND APPS (Snapchat, Instagram, etc.):
+            // Mobile browsers suspend WebAudio AudioContext in background tabs.
+            // Therefore, when effectMode === 'normal' (and not self-monitoring) OR when the tab is hidden in the background,
+            // feed rawMicTrackRef.current DIRECTLY to WebRTC RTCRtpSender so the mic NEVER cuts out!
+            if (sender && typeof sender.replaceTrack === 'function' && rawMicTrackRef.current) {
+              if ((effectMode === 'normal' && !isSelfMonitoring) || isTabHidden) {
+                if (processor && isSelfMonitoring) {
+                  processor.start(rawMicTrackRef.current, effectMode);
+                }
+                if (sender.track !== rawMicTrackRef.current) {
+                  await sender.replaceTrack(rawMicTrackRef.current);
+                }
+              } else if (processor) {
+                const processedTrack = processor.start(rawMicTrackRef.current, effectMode);
+                await processor.resume();
+                if (sender.track !== processedTrack) {
+                  await sender.replaceTrack(processedTrack);
+                }
               }
             }
           }
         } else {
-          // User is muted or spectator → Strictly disable microphone in LiveKit
+          // User explicitly muted or left seat → Strictly disable microphone in LiveKit
           await room!.localParticipant.setMicrophoneEnabled(false);
           if (voiceProcessorRef.current) {
             voiceProcessorRef.current.setSelfMonitor(false);
             setIsSelfMonitoring(false);
+          }
+          if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+            try {
+              navigator.mediaSession.playbackState = 'none';
+            } catch {
+              // Ignore
+            }
           }
         }
       } catch (err) {
@@ -238,6 +393,76 @@ export function useVoiceRoom({
     }
 
     syncMicrophoneAndVoiceEffect();
+
+    // Background Watchdog: keeps mic & room audio alive when user switches to Snapchat or other apps
+    const ensureBackgroundAudioAndMicAlive = async () => {
+      const currentRoom = roomRef.current;
+      if (!currentRoom || currentRoom.state !== ConnectionState.Connected) return;
+
+      // Always keep remote room audio elements playing in background
+      if (audioContainerRef.current) {
+        const audioEls = audioContainerRef.current.querySelectorAll('audio');
+        audioEls.forEach((el) => {
+          if (el.paused) {
+            el.play().catch(() => {});
+          }
+        });
+      }
+
+      const activeSeat = mySeatRef.current;
+      if (!activeSeat || activeSeat.isMuted) return;
+
+      // Ensure silent VoIP keep-alive audio stays playing
+      if (keepAliveAudioRef.current && keepAliveAudioRef.current.paused) {
+        keepAliveAudioRef.current.play().catch(() => {});
+      }
+
+      const pub = currentRoom.localParticipant.getTrackPublication(Track.Source.Microphone);
+      const localAudioTrack = pub?.audioTrack as LocalAudioTrack | undefined;
+      const rawTrack = rawMicTrackRef.current;
+
+      // If another app briefly interrupted the mic or ended the track, automatically re-acquire it
+      if (!pub || pub.isMuted || !localAudioTrack || !rawTrack || rawTrack.readyState === 'ended') {
+        try {
+          await currentRoom.localParticipant.setMicrophoneEnabled(true);
+          const refreshedPub = currentRoom.localParticipant.getTrackPublication(Track.Source.Microphone);
+          const refreshedTrack = (refreshedPub?.audioTrack as LocalAudioTrack | undefined)?.mediaStreamTrack;
+          if (refreshedTrack && refreshedTrack.readyState === 'live') {
+            rawMicTrackRef.current = refreshedTrack;
+            refreshedTrack.enabled = true;
+          }
+        } catch {
+          // Will retry on next watchdog tick
+        }
+      } else {
+        rawTrack.enabled = true;
+      }
+
+      // When backgrounded, ensure sender uses native rawMicTrackRef directly so AudioContext suspension never silences user
+      const sender = (localAudioTrack as unknown as { sender?: RTCRtpSender } | undefined)?.sender;
+      if (sender && typeof sender.replaceTrack === 'function' && rawMicTrackRef.current) {
+        const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+        if (hidden || (effectMode === 'normal' && !isSelfMonitoring)) {
+          if (sender.track !== rawMicTrackRef.current) {
+            sender.replaceTrack(rawMicTrackRef.current).catch(() => {});
+          }
+        } else if (voiceProcessorRef.current) {
+          await voiceProcessorRef.current.resume();
+          const processedTrack = voiceProcessorRef.current.start(rawMicTrackRef.current, effectMode);
+          if (sender.track !== processedTrack) {
+            sender.replaceTrack(processedTrack).catch(() => {});
+          }
+        }
+      }
+    };
+
+    const watchdogTimer = isMicOpen
+      ? window.setInterval(ensureBackgroundAudioAndMicAlive, 1500)
+      : undefined;
+
+    const handleVisibilityOrFocusChange = () => {
+      ensureBackgroundAudioAndMicAlive();
+    };
 
     const handleSettingsChange = () => {
       const enabled = localStorage.getItem('ssmr_noise_suppression') !== 'false';
@@ -255,11 +480,31 @@ export function useVoiceRoom({
       }
     };
 
+    document.addEventListener('visibilitychange', handleVisibilityOrFocusChange);
+    window.addEventListener('pagehide', handleVisibilityOrFocusChange);
+    window.addEventListener('pageshow', handleVisibilityOrFocusChange);
+    window.addEventListener('blur', handleVisibilityOrFocusChange);
+    window.addEventListener('focus', handleVisibilityOrFocusChange);
     window.addEventListener('ssmr-settings-changed', handleSettingsChange);
+
     return () => {
+      if (watchdogTimer) window.clearInterval(watchdogTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocusChange);
+      window.removeEventListener('pagehide', handleVisibilityOrFocusChange);
+      window.removeEventListener('pageshow', handleVisibilityOrFocusChange);
+      window.removeEventListener('blur', handleVisibilityOrFocusChange);
+      window.removeEventListener('focus', handleVisibilityOrFocusChange);
       window.removeEventListener('ssmr-settings-changed', handleSettingsChange);
     };
-  }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.voiceEffect, currentUser?.forcedVoiceEffect, isConnected]);
+  }, [
+    mySeat?.seatNo,
+    mySeat?.isMuted,
+    mySeat?.voiceEffect,
+    currentUser?.forcedVoiceEffect,
+    currentUser?.username,
+    isConnected,
+    isSelfMonitoring,
+  ]);
 
   /* ─────────────────────────────────────────────────────────────
      3. Toggle Local Voice Self-Monitor (for VIP testing)

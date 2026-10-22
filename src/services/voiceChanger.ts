@@ -39,6 +39,13 @@ export class VoiceChangerProcessor {
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.ctx = new AudioCtx({ latencyHint: 'interactive' });
 
+    // Automatically attempt to resume AudioContext if mobile OS suspends/interrupts it in background
+    this.ctx.onstatechange = () => {
+      if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted')) {
+        this.ctx.resume().catch(() => {});
+      }
+    };
+
     const inputStream = new MediaStream([inputTrack]);
     this.sourceNode = this.ctx.createMediaStreamSource(inputStream);
     this.destinationNode = this.ctx.createMediaStreamDestination();
@@ -384,6 +391,22 @@ export class VoiceChangerProcessor {
 
   public getMode(): VoiceEffectMode {
     return this.currentMode;
+  }
+
+  public async resume(): Promise<boolean> {
+    if (!this.ctx) return false;
+    if (this.ctx.state !== 'running') {
+      try {
+        await this.ctx.resume();
+      } catch {
+        return false;
+      }
+    }
+    return this.ctx.state === 'running';
+  }
+
+  public isRunning(): boolean {
+    return Boolean(this.ctx && this.ctx.state === 'running');
   }
 
   public refreshNoiseSuppression(): void {
