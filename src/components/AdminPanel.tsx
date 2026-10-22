@@ -264,6 +264,26 @@ export default function AdminPanel({
     }
   };
 
+  // Direct Admin Account Deletion (without user request or notice)
+  const handleDirectDeleteAccount = async (targetUser: User) => {
+    if (targetUser.uid === currentUser.uid) {
+      alert('ناتوانیت هەژماری ئەدمینی خۆت لێرەوە بسڕیتەوە.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `ئایا دڵنیایت دەتەوێت هەژماری "${targetUser.username}" بە یەکجاری و بەبێ ئاگاداری خۆی بسڕیتەوە؟`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await approveAccountDeletion(targetUser.uid);
+      showToast(`هەژماری ${targetUser.username} بەبێ ئاگاداری خۆی بە یەکجاری سڕایەوە!`);
+      await loadUsersList();
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا هەژمارەکە بسڕدرێتەوە.');
+    }
+  };
+
   const handleRejectDeletion = async (req: AccountDeletionRequest) => {
     try {
       await rejectAccountDeletion(req.uid);
@@ -958,6 +978,19 @@ export default function AdminPanel({
                                     <span>Lifetime</span>
                                   </button>
                                 </>
+                              )}
+
+                              {/* Direct Silent Account Deletion Button (سڕینەوەی هەژمار بەبێ ئاگاداری ئەندام) */}
+                              {targetUser.uid !== currentUser.uid && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDirectDeleteAccount(targetUser)}
+                                  title="سڕینەوەی هەژمار بە یەکجاری بەبێ ئاگاداری ئەندام (Delete Account Directly)"
+                                  className="flex items-center gap-1 rounded-xl border border-red-500/50 bg-red-600/20 px-2.5 py-1.5 text-[11px] font-black text-red-300 hover:bg-red-600 hover:text-white transition shadow-sm"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <span>سڕینەوە</span>
+                                </button>
                               )}
                             </div>
                           </td>

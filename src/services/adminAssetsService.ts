@@ -272,7 +272,8 @@ export function subscribeToAllDeletionRequests(
 }
 
 /**
- * Admin Action: Approves an account deletion request and permanently deletes the user's account.
+ * Admin Action: Permanently deletes a user's account (either directly by Admin without user notice,
+ * or when approving a deletion request). Immediately terminates active sessions and vacates room seats.
  */
 export async function approveAccountDeletion(targetUid: string): Promise<void> {
   if (!targetUid) throw new Error('Target UID is required.');
@@ -284,7 +285,44 @@ export async function approveAccountDeletion(targetUid: string): Promise<void> {
     approvedByAdmin: true,
   });
 
-  // 2. Remove user profile, stories, presence, notifications, and the deletion request
+  // 2. Vacate any seat in any active room where this user is sitting
+  try {
+    const roomsSnap = await get(ref(database, 'rooms'));
+    if (roomsSnap.exists()) {
+      const roomsData = roomsSnap.val() as Record<string, any>;
+      const updates: Record<string, any> = {};
+      for (const [roomId, roomObj] of Object.entries(roomsData)) {
+        if (!roomObj) continue;
+        if (roomObj.seats) {
+          const seats = Array.isArray(roomObj.seats)
+            ? roomObj.seats
+            : Object.values(roomObj.seats);
+          seats.forEach((seat: any, idx: number) => {
+            if (seat && seat.userId === targetUid) {
+              updates[`rooms/${roomId}/seats/${idx}`] = {
+                seatNo: seat.seatNo ?? idx + 1,
+                userId: null,
+                username: null,
+                avatar: null,
+                level: null,
+                isMuted: false,
+                isLocked: Boolean(seat.isLocked),
+                voiceEffect: 'normal',
+              };
+            }
+          });
+        }
+        updates[`rooms/${roomId}/audience/${targetUid}`] = null;
+      }
+      if (Object.keys(updates).length > 0) {
+        await update(ref(database), updates);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not clean room seats on account deletion:', err);
+  }
+
+  // 3. Remove user profile, stories, presence, notifications, and any deletion request
   await remove(ref(database, `users/${targetUid}`));
   await remove(ref(database, `stories/${targetUid}`));
   await remove(ref(database, `notifications/${targetUid}`));
