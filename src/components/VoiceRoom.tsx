@@ -32,6 +32,7 @@ import {
   BadgeCheck,
   Trash2,
   User as UserIcon,
+  Smile,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts';
@@ -68,6 +69,8 @@ import {
   subscribeToRoomGift,
   subscribeToSeatGiftCoins,
   subscribeToPkBattle,
+  sendSeatEmoji,
+  subscribeToSeatEmojis,
 } from '../services';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import JackarooGamePanel from './JackarooGamePanel';
@@ -85,6 +88,11 @@ import HostControlsPanel from './HostControlsPanel';
 import RoomInviteModal from './RoomInviteModal';
 import IncomingChatToast from './IncomingChatToast';
 import UserProfileManager from './UserProfileManager';
+import {
+  SeatEmojiOverlay,
+  SeatEmojiPickerModal,
+  AnimatedEmojiGraphic,
+} from './SeatEmojiSystem';
 
 /* ─────────────────────────────────────────────────────────────
    SSMR — Ultra-Premium Gamified Voice Chat Room & Arena
@@ -189,6 +197,32 @@ export default function VoiceRoom() {
   // User Profile Modal state inside room
   const [selectedProfileUid, setSelectedProfileUid] = useState<string | null>(null);
 
+  // Interactive 3D Animated Seat & Room Emoji state
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [activeSeatEmojis, setActiveSeatEmojis] = useState<
+    Record<number, { id: string; emojiId: string; timestamp: number }>
+  >({});
+
+  // Periodically prune expired seat emojis after 4.2s
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setActiveSeatEmojis((prev) => {
+        let changed = false;
+        const next: Record<number, { id: string; emojiId: string; timestamp: number }> = {};
+        for (const [seatNoStr, item] of Object.entries(prev)) {
+          if (now - item.timestamp < 4200) {
+            next[Number(seatNoStr)] = item;
+          } else {
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 600);
+    return () => clearInterval(timer);
+  }, []);
+
   // Real-time map of VIP (isVerified) and avatars across all users
   const [vipUsersMap, setVipUsersMap] = useState<Record<string, boolean>>({});
   const [usersAvatarMap, setUsersAvatarMap] = useState<Record<string, string>>({});
@@ -272,6 +306,11 @@ export default function VoiceRoom() {
       setAudience(listeners);
     });
 
+    // Real-time Animated Seat Emoji listener
+    const unsubSeatEmojis = subscribeToSeatEmojis(roomId, (emojisMap) => {
+      setActiveSeatEmojis(emojisMap);
+    });
+
     // Register user presence in audience (automatic onDisconnect cleanup)
     let unregisterPresence: (() => void) | null = null;
     if (user) {
@@ -304,6 +343,7 @@ export default function VoiceRoom() {
       unsubSeatCoins();
       unsubMusic();
       unsubAudience();
+      unsubSeatEmojis();
       if (unregisterPresence) unregisterPresence();
     };
   }, [roomId, user?.uid]);
@@ -491,6 +531,46 @@ export default function VoiceRoom() {
     }
   };
 
+  // Send 3D Animated Emoji on Seat (if seated) & into Room Chat
+  const handleSelectEmoji = useCallback(
+    async (emojiId: string) => {
+      if (!room || !user) return;
+      try {
+        if (mySeat) {
+          // Immediately show locally and broadcast on seat
+          setActiveSeatEmojis((prev) => ({
+            ...prev,
+            [mySeat.seatNo]: {
+              id: `local_${Date.now()}`,
+              emojiId,
+              timestamp: Date.now(),
+            },
+          }));
+          await sendSeatEmoji(
+            room.id,
+            mySeat.seatNo,
+            emojiId,
+            user.uid,
+            user.username || 'User',
+          );
+        } else {
+          // If not seated on a mic, send animated emoji into the live chat
+          await sendRoomMessage(
+            room.id,
+            user.uid || 'anon',
+            user.username || 'User',
+            `[EMOJI:${emojiId}]`,
+            user.avatar || user.profileImage || null,
+            Boolean(user.isVerified),
+          );
+        }
+      } catch (err) {
+        console.error('Failed to send animated emoji:', err);
+      }
+    },
+    [room, user, mySeat],
+  );
+
   /* ─────────────────────────────────────────────────────────────
      6. Share / Copy Room link
      ───────────────────────────────────────────────────────────── */
@@ -595,13 +675,13 @@ export default function VoiceRoom() {
           title="بینینی پڕۆفایلی خاوەنی ژوور"
         >
           <div
-            className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 font-bold shadow-md text-xs ${
+            className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 font-bold shadow-md text-xs ${
               hostIsVerified || vipUsersMap[room.hostId]
                 ? 'vip-fire-avatar'
                 : 'shadow-violet-500/20'
             }`}
           >
-            <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+            <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
               {room.hostAvatar || usersAvatarMap[room.hostId] ? (
                 <img
                   src={room.hostAvatar || usersAvatarMap[room.hostId]}
@@ -914,6 +994,17 @@ export default function VoiceRoom() {
                               <Mic className="h-2.5 w-2.5" />
                             )}
                           </div>
+
+                          {/* 3D Animated Emoji Overlay Directly on Seat (like Screenshot 1) */}
+                          <AnimatePresence>
+                            {activeSeatEmojis[seat.seatNo] &&
+                              Date.now() - activeSeatEmojis[seat.seatNo].timestamp < 4200 && (
+                                <SeatEmojiOverlay
+                                  key={activeSeatEmojis[seat.seatNo].id}
+                                  emojiId={activeSeatEmojis[seat.seatNo].emojiId}
+                                />
+                              )}
+                          </AnimatePresence>
                         </>
                       ) : (
                         <>
@@ -1077,7 +1168,7 @@ export default function VoiceRoom() {
           {/* Chat Messages Stream */}
           <div
             ref={chatScrollRef}
-            className="flex-1 space-y-2 overflow-y-auto pr-1 text-xs"
+            className="flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1 text-xs"
           >
             {room.activeChat.length === 0 ? (
               <div className="flex h-full items-center justify-center text-slate-500 text-center">
@@ -1116,12 +1207,14 @@ export default function VoiceRoom() {
                     audience.find((a) => a.uid === msg.senderId)?.isVerified,
                 );
 
+                const emojiMatch = msg.text.match(/^\[EMOJI:([a-z0-9-]+)\]$/);
+
                 return (
                   <div
                     key={msg.id}
                     className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   >
-                    {/* Sender Profile Picture in Room Chat (Clickable to open Profile / Chat + Blazing Fire Stroke if VIP) */}
+                    {/* Sender Profile Picture in Room Chat (Steady circular golden border for VIP so chat NEVER shakes) */}
                     <button
                       type="button"
                       onClick={() => {
@@ -1130,8 +1223,10 @@ export default function VoiceRoom() {
                         }
                       }}
                       title={`بینینی پڕۆفایل و چاتکردن لەگەڵ ${msg.senderName}`}
-                      className={`relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow transition hover:scale-110 ${
-                        isSenderVip ? 'vip-fire-avatar' : 'border border-white/15 overflow-hidden'
+                      className={`relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow ${
+                        isSenderVip
+                          ? 'border-2 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.45)]'
+                          : 'border border-white/15'
                       }`}
                     >
                       <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
@@ -1168,7 +1263,7 @@ export default function VoiceRoom() {
                           {isMe ? 'You' : msg.senderName}
                         </button>
                         {isSenderVip && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-red-500/25 border border-amber-400/50 px-1.5 py-0.2 text-[8px] font-black text-amber-300 shadow-[0_0_8px_rgba(249,115,22,0.4)]">
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-red-500/25 border border-amber-400/50 px-1.5 py-0.2 text-[8px] font-black text-amber-300">
                             <Crown className="h-2 w-2 text-amber-400 fill-amber-400" />
                             <span>VIP</span>
                           </span>
@@ -1179,18 +1274,24 @@ export default function VoiceRoom() {
                           </span>
                         )}
                       </div>
-                      <div
-                        className={`
-                          rounded-2xl px-3 py-2 text-xs leading-relaxed
-                          ${
-                            isMe
-                              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-sm'
-                              : 'bg-white/[0.05] border border-white/[0.06] text-slate-200 rounded-tl-sm'
-                          }
-                        `}
-                      >
-                        {msg.text}
-                      </div>
+                      {emojiMatch ? (
+                        <div className="py-1">
+                          <AnimatedEmojiGraphic emojiId={emojiMatch[1]} size={56} />
+                        </div>
+                      ) : (
+                        <div
+                          className={`
+                            rounded-2xl px-3 py-2 text-xs leading-relaxed
+                            ${
+                              isMe
+                                ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-sm'
+                                : 'bg-white/[0.05] border border-white/[0.06] text-slate-200 rounded-tl-sm'
+                            }
+                          `}
+                        >
+                          {msg.text}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1200,6 +1301,14 @@ export default function VoiceRoom() {
 
           {/* Chat Input Bar */}
           <form onSubmit={handleSendMessage} className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEmojiPickerOpen(true)}
+              title="ئیمۆجی جوڵاو (Animated Emojis)"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-gradient-to-tr from-amber-500/20 to-orange-500/20 text-amber-300 shadow-sm transition hover:bg-amber-500/30 active:scale-95"
+            >
+              <Smile className="h-4 w-4" />
+            </button>
             <input
               type="text"
               value={chatInput}
@@ -1297,6 +1406,17 @@ export default function VoiceRoom() {
             )}
           </button>
 
+          {/* 3D ANIMATED EMOJIS BUTTON */}
+          <button
+            type="button"
+            onClick={() => setIsEmojiPickerOpen(true)}
+            className="flex items-center gap-1 rounded-2xl border border-amber-400/40 bg-amber-500/15 px-2.5 py-2 text-xs font-bold text-amber-300 shadow-sm transition-transform hover:bg-amber-500/25 active:scale-95"
+            title="ئیمۆجی جوڵاو لەسەر کورسی (Animated Seat Emojis)"
+          >
+            <Smile className="h-3.5 w-3.5 text-amber-400" />
+            <span className="hidden xs:inline">Emoji</span>
+          </button>
+
           {/* INTERACTIVE GIFTS BUTTON */}
           <button
             onClick={() => {
@@ -1347,13 +1467,13 @@ export default function VoiceRoom() {
                   className="flex cursor-pointer items-center gap-2.5 group"
                 >
                   <div
-                    className={`relative flex h-11 w-11 items-center justify-center rounded-xl bg-violet-600 font-bold text-white ${
+                    className={`relative flex h-11 w-11 items-center justify-center rounded-full bg-violet-600 font-bold text-white ${
                       selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])
                         ? 'vip-fire-avatar'
                         : 'overflow-hidden'
                     }`}
                   >
-                    <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+                    <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                       {selectedSeat.avatar || (selectedSeat.userId ? usersAvatarMap[selectedSeat.userId] : null) ? (
                         <img
                           src={selectedSeat.avatar || (selectedSeat.userId ? usersAvatarMap[selectedSeat.userId] : '') || ''}
@@ -1825,6 +1945,13 @@ export default function VoiceRoom() {
           />
         )}
       </AnimatePresence>
+
+      {/* 3D Animated Seat & Room Emoji Picker Drawer Modal */}
+      <SeatEmojiPickerModal
+        isOpen={isEmojiPickerOpen}
+        onClose={() => setIsEmojiPickerOpen(false)}
+        onSelectEmoji={handleSelectEmoji}
+      />
 
       {/* Live Incoming Direct Message & Activity Notification Toast (Inside Room) */}
       <IncomingChatToast

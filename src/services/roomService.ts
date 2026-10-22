@@ -609,3 +609,56 @@ export async function updateRoomPassword(
   });
 }
 
+/**
+ * Broadcasts an animated 3D emoji onto a specific seat in real time.
+ */
+export async function sendSeatEmoji(
+  roomId: string,
+  seatNo: number,
+  emojiId: string,
+  userId: string,
+  username: string,
+): Promise<void> {
+  if (!roomId || !seatNo || !emojiId) return;
+  const emojiRef = ref(database, `rooms/${roomId}/seatEmojis/${seatNo}`);
+  await set(emojiRef, {
+    id: `emo_${Date.now()}_${seatNo}`,
+    seatNo,
+    emojiId,
+    userId,
+    username,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Subscribes to real-time animated seat emojis in a room.
+ */
+export function subscribeToSeatEmojis(
+  roomId: string,
+  onUpdate: (
+    emojisMap: Record<
+      number,
+      { id: string; seatNo: number; emojiId: string; userId: string; username: string; timestamp: number }
+    >,
+  ) => void,
+): Unsubscribe {
+  const emojisRef = ref(database, `rooms/${roomId}/seatEmojis`);
+  return onValue(emojisRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate({});
+      return;
+    }
+    const val = snapshot.val() as Record<string, any>;
+    const result: Record<number, any> = {};
+    Object.entries(val).forEach(([key, item]) => {
+      const sNo = Number(item?.seatNo || key);
+      if (sNo && item?.emojiId) {
+        result[sNo] = item;
+      }
+    });
+    onUpdate(result);
+  });
+}
+
+

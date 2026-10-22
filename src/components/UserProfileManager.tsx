@@ -404,7 +404,7 @@ export default function UserProfileManager({
                 <div className="p-5 pt-0 relative z-10">
                   <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 -mt-8 sm:-mt-6">
                     {/* Avatar Display with Presence Indicator & VIP Blazing Fire Stroke */}
-                    <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl p-0.5 shadow-xl ring-4 ring-slate-950 ${
+                    <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full p-0.5 shadow-xl ring-4 ring-slate-950 ${
                       profileData.isVerified
                         ? 'vip-fire-avatar bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600'
                         : 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/20'
@@ -414,7 +414,7 @@ export default function UserProfileManager({
                           <Crown className="h-6 w-6 text-amber-400 fill-amber-400 vip-crown-animation drop-shadow-[0_2px_8px_rgba(251,191,36,0.95)]" />
                         </div>
                       )}
-                      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-3xl bg-[#0d0d16]">
+                      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0d0d16]">
                         {avatarInput ? (
                           <img
                             src={avatarInput}

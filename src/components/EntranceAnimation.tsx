@@ -72,10 +72,10 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
           )}
 
           <div className="relative z-10 flex items-center gap-2.5">
-            {/* User Avatar with VIP Blazing Fire Stroke */}
+            {/* User Avatar with VIP Circular Fire Stroke */}
             <div
               className={`
-                relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold text-xs text-white shadow
+                relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-bold text-xs text-white shadow
                 ${
                   isVip
                     ? 'vip-fire-avatar bg-gradient-to-tr from-amber-400 via-orange-500 to-red-600 text-black'
@@ -83,7 +83,7 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
                 }
               `}
             >
-              <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+              <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                 {currentEntrance.avatar ? (
                   <img
                     src={currentEntrance.avatar}

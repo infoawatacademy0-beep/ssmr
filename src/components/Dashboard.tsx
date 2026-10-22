@@ -559,11 +559,11 @@ export default function Dashboard() {
 
             <button
               onClick={() => openUserProfile(user.uid)}
-              className={`relative flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-xs font-bold text-white ${
+              className={`relative flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white ${
                 user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden border border-white/10'
               }`}
             >
-              <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+              <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                 {user.avatar || user.profileImage ? (
                   <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
                 ) : (
@@ -729,11 +729,11 @@ export default function Dashboard() {
             <div className="flex items-start gap-3">
               <div
                 onClick={() => openUserProfile(user.uid)}
-                className={`relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 text-xs font-black text-black shadow-md transition hover:scale-105 ${
+                className={`relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-xs font-black text-black shadow-md transition hover:scale-105 ${
                   user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden'
                 }`}
               >
-                <div className="h-full w-full overflow-hidden rounded-2xl flex items-center justify-center">
+                <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                   {user.avatar || user.profileImage ? (
                     <img
                       src={user.avatar || user.profileImage}
@@ -833,11 +833,11 @@ export default function Dashboard() {
                           className="group flex cursor-pointer items-center gap-2.5"
                         >
                           <div
-                            className={`relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
+                            className={`relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
                               isPostVip ? 'vip-fire-avatar' : 'overflow-hidden'
                             }`}
                           >
-                            <div className="h-full w-full overflow-hidden rounded-xl flex items-center justify-center">
+                            <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                               {post.authorAvatar || (isAuthor ? user.avatar || user.profileImage : null) ? (
                                 <img
                                   src={post.authorAvatar || user.avatar || user.profileImage || ''}
@@ -978,7 +978,7 @@ export default function Dashboard() {
             <div className="flex items-start gap-3.5">
               <div
                 onClick={() => openUserProfile(user.uid)}
-                className={`relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-2xl p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
+                className={`relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-full p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
                   user.isVerified
                     ? 'vip-fire-avatar bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600'
                     : 'overflow-hidden bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15'
@@ -989,7 +989,7 @@ export default function Dashboard() {
                     <Crown className="h-5 w-5 text-amber-400 fill-amber-400 vip-crown-animation drop-shadow-[0_2px_6px_rgba(251,191,36,0.8)]" />
                   </div>
                 )}
-                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-slate-950">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-950">
                   {user.avatar || user.profileImage ? (
                     <img
                       src={user.avatar || user.profileImage}

@@ -25,6 +25,8 @@ export {
   toggleSeatLock,
   muteSeatByHost,
   updateRoomPassword,
+  sendSeatEmoji,
+  subscribeToSeatEmojis,
 } from './roomService';
 
 export type { HostUserInfo, UserSeatInfo, CreateRoomOptions } from './roomService';
