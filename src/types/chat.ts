@@ -20,3 +20,13 @@ export interface ChatThreadMeta {
   lastMessageTimestamp: number;
   lastSenderUid: string;
 }
+
+export interface UserInboxItem {
+  recipientUid: string;
+  recipientName: string;
+  recipientAvatar: string | null;
+  lastMessage: string;
+  lastMessageTimestamp: number;
+  lastSenderUid: string;
+  threadId: string;
+}

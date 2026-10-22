@@ -5,7 +5,7 @@ export type { Post, CreatePostPayload } from './post';
 
 export type { ReportTargetType, ReportItem } from './report';
 
-export type { DirectMessageType, DirectMessage, ChatThreadMeta } from './chat';
+export type { DirectMessageType, DirectMessage, ChatThreadMeta, UserInboxItem } from './chat';
 
 export type { ChatMessage, Seat, Room, RoomCategory, RoomEntranceEvent, RoomGiftEvent } from './room';
 export { buildInitialSeats } from './room';

@@ -142,6 +142,9 @@ export default function PrivateChat({
         senderUid: currentUser.uid,
         senderName: currentUser.username,
         senderAvatar: currentUser.avatar || currentUser.profileImage || null,
+        recipientUid: recipientUser.uid,
+        recipientName: recipientUser.username,
+        recipientAvatar: recipientUser.avatar || null,
         text,
         type: 'text',
       });
@@ -165,6 +168,9 @@ export default function PrivateChat({
         senderUid: currentUser.uid,
         senderName: currentUser.username,
         senderAvatar: currentUser.avatar || currentUser.profileImage || null,
+        recipientUid: recipientUser.uid,
+        recipientName: recipientUser.username,
+        recipientAvatar: recipientUser.avatar || null,
         imageUrl: imgUrl,
         type: 'image',
       });
@@ -235,6 +241,9 @@ export default function PrivateChat({
               senderUid: currentUser.uid,
               senderName: currentUser.username,
               senderAvatar: currentUser.avatar || currentUser.profileImage || null,
+              recipientUid: recipientUser.uid,
+              recipientName: recipientUser.username,
+              recipientAvatar: recipientUser.avatar || null,
               audioUrl: base64Audio,
               type: 'voice',
             });
@@ -251,6 +260,9 @@ export default function PrivateChat({
           senderUid: currentUser.uid,
           senderName: currentUser.username,
           senderAvatar: currentUser.avatar || currentUser.profileImage || null,
+          recipientUid: recipientUser.uid,
+          recipientName: recipientUser.username,
+          recipientAvatar: recipientUser.avatar || null,
           audioUrl: sampleAudio,
           type: 'voice',
         });

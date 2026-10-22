@@ -52,10 +52,12 @@ import {
   subscribeToPosts,
   subscribeToUserVisitors,
   subscribeToUnreadCount,
+  subscribeToUserInbox,
 } from '../services';
 
 import UserProfileManager from './UserProfileManager';
 import PrivateChat from './PrivateChat';
+import ChatCenterModal from './ChatCenterModal';
 import UserSearch from './UserSearch';
 import NotificationCenter from './NotificationCenter';
 import Leaderboard from './Leaderboard';
@@ -155,15 +157,26 @@ export default function Dashboard() {
   // New Mega Feature Modals State
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isChatCenterOpen, setIsChatCenterOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
+  const [inboxThreadsCount, setInboxThreadsCount] = useState(0);
 
   // Unread Notifications live count
   useEffect(() => {
     if (!user?.uid) return;
     const unsub = subscribeToUnreadCount(user.uid, (count) => {
       setUnreadNotifsCount(count);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  // Live active chat threads count
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = subscribeToUserInbox(user.uid, (threads) => {
+      setInboxThreadsCount(threads.length);
     });
     return () => unsub();
   }, [user?.uid]);
@@ -424,6 +437,21 @@ export default function Dashboard() {
             </button>
 
             <button
+              onClick={() => setIsChatCenterOpen(true)}
+              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
+            >
+              <div className="flex items-center gap-3">
+                <MessageSquare className="h-4 w-4 text-cyan-400" />
+                <span>Direct Chat</span>
+              </div>
+              {inboxThreadsCount > 0 && (
+                <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold border border-cyan-500/30">
+                  {inboxThreadsCount}
+                </span>
+              )}
+            </button>
+
+            <button
               onClick={() => setIsWalletModalOpen(true)}
               className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
@@ -498,6 +526,19 @@ export default function Dashboard() {
               {unreadNotifsCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-rose-500 text-[8px] font-bold text-white flex items-center justify-center">
                   {unreadNotifsCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsChatCenterOpen(true)}
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-cyan-400"
+              title="Direct Chat"
+            >
+              <MessageSquare className="h-4 w-4" />
+              {inboxThreadsCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-cyan-500 text-[8px] font-bold text-black flex items-center justify-center">
+                  {inboxThreadsCount}
                 </span>
               )}
             </button>
@@ -1372,6 +1413,32 @@ export default function Dashboard() {
             currentUser={user}
             onClose={() => setIsSearchOpen(false)}
             onOpenProfile={(uid) => openUserProfile(uid)}
+            onOpenDirectMessage={(recipient) => {
+              setIsSearchOpen(false);
+              setActiveChatRecipient({
+                uid: recipient.uid,
+                username: recipient.username,
+                avatar: recipient.avatar,
+              });
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── DIRECT CHAT & MESSAGES CENTER MODAL ── */}
+      <AnimatePresence>
+        {isChatCenterOpen && user && (
+          <ChatCenterModal
+            currentUser={user}
+            onClose={() => setIsChatCenterOpen(false)}
+            onSelectUser={(recipient) => {
+              setIsChatCenterOpen(false);
+              setActiveChatRecipient({
+                uid: recipient.uid,
+                username: recipient.username,
+                avatar: recipient.avatar ?? undefined,
+              });
+            }}
           />
         )}
       </AnimatePresence>

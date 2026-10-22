@@ -10,6 +10,7 @@ import {
   Sparkles,
   ArrowRight,
   Loader2,
+  MessageSquare,
 } from 'lucide-react';
 import type { User } from '../types';
 import {
@@ -30,6 +31,7 @@ export default function UserSearch({
   currentUser,
   onClose,
   onOpenProfile,
+  onOpenDirectMessage,
 }: UserSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<User[]>([]);
@@ -243,6 +245,23 @@ export default function UserSearch({
                           </>
                         )}
                       </button>
+
+                      {onOpenDirectMessage && (
+                        <button
+                          onClick={() => {
+                            onClose();
+                            onOpenDirectMessage({
+                              uid: targetUser.uid,
+                              username: targetUser.username,
+                              avatar: targetUser.avatar || (targetUser as any).profileImage,
+                            });
+                          }}
+                          title="Send Private Message"
+                          className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-2 text-cyan-400 hover:bg-cyan-500/20 transition active:scale-95"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </button>
+                      )}
 
                       <button
                         onClick={() => {

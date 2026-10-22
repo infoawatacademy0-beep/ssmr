@@ -115,6 +115,7 @@ export {
   sendDirectMessage,
   subscribeToDirectMessages,
   normalizeDirectMessages,
+  subscribeToUserInbox,
 } from './chatService';
 
 export {

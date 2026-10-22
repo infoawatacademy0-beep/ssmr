@@ -7,7 +7,7 @@ import {
   type Unsubscribe,
 } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { DirectMessage, DirectMessageType, ChatThreadMeta } from '../types';
+import type { DirectMessage, DirectMessageType, ChatThreadMeta, UserInboxItem } from '../types';
 
 /**
  * Derives a deterministic lexicographical thread ID from two user UIDs.
@@ -54,6 +54,9 @@ export async function sendDirectMessage(params: {
   senderUid: string;
   senderName: string;
   senderAvatar?: string | null;
+  recipientUid?: string;
+  recipientName?: string;
+  recipientAvatar?: string | null;
   text?: string;
   imageUrl?: string;
   audioUrl?: string;
@@ -81,18 +84,27 @@ export async function sendDirectMessage(params: {
   }
 
   const now = Date.now();
-  const messageData: DirectMessage = {
+
+  // Clean payload: Firebase RTDB strictly rejects any `undefined` value
+  const messageData: Record<string, any> = {
     id: messageId,
     threadId,
     senderUid,
     senderName,
     senderAvatar: senderAvatar || null,
-    text: text ? text.trim() : undefined,
-    imageUrl: imageUrl ? imageUrl.trim() : undefined,
-    audioUrl: audioUrl || undefined,
     type: determinedType,
     timestamp: now,
   };
+
+  if (text && text.trim()) {
+    messageData.text = text.trim();
+  }
+  if (imageUrl && imageUrl.trim()) {
+    messageData.imageUrl = imageUrl.trim();
+  }
+  if (audioUrl) {
+    messageData.audioUrl = audioUrl;
+  }
 
   // 1. Write the message node
   await set(newMessageRef, messageData);
@@ -116,6 +128,39 @@ export async function sendDirectMessage(params: {
 
   await update(metaRef, metaUpdate);
 
+  // 3. Update both participants' inboxes for real-time list
+  const [p1, p2] = threadId.split('_');
+  const targetUid = params.recipientUid || (senderUid === p1 ? p2 : p1);
+
+  if (targetUid) {
+    try {
+      const senderInboxRef = ref(database, `userInboxes/${senderUid}/${targetUid}`);
+      const recipientInboxRef = ref(database, `userInboxes/${targetUid}/${senderUid}`);
+
+      await set(senderInboxRef, {
+        recipientUid: targetUid,
+        recipientName: params.recipientName || 'User',
+        recipientAvatar: params.recipientAvatar || null,
+        lastMessage: previewText,
+        lastMessageTimestamp: now,
+        lastSenderUid: senderUid,
+        threadId,
+      });
+
+      await set(recipientInboxRef, {
+        recipientUid: senderUid,
+        recipientName: senderName,
+        recipientAvatar: senderAvatar || null,
+        lastMessage: previewText,
+        lastMessageTimestamp: now,
+        lastSenderUid: senderUid,
+        threadId,
+      });
+    } catch (inboxErr) {
+      console.warn('Inbox metadata update non-critical warning:', inboxErr);
+    }
+  }
+
   return messageId;
 }
 
@@ -134,5 +179,26 @@ export function subscribeToDirectMessages(
     } else {
       onUpdate(normalizeDirectMessages(snapshot.val()));
     }
+  });
+}
+
+/**
+ * Subscribes to all active chat conversations for a given user.
+ */
+export function subscribeToUserInbox(
+  uid: string,
+  onUpdate: (threads: UserInboxItem[]) => void,
+): Unsubscribe {
+  const inboxRef = ref(database, `userInboxes/${uid}`);
+
+  return onValue(inboxRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate([]);
+      return;
+    }
+    const val = snapshot.val();
+    const list: UserInboxItem[] = Object.values(val);
+    list.sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+    onUpdate(list);
   });
 }
