@@ -67,16 +67,6 @@ export default function FloatingHearts() {
           ))}
         </AnimatePresence>
       </div>
-
-      {/* Floating Heart Tap Button (Bottom Right) */}
-      <button
-        type="button"
-        onClick={addHeart}
-        className="fixed bottom-16 right-3.5 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-pink-500/40 bg-gradient-to-tr from-rose-500 to-pink-600 text-white shadow-lg shadow-pink-500/30 transition-transform active:scale-80 hover:scale-105"
-        title="Tap to send hearts"
-      >
-        <Heart className="h-5 w-5 fill-white animate-pulse" />
-      </button>
     </>
   );
 }

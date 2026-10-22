@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RoomGiftEvent } from '../types';
 import GiftIcon from './GiftIcon';
@@ -10,6 +10,7 @@ interface GiftAnimationOverlayProps {
 export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlayProps) {
   const [activeEvent, setActiveEvent] = useState<RoomGiftEvent | null>(null);
   const [queue, setQueue] = useState<RoomGiftEvent[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // When a new gift arrives from the Firebase listener
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
     });
   }, [giftEvent?.id]);
 
-  // Process the queue
+  // Process the queue — use a ref-based timer so cleanup doesn't kill it
   useEffect(() => {
     if (activeEvent || queue.length === 0) return;
 
@@ -33,13 +34,26 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
     setActiveEvent(next);
     setQueue((prev) => prev.slice(1));
 
-    // Show animation for 3.8 seconds
-    const timer = setTimeout(() => {
-      setActiveEvent(null);
-    }, 3800);
+    // Clear any existing timer first
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
 
-    return () => clearTimeout(timer);
+    // Show animation for 4 seconds, then auto-dismiss
+    timerRef.current = setTimeout(() => {
+      setActiveEvent(null);
+      timerRef.current = null;
+    }, 4000);
   }, [queue, activeEvent]);
+
+  // Cleanup on unmount only
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   if (!activeEvent) return null;
 
@@ -150,13 +164,13 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
               <GiftIcon iconKey={gift.iconKey} size={150} />
             </motion.div>
           ) : (
-            /* All other gifts: Center hero with energetic pulsation & scale */
+            /* All other gifts: Center hero with energetic pulsation & scale — finite animation */
             <motion.div
               animate={{
                 scale: [1, 1.15, 1, 1.1, 1],
                 rotate: [0, -3, 3, -2, 0],
               }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+              transition={{ duration: 2.5, repeat: 1, ease: 'easeInOut' }}
               className={gift.animClass}
             >
               <GiftIcon iconKey={gift.iconKey} size={135} />
@@ -180,7 +194,7 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
             </div>
           </motion.div>
 
-          {/* Floating Particle Stars */}
+          {/* Floating Particle Stars — finite bursts instead of Infinity */}
           {Array.from({ length: 8 }).map((_, i) => {
             const angle = (i * 45 * Math.PI) / 180;
             const dist = 80 + (i % 3) * 25;
@@ -196,7 +210,7 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
                 }}
                 transition={{
                   duration: 2.2,
-                  repeat: Infinity,
+                  repeat: 1,
                   delay: i * 0.15,
                   ease: 'easeOut',
                 }}
