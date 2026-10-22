@@ -33,6 +33,8 @@ import {
   Trash2,
   User as UserIcon,
   Smile,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts';
@@ -166,6 +168,7 @@ export default function VoiceRoom() {
   // Chat message input
   const [chatInput, setChatInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isChatExpanded, setIsChatExpanded] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Seat Action Sheet Modal
@@ -826,7 +829,7 @@ export default function VoiceRoom() {
          ───────────────────────────────────────────────────────── */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         {/* ── THE 8-SEAT AUDIO GRID WITH SEAT FLOATING BADGES ── */}
-        <section className="shrink-0 p-4 pb-1">
+        <section className={isChatExpanded ? 'hidden' : 'shrink-0 p-4 pb-1'}>
           {/* 4 VS 4 PK Battle Arena Panel (5-min real-time battle) */}
           <PkBattlePanel
             roomId={room.id}
@@ -976,19 +979,6 @@ export default function VoiceRoom() {
                             </div>
                           )}
 
-                          {/* Active VIP Voice Changer Badge on Seat (Child / Venom) */}
-                          {seat.voiceEffect && seat.voiceEffect !== 'normal' && (
-                            <div
-                              className={`absolute -top-2.5 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7.5px] font-black shadow-md ${
-                                seat.voiceEffect === 'venom'
-                                  ? 'border-purple-400/80 bg-gradient-to-r from-slate-950 via-purple-950 to-rose-950 text-purple-200 shadow-purple-500/40'
-                                  : 'border-pink-400/80 bg-gradient-to-r from-pink-500 to-amber-400 text-black shadow-pink-500/40'
-                              }`}
-                            >
-                              {seat.voiceEffect === 'venom' ? '👹 VENOM' : '👶 منداڵ'}
-                            </div>
-                          )}
-
                           {/* Mic Status Badge */}
                           <div
                             className={`
@@ -1120,22 +1110,24 @@ export default function VoiceRoom() {
         />
 
         {/* ── FEATURE 2: Live Room Audience Strip Row ── */}
-        <AudienceGrid
-          audience={audience}
-          seats={room.seats}
-          currentUser={user}
-          vipUsersMap={vipUsersMap}
-          onSendGiftToUser={(recipient) => {
-            setGiftRecipient(recipient);
-            setIsGiftModalOpen(true);
-          }}
-          onOpenPrivateChat={(recipient) => {
-            setActiveChatRecipient(recipient);
-          }}
-          onOpenProfile={(uid) => {
-            setSelectedProfileUid(uid);
-          }}
-        />
+        {!isChatExpanded && (
+          <AudienceGrid
+            audience={audience}
+            seats={room.seats}
+            currentUser={user}
+            vipUsersMap={vipUsersMap}
+            onSendGiftToUser={(recipient) => {
+              setGiftRecipient(recipient);
+              setIsGiftModalOpen(true);
+            }}
+            onOpenPrivateChat={(recipient) => {
+              setActiveChatRecipient(recipient);
+            }}
+            onOpenProfile={(uid) => {
+              setSelectedProfileUid(uid);
+            }}
+          />
+        )}
 
         {/* ── REAL-TIME LIVE CHAT DOCKED SECTION ── */}
         <section className="relative flex flex-1 flex-col overflow-hidden border-t border-white/[0.06] bg-surface-900/50 p-4">
@@ -1146,9 +1138,29 @@ export default function VoiceRoom() {
           <GiftAnimationOverlay giftEvent={roomGiftEvent} />
 
           <div className="flex items-center justify-between pb-2">
-            <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-              Live Room Chat
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+                Live Room Chat
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsChatExpanded((v) => !v)}
+                className="flex items-center gap-1 rounded-lg border border-violet-500/35 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300 transition hover:bg-violet-500/25 active:scale-95"
+                title={isChatExpanded ? 'بچووککردنەوەی چات' : 'گەورەکردنی چات'}
+              >
+                {isChatExpanded ? (
+                  <>
+                    <Minimize2 className="h-3 w-3" />
+                    <span>بچووککردنەوە</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="h-3 w-3" />
+                    <span>گەورەکردن</span>
+                  </>
+                )}
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               {(isHost || user.isAdmin) && room.activeChat.length > 0 && (
                 <button
