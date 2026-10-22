@@ -11,7 +11,7 @@ import {
   type Unsubscribe,
 } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { Room, Seat, ChatMessage, RoomCategory, RoomEntranceEvent } from '../types';
+import type { Room, Seat, ChatMessage, RoomCategory, RoomEntranceEvent, VoiceEffectMode } from '../types';
 import { buildInitialSeats } from '../types';
 
 /* ─────────────────────────────────────────────────────────────
@@ -30,6 +30,8 @@ export interface UserSeatInfo {
   uid: string;
   username: string;
   avatar?: string;
+  isMuted?: boolean;
+  voiceEffect?: VoiceEffectMode;
 }
 
 export interface CreateRoomOptions {
@@ -66,6 +68,7 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
       avatar: rawSeat.avatar ?? null,
       isMuted: Boolean(rawSeat.isMuted),
       isLocked: Boolean(rawSeat.isLocked),
+      voiceEffect: (rawSeat.voiceEffect as VoiceEffectMode) || 'normal',
     };
   });
 }
@@ -181,10 +184,14 @@ export async function joinSeat(
 
   await runTransaction(seatsRef, (currentSeatsData) => {
     const seats = normalizeSeats(currentSeatsData);
+    let preservedIsMuted = typeof user.isMuted === 'boolean' ? user.isMuted : false;
+    let preservedVoiceEffect: VoiceEffectMode = user.voiceEffect || 'normal';
 
-    // 1. Remove the user from any seat they might already occupy
+    // 1. Remove the user from any seat they might already occupy, preserving their mute & voice effect state
     for (let i = 0; i < seats.length; i++) {
       if (seats[i].userId === user.uid) {
+        preservedIsMuted = Boolean(seats[i].isMuted);
+        preservedVoiceEffect = seats[i].voiceEffect || preservedVoiceEffect;
         seats[i] = {
           seatNo: i + 1,
           userId: null,
@@ -192,6 +199,7 @@ export async function joinSeat(
           avatar: null,
           isMuted: false,
           isLocked: false,
+          voiceEffect: 'normal',
         };
       }
     }
@@ -212,14 +220,15 @@ export async function joinSeat(
       throw new Error(`Seat ${seatNo} is already occupied.`);
     }
 
-    // 3. Occupy target seat
+    // 3. Occupy target seat — keep user's previous mute state & voice effect
     seats[targetIndex] = {
       seatNo,
       userId: user.uid,
       username: user.username,
       avatar: user.avatar || '',
-      isMuted: false,
+      isMuted: preservedIsMuted,
       isLocked: false,
+      voiceEffect: preservedVoiceEffect,
     };
 
     return seats;
@@ -277,6 +286,21 @@ export async function toggleSeatMute(
   const seatRef = ref(database, `rooms/${roomId}/seats/${targetIndex}`);
   await update(seatRef, {
     isMuted,
+  });
+}
+
+/**
+ * Updates the VIP voice changer effect mode for a specific seat.
+ */
+export async function setSeatVoiceEffect(
+  roomId: string,
+  seatNo: number,
+  voiceEffect: VoiceEffectMode,
+): Promise<void> {
+  const targetIndex = seatNo - 1;
+  const seatRef = ref(database, `rooms/${roomId}/seats/${targetIndex}`);
+  await update(seatRef, {
+    voiceEffect,
   });
 }
 

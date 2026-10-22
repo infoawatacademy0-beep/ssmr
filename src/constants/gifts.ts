@@ -1,6 +1,7 @@
 export type GiftTier = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
 
 export type GiftIconKey =
+  | 'teapot'
   | 'heart-me'
   | 'rose'
   | 'neon-heart'
@@ -27,30 +28,29 @@ export interface GiftItem {
 }
 
 /**
- * TikTok-Style Luxury Animated Gift Collection
- * Each gift uses a unique pure-CSS animation — no external images or GIFs.
- * Gifts are ordered from cheapest to most expensive (like TikTok).
+ * TikTok-Style Luxury Video-FX Animated Gift Collection
+ * Ordered from 1 Coin (Teapot pouring tea into a glass) to 99,999 Coins.
  */
 export const AVAILABLE_GIFTS: GiftItem[] = [
+  {
+    id: 'teapot',
+    name: 'Kurdish Tea · چای کوردی',
+    iconKey: 'teapot',
+    cost: 1,
+    color: 'text-amber-400',
+    tier: 'common',
+    description: 'قۆری چای گەرم کە چای تێدەکاتە ناو پیاڵەی چای',
+    animClass: 'gift-anim-bloom',
+  },
   {
     id: 'heart-me',
     name: 'Heart Me',
     iconKey: 'heart-me',
-    cost: 1,
+    cost: 5,
     color: 'text-pink-400',
     tier: 'common',
     description: 'A cute bouncing heart',
     animClass: 'gift-anim-heartbeat',
-  },
-  {
-    id: 'rose',
-    name: 'Velvet Rose',
-    iconKey: 'rose',
-    cost: 10,
-    color: 'text-rose-400',
-    tier: 'common',
-    description: 'A delicate rose blooming with warmth',
-    animClass: 'gift-anim-bloom',
   },
   {
     id: 'neon-heart',
@@ -84,22 +84,22 @@ export const AVAILABLE_GIFTS: GiftItem[] = [
   },
   {
     id: 'sports-car',
-    name: 'Sports Car',
+    name: 'Supercar Drift',
     iconKey: 'sports-car',
     cost: 7000,
     color: 'text-rose-500',
     tier: 'epic',
-    description: 'A pink supercar drifting across the stage',
+    description: 'Nitro supercar drifting across the stage with fire',
     animClass: 'gift-anim-drive',
   },
   {
     id: 'lion',
-    name: 'Golden Lion',
+    name: 'TikTok Fire Lion',
     iconKey: 'lion',
     cost: 10000,
     color: 'text-amber-400',
-    tier: 'epic',
-    description: 'The king of the arena roars to life',
+    tier: 'legendary',
+    description: 'شێری ئاگرین نەڕەی دێت و ئاگری لێ هەڵدەستێت',
     animClass: 'gift-anim-roar',
   },
   {
@@ -144,12 +144,12 @@ export const AVAILABLE_GIFTS: GiftItem[] = [
   },
   {
     id: 'white-tiger',
-    name: 'White Tiger',
+    name: 'Thunder Tiger',
     iconKey: 'white-tiger',
     cost: 99999,
     color: 'text-sky-300',
     tier: 'mythic',
-    description: 'The rarest mythical beast descends on stage',
+    description: 'The rarest mythical lightning beast descends on stage',
     animClass: 'gift-anim-lightning',
   },
 ];

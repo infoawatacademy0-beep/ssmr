@@ -11,6 +11,8 @@ export interface ChatMessage {
 
 export type SeatRole = 'host' | 'coHost' | 'moderator' | 'vip' | 'speaker';
 
+export type VoiceEffectMode = 'normal' | 'child' | 'venom';
+
 /**
  * Seat in the 8-seat audio grid.
  */
@@ -23,6 +25,7 @@ export interface Seat {
   isLocked: boolean;
   role?: SeatRole;
   isMicBlocked?: boolean;
+  voiceEffect?: VoiceEffectMode;
 }
 
 export type RoomCategory = 'Gaming' | 'Voice Chat' | 'Music' | 'Chill';

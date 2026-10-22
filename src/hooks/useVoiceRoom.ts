@@ -6,16 +6,19 @@ import {
   Track,
   RemoteTrackPublication,
   RemoteAudioTrack,
+  LocalAudioTrack,
   ConnectionState,
 } from 'livekit-client';
 import { LIVEKIT_CONFIG } from '../config/livekit';
 import { fetchLiveKitToken } from '../services/livekitToken';
-import type { User, Seat } from '../types';
+import { VoiceChangerProcessor } from '../services/voiceChanger';
+import type { User, Seat, VoiceEffectMode } from '../types';
 
 /* ─────────────────────────────────────────────────────────────
    useVoiceRoom Hook — WebRTC LiveKit Audio Integration
    Connects client to LiveKit Room, syncs microphone state
-   with Firebase seat state, and exposes speaking indicators.
+   with Firebase seat state, applies real-time VIP Voice Changer
+   (Normal / Child / Venom), and exposes speaking indicators.
    ───────────────────────────────────────────────────────────── */
 
 interface UseVoiceRoomProps {
@@ -35,11 +38,16 @@ export function useVoiceRoom({
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [speakingUids, setSpeakingUids] = useState<Set<string>>(new Set());
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
+  const [isSelfMonitoring, setIsSelfMonitoring] = useState(false);
 
   // Reference to persistent LiveKit room instance
   const roomRef = useRef<Room | null>(null);
   // Container for remote audio elements attached to the DOM
   const audioContainerRef = useRef<HTMLDivElement | null>(null);
+  // Real-time VIP Voice Changer WebAudio processor
+  const voiceProcessorRef = useRef<VoiceChangerProcessor | null>(null);
+  // Original raw microphone MediaStreamTrack before WebAudio processing
+  const rawMicTrackRef = useRef<MediaStreamTrack | null>(null);
 
   /* ─────────────────────────────────────────────────────────────
      1. Initialize & Connect to LiveKit Room
@@ -59,6 +67,7 @@ export function useVoiceRoom({
     });
 
     roomRef.current = room;
+    voiceProcessorRef.current = new VoiceChangerProcessor();
     setIsConnecting(true);
     setConnectionError(null);
 
@@ -149,6 +158,12 @@ export function useVoiceRoom({
 
     return () => {
       isMounted = false;
+      if (voiceProcessorRef.current) {
+        voiceProcessorRef.current.stop();
+        voiceProcessorRef.current = null;
+      }
+      rawMicTrackRef.current = null;
+      setIsSelfMonitoring(false);
       // Disconnect cleanly and unpublish any published tracks
       room.disconnect();
       if (audioContainerRef.current) {
@@ -159,37 +174,78 @@ export function useVoiceRoom({
   }, [roomId, currentUser?.uid]);
 
   /* ─────────────────────────────────────────────────────────────
-     2. Mute/Unmute State Synchronization with Firebase Seating
+     2. Mute/Unmute & VIP Voice Changer Synchronization
      ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const room = roomRef.current;
     if (!room || room.state !== ConnectionState.Connected) return;
 
-    async function syncMicrophone() {
+    async function syncMicrophoneAndVoiceEffect() {
       try {
-        if (mySeat) {
-          // User is seated on stage
-          if (!mySeat.isMuted) {
-            // Unmuted in Firebase → Enable microphone in LiveKit
-            await room!.localParticipant.setMicrophoneEnabled(true);
-          } else {
-            // Muted in Firebase → Disable microphone in LiveKit
-            await room!.localParticipant.setMicrophoneEnabled(false);
+        if (mySeat && !mySeat.isMuted) {
+          // User is seated on stage and unmuted → Enable microphone in LiveKit
+          await room!.localParticipant.setMicrophoneEnabled(true);
+
+          // Apply VIP Voice Changer effect ('normal' | 'child' | 'venom')
+          const pub = room!.localParticipant.getTrackPublication(Track.Source.Microphone);
+          const localAudioTrack = pub?.audioTrack as LocalAudioTrack | undefined;
+
+          if (localAudioTrack && localAudioTrack.mediaStreamTrack) {
+            // Save original raw track reference if not saved or if device changed
+            if (
+              !rawMicTrackRef.current ||
+              rawMicTrackRef.current.readyState === 'ended'
+            ) {
+              rawMicTrackRef.current = localAudioTrack.mediaStreamTrack;
+            }
+
+            const effectMode: VoiceEffectMode = mySeat.voiceEffect || 'normal';
+            const processor = voiceProcessorRef.current;
+
+            if (processor && rawMicTrackRef.current) {
+              const processedTrack = processor.start(rawMicTrackRef.current, effectMode);
+              const sender = (localAudioTrack as unknown as { sender?: RTCRtpSender }).sender;
+
+              if (sender && typeof sender.replaceTrack === 'function') {
+                if (effectMode === 'normal') {
+                  await sender.replaceTrack(rawMicTrackRef.current);
+                } else {
+                  await sender.replaceTrack(processedTrack);
+                }
+              }
+            }
           }
         } else {
-          // User is a spectator (not seated) → Ensure microphone is strictly muted
+          // User is muted or spectator → Strictly disable microphone in LiveKit
           await room!.localParticipant.setMicrophoneEnabled(false);
+          if (voiceProcessorRef.current) {
+            voiceProcessorRef.current.setSelfMonitor(false);
+            setIsSelfMonitoring(false);
+          }
         }
       } catch (err) {
         console.error('Error synchronizing LiveKit microphone with seat state:', err);
       }
     }
 
-    syncMicrophone();
-  }, [mySeat?.seatNo, mySeat?.isMuted, isConnected]);
+    syncMicrophoneAndVoiceEffect();
+  }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.voiceEffect, isConnected]);
 
   /* ─────────────────────────────────────────────────────────────
-     3. Helper: User Gesture to Resume Blocked Audio
+     3. Toggle Local Voice Self-Monitor (for VIP testing)
+     ───────────────────────────────────────────────────────────── */
+  const toggleSelfMonitor = useCallback(() => {
+    const processor = voiceProcessorRef.current;
+    if (!processor) return;
+    setIsSelfMonitoring((prev) => {
+      const next = !prev;
+      processor.setSelfMonitor(next);
+      return next;
+    });
+  }, []);
+
+  /* ─────────────────────────────────────────────────────────────
+     4. Helper: User Gesture to Resume Blocked Audio
      ───────────────────────────────────────────────────────────── */
   const unlockAudioAutoplay = useCallback(() => {
     if (audioContainerRef.current) {
@@ -208,6 +264,8 @@ export function useVoiceRoom({
     speakingUids,
     audioAutoplayBlocked,
     unlockAudioAutoplay,
+    isSelfMonitoring,
+    toggleSelfMonitor,
     room: roomRef.current,
   };
 }

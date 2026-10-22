@@ -34,8 +34,8 @@ import { useAuth } from '../contexts';
 import type {
   Room,
   Seat,
-  DiceGame,
-  LudoGame,
+  JackarooGame,
+  VoiceEffectMode,
   RoomEntranceEvent,
   RoomMusicState,
   AudienceMember,
@@ -47,9 +47,9 @@ import {
   joinSeat,
   leaveSeat,
   toggleSeatMute,
+  setSeatVoiceEffect,
   sendRoomMessage,
-  subscribeToDiceGame,
-  subscribeToLudoGame,
+  subscribeToJackarooGame,
   broadcastUserEntrance,
   subscribeToRoomEntrance,
   subscribeToMusicState,
@@ -61,8 +61,7 @@ import {
   subscribeToPkBattle,
 } from '../services';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
-import DiceGamePanel from './DiceGamePanel';
-import LudoGamePanel from './LudoGamePanel';
+import JackarooGamePanel from './JackarooGamePanel';
 import GiftStoreModal from './GiftStoreModal';
 import AudioStreams from './AudioStreams';
 import EntranceAnimation from './EntranceAnimation';
@@ -102,13 +101,16 @@ export default function VoiceRoom() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Synchronized Mini-Game (Dice Battle) state
-  const [activeGame, setActiveGame] = useState<DiceGame | null>(null);
-  const [isDiceGameOpen, setIsDiceGameOpen] = useState(false);
+  // Synchronized 2/3/4-Player Jackaroo Board & Card Game state
+  const [activeJackarooGame, setActiveJackarooGame] = useState<JackarooGame | null>(null);
+  const [isJackarooOpen, setIsJackarooOpen] = useState(false);
 
-  // Synchronized 4-Player Ludo Board Battle state
-  const [activeLudoGame, setActiveLudoGame] = useState<LudoGame | null>(null);
-  const [isLudoGameOpen, setIsLudoGameOpen] = useState(false);
+  // VIP Voice Changer Modal state
+  const [isVoiceChangerOpen, setIsVoiceChangerOpen] = useState(false);
+
+  // Preserve user's mute & voice effect state when switching seats
+  const lastKnownMuteRef = useRef<boolean>(false);
+  const lastKnownVoiceEffectRef = useRef<VoiceEffectMode>('normal');
 
   // Live User Entrance Animations state
   const [entranceEvent, setEntranceEvent] = useState<RoomEntranceEvent | null>(null);
@@ -197,14 +199,9 @@ export default function VoiceRoom() {
       setLoading(false);
     });
 
-    // Real-time Escrow Mini-Game listener
-    const unsubDice = subscribeToDiceGame(roomId, (game) => {
-      setActiveGame(game);
-    });
-
-    // Real-time 4-Player Ludo Board Battle listener
-    const unsubLudo = subscribeToLudoGame(roomId, (ludo) => {
-      setActiveLudoGame(ludo);
+    // Real-time 2/3/4-Player Jackaroo Board & Card Game listener
+    const unsubJackaroo = subscribeToJackarooGame(roomId, (jkr) => {
+      setActiveJackarooGame(jkr);
     });
 
     // Real-time User Entrance listener
@@ -259,8 +256,7 @@ export default function VoiceRoom() {
 
     return () => {
       unsubRoom();
-      unsubDice();
-      unsubLudo();
+      unsubJackaroo();
       unsubEntrance();
       unsubGift();
       unsubPk();
@@ -289,7 +285,7 @@ export default function VoiceRoom() {
   }, [room?.hostId]);
 
   /* ─────────────────────────────────────────────────────────────
-     2. WebRTC Audio Streaming with LiveKit
+     2. WebRTC Audio Streaming with LiveKit & VIP Voice Changer
      ───────────────────────────────────────────────────────────── */
   const {
     isConnected: isLiveKitConnected,
@@ -298,12 +294,22 @@ export default function VoiceRoom() {
     speakingUids,
     audioAutoplayBlocked,
     unlockAudioAutoplay,
+    isSelfMonitoring,
+    toggleSelfMonitor,
   } = useVoiceRoom({
     roomId: room?.id || '',
     currentUser: user,
     mySeat,
     allSeats: room?.seats || [],
   });
+
+  // Keep last known mute state & voice effect synced so switching seats NEVER forces mic open
+  useEffect(() => {
+    if (mySeat) {
+      lastKnownMuteRef.current = Boolean(mySeat.isMuted);
+      lastKnownVoiceEffectRef.current = mySeat.voiceEffect || 'normal';
+    }
+  }, [mySeat?.isMuted, mySeat?.voiceEffect]);
 
   /* ─────────────────────────────────────────────────────────────
      3. Auto-scroll chat to bottom
@@ -325,12 +331,14 @@ export default function VoiceRoom() {
     if (!room || !user) return;
 
     if (!seat.userId) {
-      // Empty seat clicked: Join seat
+      // Empty seat clicked: Join seat while strictly preserving current mute & VIP voice state
       try {
         await joinSeat(room.id, seat.seatNo, {
           uid: user.uid,
           username: user.username,
           avatar: user.avatar,
+          isMuted: mySeat ? mySeat.isMuted : lastKnownMuteRef.current,
+          voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
         });
       } catch (err: any) {
         alert(err.message || 'Could not take this seat.');
@@ -345,10 +353,27 @@ export default function VoiceRoom() {
   const handleToggleMyMute = async () => {
     if (!room || !mySeat) return;
     try {
+      const nextMuted = !mySeat.isMuted;
+      lastKnownMuteRef.current = nextMuted;
       // Toggling isMuted in Firebase cascades to LiveKit setMicrophoneEnabled
-      await toggleSeatMute(room.id, mySeat.seatNo, !mySeat.isMuted);
+      await toggleSeatMute(room.id, mySeat.seatNo, nextMuted);
     } catch (err: any) {
       console.error('Failed to toggle mute:', err);
+    }
+  };
+
+  const handleChangeVoiceEffect = async (effect: VoiceEffectMode) => {
+    if (!room || !mySeat || !user) return;
+    const isVipUser = Boolean(user.isVerified || user.role === 'admin');
+    if (!isVipUser && effect !== 'normal') {
+      alert('تایبەتمەندی گۆڕینی دەنگ (منداڵان / ڤینۆم) تەنها بۆ ئەندامانی VIP بەردەستە کە لەلایەن ئەدمینەوە پێیان دەبەخشرێت!');
+      return;
+    }
+    try {
+      lastKnownVoiceEffectRef.current = effect;
+      await setSeatVoiceEffect(room.id, mySeat.seatNo, effect);
+    } catch (err) {
+      console.error('Failed to change voice effect:', err);
     }
   };
 
@@ -735,6 +760,19 @@ export default function VoiceRoom() {
                             </div>
                           )}
 
+                          {/* Active VIP Voice Changer Badge on Seat (Child / Venom) */}
+                          {seat.voiceEffect && seat.voiceEffect !== 'normal' && (
+                            <div
+                              className={`absolute -top-2.5 left-1/2 -translate-x-1/2 z-20 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7.5px] font-black shadow-md ${
+                                seat.voiceEffect === 'venom'
+                                  ? 'border-purple-400/80 bg-gradient-to-r from-slate-950 via-purple-950 to-rose-950 text-purple-200 shadow-purple-500/40'
+                                  : 'border-pink-400/80 bg-gradient-to-r from-pink-500 to-amber-400 text-black shadow-pink-500/40'
+                              }`}
+                            >
+                              {seat.voiceEffect === 'venom' ? '👹 VENOM' : '👶 منداڵ'}
+                            </div>
+                          )}
+
                           {/* Mic Status Badge */}
                           <div
                             className={`
@@ -782,74 +820,36 @@ export default function VoiceRoom() {
             })}
           </div>
 
-          {/* ── FLOATING MINI-GAME NOTIFICATION BANNERS ── */}
+          {/* ── FLOATING VIP JACKAROO NOTIFICATION BANNER ── */}
           <div className="mt-2 space-y-2">
-            {/* 4-Player Ludo Banner */}
             <AnimatePresence>
-              {activeLudoGame && (
+              {activeJackarooGame && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  onClick={() => setIsLudoGameOpen(true)}
-                  className="flex cursor-pointer items-center justify-between rounded-2xl border border-violet-500/40 bg-gradient-to-r from-violet-600/30 via-surface-800 to-indigo-600/20 px-3.5 py-2 shadow-lg shadow-violet-500/15"
+                  onClick={() => setIsJackarooOpen(true)}
+                  className="flex cursor-pointer items-center justify-between rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/25 via-surface-800 to-orange-600/20 px-3.5 py-2 shadow-lg shadow-amber-500/15"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-600 text-white shadow">
-                      <Gamepad2 className="h-4 w-4" />
+                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-black font-black shadow">
+                      🃏
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>4P LUDO BATTLE</span>
-                        <span className="rounded bg-violet-400/20 px-1 py-0.2 text-[8px] text-violet-300 font-bold uppercase">
-                          {activeLudoGame.status}
+                      <p className="text-xs font-black text-white flex items-center gap-1.5">
+                        <span>VIP JACKAROO · جاکۆرۆ</span>
+                        <span className="rounded bg-amber-400/20 px-1.5 py-0.2 text-[8px] text-amber-300 font-bold uppercase">
+                          {activeJackarooGame.maxPlayers}P · {activeJackarooGame.status}
                         </span>
                       </p>
-                      <p className="text-[10px] text-slate-300">
-                        {activeLudoGame.players.length}/4 Players · Pot: {activeLudoGame.totalPot} Coins
+                      <p className="text-[10px] text-amber-200/90">
+                        {activeJackarooGame.players.length}/{activeJackarooGame.maxPlayers} یاریزان · خەڵات: {activeJackarooGame.totalPot} کۆین
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 text-[11px] font-bold text-violet-400">
-                    <span>{activeLudoGame.status === 'waiting' ? 'Join' : 'Play'}</span>
-                    <Flame className="h-3.5 w-3.5" />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* 1v1 Dice Battle Banner */}
-            <AnimatePresence>
-              {activeGame && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  onClick={() => setIsDiceGameOpen(true)}
-                  className="flex cursor-pointer items-center justify-between rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-surface-800 to-amber-500/10 px-3.5 py-2 shadow-lg shadow-amber-500/10"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-400 text-black shadow">
-                      <Dices className="h-4 w-4 animate-spin" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>DICE BATTLE</span>
-                        <span className="rounded bg-amber-400/20 px-1 py-0.2 text-[8px] text-amber-300 font-bold uppercase">
-                          {activeGame.status}
-                        </span>
-                      </p>
-                      <p className="text-[10px] text-amber-300/80">
-                        {activeGame.status === 'waiting'
-                          ? `${activeGame.player1.username} wagered ${activeGame.betAmount} Coins`
-                          : `${activeGame.player1.username} vs ${activeGame.player2?.username} (${activeGame.potSize} Coins Pot)`}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400">
-                    <span>{activeGame.status === 'waiting' ? 'Accept' : 'Watch'}</span>
+                  <div className="flex items-center gap-1 text-[11px] font-black text-amber-400">
+                    <span>{activeJackarooGame.status === 'waiting' ? 'بەشداری بکە' : 'بینینی یاری'}</span>
                     <Flame className="h-3.5 w-3.5" />
                   </div>
                 </motion.div>
@@ -981,31 +981,61 @@ export default function VoiceRoom() {
          ───────────────────────────────────────────────────────── */}
       <footer className="relative z-20 shrink-0 border-t border-white/[0.08] bg-surface-900/90 px-3 py-3 backdrop-blur-xl">
         <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-          {/* Mic Quick Toggle (Cascades to LiveKit Audio Engine) */}
+          {/* Mic Quick Toggle + VIP Voice Changer Button */}
           {mySeat ? (
-            <button
-              onClick={handleToggleMyMute}
-              className={`
-                flex items-center justify-center gap-1 rounded-2xl px-2.5 py-2 text-xs font-semibold transition-all shadow-md active:scale-95
-                ${
-                  mySeat.isMuted
-                    ? 'border border-rose-500/30 bg-rose-500/10 text-rose-300'
-                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/20'
-                }
-              `}
-            >
-              {mySeat.isMuted ? (
-                <>
-                  <MicOff className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Unmute</span>
-                </>
-              ) : (
-                <>
-                  <Mic className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Mute</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleToggleMyMute}
+                className={`
+                  flex items-center justify-center gap-1 rounded-2xl px-2.5 py-2 text-xs font-semibold transition-all shadow-md active:scale-95
+                  ${
+                    mySeat.isMuted
+                      ? 'border border-rose-500/30 bg-rose-500/10 text-rose-300'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/20'
+                  }
+                `}
+              >
+                {mySeat.isMuted ? (
+                  <>
+                    <MicOff className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Unmute</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Mute</span>
+                  </>
+                )}
+              </button>
+
+              {/* VIP Voice Changer Button (Normal / Child / Venom) */}
+              <button
+                onClick={() => setIsVoiceChangerOpen(true)}
+                className={`flex items-center gap-1 rounded-2xl border px-2.5 py-2 text-xs font-black transition-all shadow-md active:scale-95 ${
+                  mySeat.voiceEffect === 'venom'
+                    ? 'border-purple-400/60 bg-gradient-to-r from-purple-900 to-rose-900 text-purple-200 shadow-purple-500/30'
+                    : mySeat.voiceEffect === 'child'
+                      ? 'border-pink-400/60 bg-gradient-to-r from-pink-500/30 to-amber-500/30 text-pink-200 shadow-pink-500/20'
+                      : 'border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                }`}
+                title="VIP Voice Changer (گۆڕینی دەنگ: منداڵان / ڤینۆم)"
+              >
+                <span>
+                  {mySeat.voiceEffect === 'venom'
+                    ? '👹'
+                    : mySeat.voiceEffect === 'child'
+                      ? '👶'
+                      : '🎙️'}
+                </span>
+                <span className="text-[11px]">
+                  {mySeat.voiceEffect === 'venom'
+                    ? 'Venom'
+                    : mySeat.voiceEffect === 'child'
+                      ? 'منداڵ'
+                      : 'دەنگ'}
+                </span>
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-1 text-slate-400 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded-2xl px-2 py-2">
               <Volume2 className="h-3 w-3 text-violet-400" />
@@ -1013,27 +1043,15 @@ export default function VoiceRoom() {
             </div>
           )}
 
-          {/* 4-PLAYER LUDO BOARD BUTTON */}
+          {/* VIP JACKAROO (2, 3, OR 4 PLAYERS) GAME BUTTON */}
           <button
-            onClick={() => setIsLudoGameOpen(true)}
-            className="flex items-center gap-1 rounded-2xl border border-violet-500/40 bg-gradient-to-r from-violet-600/20 to-indigo-600/10 px-2.5 py-2 text-xs font-bold text-violet-300 shadow-md transition-transform active:scale-95"
+            onClick={() => setIsJackarooOpen(true)}
+            className="flex items-center gap-1.5 rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-rose-500/20 px-3 py-2 text-xs font-black text-amber-300 shadow-md shadow-amber-500/15 transition-transform active:scale-95"
           >
-            <Gamepad2 className="h-3.5 w-3.5 text-violet-400" />
-            <span>4P Ludo</span>
-            {activeLudoGame && (
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-ping" />
-            )}
-          </button>
-
-          {/* DICE BATTLE MINI-GAME BUTTON */}
-          <button
-            onClick={() => setIsDiceGameOpen(true)}
-            className="flex items-center gap-1 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-yellow-500/10 px-2.5 py-2 text-xs font-bold text-amber-300 shadow-md transition-transform active:scale-95"
-          >
-            <Dices className="h-3.5 w-3.5 text-amber-400" />
-            <span>Dice</span>
-            {activeGame && (
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />
+            <Gamepad2 className="h-3.5 w-3.5 text-amber-400" />
+            <span>جاکۆرۆ · Jackaroo</span>
+            {activeJackarooGame && (
+              <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
             )}
           </button>
 
@@ -1221,32 +1239,146 @@ export default function VoiceRoom() {
       </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────
-         MODAL 2: 4-Player Ludo Board Battle Panel
+         MODAL 2: VIP Jackaroo Board & Card Game (2, 3, or 4 Players)
          ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {isLudoGameOpen && (
-          <LudoGamePanel
+        {isJackarooOpen && (
+          <JackarooGamePanel
             roomId={room.id}
             currentUser={user}
-            activeLudoGame={activeLudoGame}
-            seats={room.seats}
-            onClose={() => setIsLudoGameOpen(false)}
+            activeGame={activeJackarooGame}
+            onClose={() => setIsJackarooOpen(false)}
           />
         )}
       </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────
-         MODAL 3: Interactive Dice Game Escrow Panel
+         MODAL 3: VIP Voice Changer Modal (Normal / Child / Venom)
          ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {isDiceGameOpen && (
-          <DiceGamePanel
-            roomId={room.id}
-            currentUser={user}
-            activeGame={activeGame}
-            seats={room.seats}
-            onClose={() => setIsDiceGameOpen(false)}
-          />
+        {isVoiceChangerOpen && mySeat && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+            onClick={() => setIsVoiceChangerOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 80, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 80, opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-3xl border border-amber-500/35 bg-gradient-to-b from-[#1b1630] via-[#131022] to-[#0c0a16] p-5 shadow-[0_0_50px_rgba(245,158,11,0.2)]"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-pink-500 text-lg shadow-lg">
+                    🎙️
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white flex items-center gap-1.5">
+                      <span>گۆڕینی دەنگی VIP</span>
+                      <Crown className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      کاتێک مایکت کراوەیە دەنگت ڕاستەوخۆ دەگۆڕێت
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsVoiceChangerOpen(false)}
+                  className="rounded-full bg-white/5 p-1.5 text-slate-400 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {!(user.isVerified || user.role === 'admin') ? (
+                <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-center space-y-2">
+                  <Crown className="mx-auto h-8 w-8 text-amber-400" />
+                  <p className="text-xs font-black text-amber-300">
+                    ئەم تایبەتمەندییە تەنها بۆ ئەندامانی VIP بەردەستە!
+                  </p>
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    کاتێک ئەدمین نیشانەی VIP ـت پێ دەبەخشێت، دەتوانیت دەنگی خۆت لە کاتی قسەکردندا بگۆڕیت بۆ دەنگی منداڵان 👶 یان ڤینۆم 👹.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-2.5">
+                  {(
+                    [
+                      {
+                        id: 'normal',
+                        icon: '🎙️',
+                        title: 'دەنگی ئاسایی (Normal)',
+                        desc: 'دەنگی سروشتی و ڕاستەقینەی خۆت',
+                        border: 'border-emerald-400/50 bg-emerald-500/15',
+                      },
+                      {
+                        id: 'child',
+                        icon: '👶',
+                        title: 'دەنگی منداڵان (Child / Baby)',
+                        desc: 'دەنگێکی ناسک و خۆشی منداڵانە لە کاتی قسەکردن',
+                        border: 'border-pink-400/60 bg-gradient-to-r from-pink-500/20 to-amber-500/15',
+                      },
+                      {
+                        id: 'venom',
+                        icon: '👹',
+                        title: 'دەنگی ڤینۆم (Venom Monster)',
+                        desc: 'دەنگی قووڵ و ترسناکی دێوی ڤینۆم بە نەڕەی دووانە',
+                        border: 'border-purple-400/60 bg-gradient-to-r from-purple-900/40 to-rose-900/30',
+                      },
+                    ] as const
+                  ).map((opt) => {
+                    const active = (mySeat.voiceEffect || 'normal') === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={async () => {
+                          await handleChangeVoiceEffect(opt.id);
+                        }}
+                        className={`flex w-full items-center justify-between rounded-2xl border p-3.5 text-left transition-all ${
+                          active
+                            ? `${opt.border} ring-2 ring-amber-400 scale-[1.01] shadow-lg`
+                            : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.07]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{opt.icon}</span>
+                          <div>
+                            <p className="text-xs font-black text-white">{opt.title}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
+                          </div>
+                        </div>
+                        {active && (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-black">
+                            <Check className="h-3.5 w-3.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {/* Self-Monitor Test Toggle */}
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-300 font-semibold">
+                      🎧 تاقیکردنەوەی دەنگی خۆم (گوێگرتن):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={toggleSelfMonitor}
+                      className={`rounded-xl px-3 py-1.5 text-xs font-black transition ${
+                        isSelfMonitoring
+                          ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/25'
+                          : 'border border-white/15 bg-white/5 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {isSelfMonitoring ? 'چالاکە (گوێم لێیە)' : 'ناچالاکە'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

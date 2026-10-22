@@ -12,6 +12,7 @@ export {
   joinSeat,
   leaveSeat,
   toggleSeatMute,
+  setSeatVoiceEffect,
   sendRoomMessage,
   broadcastUserEntrance,
   subscribeToRoomEntrance,
@@ -48,6 +49,19 @@ export {
 } from './ludoService';
 
 export type { LudoParticipant } from './ludoService';
+
+export {
+  createJackarooGame,
+  joinJackarooGame,
+  startJackarooGameNow,
+  playJackarooCardMove,
+  playJackSwapMove,
+  burnJackarooCard,
+  closeJackarooGame,
+  subscribeToJackarooGame,
+  getGlobalTrackIndex,
+  canMoveMarbleWithCard,
+} from './jackarooService';
 
 export { sendGift, subscribeToRoomGift, subscribeToSeatGiftCoins } from './giftService';
 

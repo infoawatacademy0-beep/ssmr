@@ -43,28 +43,134 @@ export default function GiftIcon({ iconKey, size = 48, className = '' }: GiftIco
         </svg>
       );
 
-    /* ━━━ ROSE — Blooming flower ━━━ */
+    /* ━━━ TEAPOT POURING TEA INTO TEA GLASS (قۆری چای و پیاڵە) ━━━ */
+    case 'teapot':
     case 'rose':
       return (
         <svg viewBox="0 0 64 64" width={s} height={s} className={className}>
           <defs>
-            <radialGradient id="rs-g" cx="50%" cy="40%">
-              <stop offset="0%" stopColor="#ff5252" />
-              <stop offset="100%" stopColor="#b71c1c" />
-            </radialGradient>
+            <linearGradient id="tp-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fde047" />
+              <stop offset="50%" stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+            <linearGradient id="tp-tea" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="55%" stopColor="#dc2626" />
+              <stop offset="100%" stopColor="#7f1d1d" />
+            </linearGradient>
+            <filter id="tp-glow">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
-          {/* Stem */}
-          <path d="M32 42v18" stroke="#2e7d32" strokeWidth="3" strokeLinecap="round" />
-          {/* Leaves */}
-          <path d="M32 50q-10-6-14-2" fill="#43a047" stroke="#2e7d32" strokeWidth="1" />
-          <path d="M32 54q10-6 14-2" fill="#43a047" stroke="#2e7d32" strokeWidth="1" />
-          {/* Petals */}
-          <ellipse cx="32" cy="28" rx="10" ry="14" fill="url(#rs-g)" opacity="0.9" />
-          <ellipse cx="22" cy="26" rx="9" ry="11" fill="#ef5350" opacity="0.8" transform="rotate(-25 22 26)" />
-          <ellipse cx="42" cy="26" rx="9" ry="11" fill="#ef5350" opacity="0.8" transform="rotate(25 42 26)" />
-          <ellipse cx="27" cy="18" rx="7" ry="9" fill="#e53935" opacity="0.7" transform="rotate(-15 27 18)" />
-          <ellipse cx="37" cy="18" rx="7" ry="9" fill="#e53935" opacity="0.7" transform="rotate(15 37 18)" />
-          <ellipse cx="32" cy="16" rx="5" ry="7" fill="#c62828" opacity="0.9" />
+
+          {/* Tilted Ornate Golden Teapot (Top-Left pouring toward Bottom-Right) */}
+          <g transform="translate(0, 0)">
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              values="-8 22 20; 14 22 20; -8 22 20"
+              dur="2.4s"
+              repeatCount="indefinite"
+            />
+            {/* Handle */}
+            <path
+              d="M11 14 C4 14, 4 26, 12 26"
+              fill="none"
+              stroke="url(#tp-gold)"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+            />
+            {/* Teapot Belly */}
+            <ellipse cx="21" cy="21" rx="10" ry="8.5" fill="url(#tp-gold)" filter="url(#tp-glow)" />
+            {/* Decorative Motif on Teapot */}
+            <ellipse cx="21" cy="21" rx="5.5" ry="4" fill="#fef08a" opacity="0.35" />
+            {/* Lid & Finial */}
+            <ellipse cx="21" cy="12.5" rx="6" ry="2.2" fill="#fbbf24" />
+            <circle cx="21" cy="10" r="2" fill="#fde047" />
+            {/* Spout reaching toward the tea glass */}
+            <path
+              d="M29 19 Q36 18 39 24 L37 26 Q33 23 28 24 Z"
+              fill="url(#tp-gold)"
+            />
+          </g>
+
+          {/* Animated Pouring Stream of Red/Amber Tea */}
+          <path
+            d="M38 25 Q41 32 41 44"
+            fill="none"
+            stroke="url(#tp-tea)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray="4 2"
+          >
+            <animate
+              attributeName="stroke-dashoffset"
+              values="12;0"
+              dur="0.45s"
+              repeatCount="indefinite"
+            />
+            <animate
+              attributeName="opacity"
+              values="0.5;1;0.5"
+              dur="1.2s"
+              repeatCount="indefinite"
+            />
+          </path>
+
+          {/* Hot Steam Wisps Rising from Glass */}
+          <path
+            d="M39 34 Q37 30 40 27"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+            opacity="0.6"
+          >
+            <animate attributeName="opacity" values="0.2;0.8;0.2" dur="1.4s" repeatCount="indefinite" />
+          </path>
+          <path
+            d="M45 35 Q47 31 44 28"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+            opacity="0.6"
+          >
+            <animate attributeName="opacity" values="0.7;0.2;0.7" dur="1.4s" repeatCount="indefinite" />
+          </path>
+
+          {/* Classic Saucer (ژێرپیاڵە) */}
+          <ellipse cx="42" cy="56" rx="13" ry="3.2" fill="#dc2626" stroke="#fbbf24" strokeWidth="1.2" />
+          <ellipse cx="42" cy="55.5" rx="8" ry="1.6" fill="#fef08a" opacity="0.45" />
+
+          {/* Slim-Waisted Kurdish Tea Glass (پیاڵە / ئیستکان) */}
+          <path
+            d="M34 36 L50 36 Q46 45 48 54 L36 54 Q38 45 34 36 Z"
+            fill="rgba(255,255,255,0.22)"
+            stroke="#fde047"
+            strokeWidth="1.4"
+          />
+
+          {/* Glowing Crimson Tea Inside the Glass */}
+          <path
+            d="M35.5 41 L48.5 41 Q46 47 47.2 53.2 L36.8 53.2 Q38 47 35.5 41 Z"
+            fill="url(#tp-tea)"
+          >
+            <animate
+              attributeName="opacity"
+              values="0.85;1;0.85"
+              dur="1.5s"
+              repeatCount="indefinite"
+            />
+          </path>
+
+          {/* Gold Rim on Tea Glass */}
+          <ellipse cx="42" cy="36" rx="8" ry="1.8" fill="none" stroke="#fde047" strokeWidth="1.5" />
         </svg>
       );
 
@@ -226,43 +332,72 @@ export default function GiftIcon({ iconKey, size = 48, className = '' }: GiftIco
         </svg>
       );
 
-    /* ━━━ LION — Majestic golden lion ━━━ */
+    /* ━━━ LION — TikTok Roaring Fire Lion ━━━ */
     case 'lion':
       return (
         <svg viewBox="0 0 64 64" width={s} height={s} className={className}>
           <defs>
             <radialGradient id="ln-g" cx="50%" cy="40%">
-              <stop offset="0%" stopColor="#ffb300" />
-              <stop offset="100%" stopColor="#e65100" />
+              <stop offset="0%" stopColor="#fde047" />
+              <stop offset="55%" stopColor="#f97316" />
+              <stop offset="100%" stopColor="#b91c1c" />
             </radialGradient>
+            <linearGradient id="ln-fire" x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#dc2626" />
+              <stop offset="50%" stopColor="#f97316" />
+              <stop offset="100%" stopColor="#fef08a" />
+            </linearGradient>
             <filter id="ln-glow">
-              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feGaussianBlur stdDeviation="2.2" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
           </defs>
-          {/* Mane */}
-          <circle cx="32" cy="30" r="22" fill="url(#ln-g)" filter="url(#ln-glow)" />
-          {/* Mane points */}
-          {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((angle) => {
+          {/* Erupting Back Flames */}
+          <path
+            d="M10 48 Q4 26 18 10 Q24 2 32 4 Q40 2 46 10 Q60 26 54 48 Z"
+            fill="url(#ln-fire)"
+            filter="url(#ln-glow)"
+          >
+            <animateTransform
+              attributeName="transform"
+              type="scale"
+              values="1 1; 1.06 1.08; 0.97 1.03; 1 1"
+              dur="0.65s"
+              repeatCount="indefinite"
+            />
+          </path>
+          {/* Fiery Mane */}
+          <circle cx="32" cy="32" r="21" fill="url(#ln-g)" filter="url(#ln-glow)" />
+          {/* Blazing Mane Spikes */}
+          {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((angle, idx) => {
             const rad = (angle * Math.PI) / 180;
-            const x = 32 + 24 * Math.cos(rad);
-            const y = 30 + 24 * Math.sin(rad);
-            return <circle key={angle} cx={x} cy={y} r="4" fill="#ff8f00" opacity="0.7" />;
+            const x = 32 + 23 * Math.cos(rad);
+            const y = 32 + 23 * Math.sin(rad);
+            return (
+              <circle key={angle} cx={x} cy={y} r="4.5" fill={idx % 2 === 0 ? '#ef4444' : '#fbbf24'} opacity="0.85">
+                <animate
+                  attributeName="r"
+                  values="3.5;5.5;3.5"
+                  dur={`${0.5 + (idx % 3) * 0.2}s`}
+                  repeatCount="indefinite"
+                />
+              </circle>
+            );
           })}
-          {/* Face */}
-          <circle cx="32" cy="32" r="14" fill="#ffca28" />
-          {/* Eyes */}
-          <ellipse cx="26" cy="28" rx="2.5" ry="2" fill="#4e342e" />
-          <ellipse cx="38" cy="28" rx="2.5" ry="2" fill="#4e342e" />
-          <circle cx="27" cy="27" r="0.8" fill="#fff" />
-          <circle cx="39" cy="27" r="0.8" fill="#fff" />
+          {/* Fierce Golden Face */}
+          <circle cx="32" cy="33" r="14.5" fill="#fbbf24" stroke="#b45309" strokeWidth="1.2" />
+          {/* Glowing Fire Eyes */}
+          <polygon points="21,27 28,29 23,31" fill="#fef08a" filter="url(#ln-glow)" />
+          <polygon points="43,27 36,29 41,31" fill="#fef08a" filter="url(#ln-glow)" />
           {/* Nose */}
-          <ellipse cx="32" cy="34" rx="3" ry="2" fill="#6d4c41" />
-          {/* Mouth */}
-          <path d="M29 37q3 3 6 0" fill="none" stroke="#5d4037" strokeWidth="1.2" strokeLinecap="round" />
+          <polygon points="29,34 35,34 32,37.5" fill="#7c2d12" />
+          {/* Roaring Open Mouth with Fangs & Fire */}
+          <path d="M25 39 Q32 49 39 39 Z" fill="#7f1d1d" stroke="#451a03" strokeWidth="1.2" />
+          <polygon points="27,39 28.5,42.5 30,39" fill="#ffffff" />
+          <polygon points="34,39 35.5,42.5 37,39" fill="#ffffff" />
         </svg>
       );
 
