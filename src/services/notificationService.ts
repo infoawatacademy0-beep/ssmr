@@ -2,6 +2,7 @@ import {
   ref,
   push,
   set,
+  get,
   update,
   onValue,
   query,
@@ -26,6 +27,16 @@ export async function sendNotification(params: {
   roomId?: string;
   actionUrl?: string;
 }): Promise<string> {
+  // Respect recipient's "Activity Notifications" setting in SettingsModal
+  try {
+    const prefSnap = await get(ref(database, `users/${params.recipientUid}/activityNotifications`));
+    if (prefSnap.exists() && prefSnap.val() === false) {
+      return '';
+    }
+  } catch {
+    // Proceed if read fails
+  }
+
   const notifRef = ref(database, `notifications/${params.recipientUid}`);
   const newRef = push(notifRef);
   const id = newRef.key!;

@@ -89,6 +89,7 @@ function normalizeChat(rawChat: unknown): ChatMessage[] {
         id: msg?.id || key,
         senderId: msg?.senderId || '',
         senderName: msg?.senderName || 'Anonymous',
+        senderAvatar: msg?.senderAvatar || null,
         text: msg?.text || '',
         timestamp: msg?.timestamp || Date.now(),
       }))
@@ -312,6 +313,7 @@ export async function sendRoomMessage(
   senderId: string,
   senderName: string,
   text: string,
+  senderAvatar?: string | null,
 ): Promise<void> {
   const cleanText = (text || '').trim();
   if (!cleanText || !roomId) return;
@@ -324,6 +326,7 @@ export async function sendRoomMessage(
     id: messageId,
     senderId: senderId || 'user',
     senderName: senderName || 'User',
+    senderAvatar: senderAvatar || null,
     text: cleanText,
     timestamp: Date.now(),
   };

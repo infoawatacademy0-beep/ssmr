@@ -32,6 +32,7 @@ import {
   subscribeToFollowState,
   followUser,
   unfollowUser,
+  uploadImageToImgBB,
 } from '../services';
 
 import ReportModal from './ReportModal';
@@ -46,11 +47,30 @@ interface UserProfileManagerProps {
 }
 
 const AVATAR_PRESETS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=180&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=180&auto=format&fit=crop&q=80',
+  'https://api.dicebear.com/7.x/adventurer/svg?seed=KingKurdistan&backgroundColor=b6e3f4',
+  'https://api.dicebear.com/7.x/adventurer/svg?seed=QueenRozh&backgroundColor=ffdfbf',
+  'https://api.dicebear.com/7.x/adventurer/svg?seed=ShadowWolf&backgroundColor=c0aede',
+  'https://api.dicebear.com/7.x/adventurer/svg?seed=GoldenLion&backgroundColor=ffd5dc',
+  'https://api.dicebear.com/7.x/bottts/svg?seed=CyberVenom&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=AriaVIP&backgroundColor=b6e3f4',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=DiyarPro&backgroundColor=c0aede',
+  'https://api.dicebear.com/7.x/lorelei/svg?seed=NarinStar&backgroundColor=ffd5dc',
 ];
 
 function formatTimeAgo(timestamp: number): string {
@@ -97,6 +117,7 @@ export default function UserProfileManager({
   // Editable fields state
   const [bioInput, setBioInput] = useState(currentUser.bio || '');
   const [avatarInput, setAvatarInput] = useState(currentUser.avatar || currentUser.profileImage || '');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -493,35 +514,81 @@ export default function UserProfileManager({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                      Profile Image URL
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        وێنەی پڕۆفایل (Profile Image)
+                      </label>
+                      <label
+                        className={`flex cursor-pointer items-center gap-1 rounded-xl border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25 transition ${
+                          isUploadingImage ? 'opacity-60 pointer-events-none' : ''
+                        }`}
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        <span>{isUploadingImage ? 'خەریکی بەرزکردنەوەیە...' : 'هەڵبژاردن لە مۆبایل'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingImage}
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setIsUploadingImage(true);
+                            setErrorMessage(null);
+                            try {
+                              const hostedUrl = await uploadImageToImgBB(file, `avatar_${currentUser.uid}`);
+                              setAvatarInput(hostedUrl);
+                              await updateUserSocialProfile(currentUser.uid, {
+                                avatar: hostedUrl,
+                                profileImage: hostedUrl,
+                              });
+                              const updated = {
+                                ...profileData,
+                                avatar: hostedUrl,
+                                profileImage: hostedUrl,
+                              };
+                              setProfileData(updated);
+                              onProfileUpdated?.(updated);
+                              setSaveSuccess(true);
+                              setTimeout(() => setSaveSuccess(false), 2500);
+                            } catch (err: any) {
+                              setErrorMessage(err.message || 'نەتوانرا وێنەکە بەرزبکرێتەوە بۆ ImgBB.');
+                            } finally {
+                              setIsUploadingImage(false);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
                     <div className="flex gap-2">
                       <input
-                        type="url"
+                        type="text"
                         value={avatarInput}
                         onChange={(e) => setAvatarInput(e.target.value)}
-                        placeholder="Paste image web address (https://…)"
+                        placeholder="بەستەری وێنە دابنێ یان لە خوارەوە هەڵبژێرە..."
                         className="flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
                       />
                     </div>
 
-                    {/* Quick Avatar Presets */}
-                    <div className="mt-2.5">
+                    {/* Quick Avatar Presets (24 Options) */}
+                    <div className="mt-3">
                       <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                        Or Pick a Vector/Photo Preset:
+                        هەڵبژاردنی وێنەی پڕۆفایل ({AVATAR_PRESETS.length} وێنە):
                       </span>
-                      <div className="mt-1.5 flex items-center gap-2">
+                      <div className="mt-2 grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 overflow-y-auto p-1">
                         {AVATAR_PRESETS.map((preset, idx) => (
                           <button
                             key={idx}
                             type="button"
                             onClick={() => setAvatarInput(preset)}
-                            className={`h-9 w-9 overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${
-                              avatarInput === preset ? 'border-amber-400 ring-2 ring-amber-400/40' : 'border-white/10'
+                            className={`h-11 w-11 overflow-hidden rounded-xl border-2 transition-all hover:scale-105 ${
+                              avatarInput === preset
+                                ? 'border-amber-400 ring-2 ring-amber-400/50 scale-105'
+                                : 'border-white/10 opacity-85 hover:opacity-100'
                             }`}
                           >
-                            <img src={preset} alt="preset" className="h-full w-full object-cover" />
+                            <img src={preset} alt={`preset-${idx + 1}`} className="h-full w-full object-cover" />
                           </button>
                         ))}
                       </div>

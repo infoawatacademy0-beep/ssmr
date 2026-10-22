@@ -67,6 +67,8 @@ export interface User {
   banUntil?: number | null;
   isVerified?: boolean;
   forcedVoiceEffect?: 'normal' | 'child' | 'venom' | null;
+  allowDirectMessages?: boolean;
+  activityNotifications?: boolean;
   profileCover?: string | null;
   roomBackground?: string | null;
   inventory?: Record<string, any>;
@@ -102,12 +104,13 @@ export function buildDefaultUser(
   email: string,
 ): CreateUserPayload {
   const now = Date.now();
+  const defaultAvatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(username || uid)}&backgroundColor=b6e3f4`;
   return {
     uid,
     username,
     email,
-    avatar: '',
-    profileImage: '',
+    avatar: defaultAvatar,
+    profileImage: defaultAvatar,
     bio: 'Exploring the Live Voice Arena.',
     posts: [],
     profileVisitors: [],

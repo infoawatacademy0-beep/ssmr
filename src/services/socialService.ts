@@ -9,6 +9,7 @@ import {
   type Unsubscribe,
 } from 'firebase/database';
 import { database } from '../config/firebase';
+import { sendNotification } from './notificationService';
 
 /* ─────────────────────────────────────────────────────────────
    Mutual Follow Network & Real-Time Presence Engine
@@ -28,6 +29,26 @@ export async function followUser(userUid: string, targetUid: string): Promise<vo
   };
 
   await update(ref(database), updates);
+
+  // Send follower activity notification (respects target's Activity Notifications setting)
+  try {
+    const senderSnap = await get(ref(database, `users/${userUid}`));
+    const senderData = senderSnap.exists() ? senderSnap.val() : null;
+    const senderName = senderData?.username || 'ئەندامێک';
+    const senderAvatar = senderData?.avatar || senderData?.profileImage || null;
+
+    await sendNotification({
+      recipientUid: targetUid,
+      senderUid: userUid,
+      senderName,
+      senderAvatar,
+      type: 'new_follower',
+      title: 'فۆڵۆوکارێکی نوێ 👥',
+      body: `${senderName} فۆڵۆوی هەژمارەکەتی کرد!`,
+    });
+  } catch {
+    // Ignore non-critical notification error
+  }
 }
 
 /**

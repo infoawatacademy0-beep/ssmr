@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCoinsK, type RoomGiftEvent } from '../types';
+import { playGiftSoundEffect } from '../services';
 import GiftIcon from './GiftIcon';
 
 interface GiftAnimationOverlayProps {
@@ -32,6 +33,13 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
     const next = queue[0];
     setActiveEvent(next);
     setQueue((prev) => prev.slice(1));
+
+    const isHigh =
+      next.gift.tier === 'epic' ||
+      next.gift.tier === 'legendary' ||
+      next.gift.tier === 'mythic' ||
+      next.gift.iconKey === 'lion';
+    playGiftSoundEffect(isHigh);
 
     if (timerRef.current) {
       clearTimeout(timerRef.current);

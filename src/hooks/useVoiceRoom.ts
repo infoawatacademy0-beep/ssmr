@@ -56,13 +56,17 @@ export function useVoiceRoom({
     if (!roomId || !currentUser) return;
 
     let isMounted = true;
+    const isNoiseSuppEnabled =
+      typeof window === 'undefined' ||
+      localStorage.getItem('ssmr_noise_suppression') !== 'false';
+
     const room = new Room({
       adaptiveStream: true,
       dynacast: true,
       audioCaptureDefaults: {
-        autoGainControl: true,
-        echoCancellation: true,
-        noiseSuppression: true,
+        autoGainControl: isNoiseSuppEnabled,
+        echoCancellation: isNoiseSuppEnabled,
+        noiseSuppression: isNoiseSuppEnabled,
         channelCount: 1,
         sampleRate: 48000,
       },
@@ -234,6 +238,27 @@ export function useVoiceRoom({
     }
 
     syncMicrophoneAndVoiceEffect();
+
+    const handleSettingsChange = () => {
+      const enabled = localStorage.getItem('ssmr_noise_suppression') !== 'false';
+      if (rawMicTrackRef.current && typeof rawMicTrackRef.current.applyConstraints === 'function') {
+        rawMicTrackRef.current
+          .applyConstraints({
+            noiseSuppression: enabled,
+            echoCancellation: enabled,
+            autoGainControl: enabled,
+          })
+          .catch(() => {});
+      }
+      if (voiceProcessorRef.current) {
+        voiceProcessorRef.current.refreshNoiseSuppression();
+      }
+    };
+
+    window.addEventListener('ssmr-settings-changed', handleSettingsChange);
+    return () => {
+      window.removeEventListener('ssmr-settings-changed', handleSettingsChange);
+    };
   }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.voiceEffect, currentUser?.forcedVoiceEffect, isConnected]);
 
   /* ─────────────────────────────────────────────────────────────

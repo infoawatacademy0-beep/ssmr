@@ -75,7 +75,7 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
             {/* User Avatar with VIP styling */}
             <div
               className={`
-                relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl font-bold text-xs text-white shadow
+                relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl font-bold text-xs text-white shadow
                 ${
                   isVip
                     ? 'bg-gradient-to-tr from-amber-400 to-yellow-600 text-black shadow-amber-400/40'
@@ -83,7 +83,15 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
                 }
               `}
             >
-              <span>{currentEntrance.username.charAt(0).toUpperCase()}</span>
+              {currentEntrance.avatar ? (
+                <img
+                  src={currentEntrance.avatar}
+                  alt={currentEntrance.username}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span>{currentEntrance.username.charAt(0).toUpperCase()}</span>
+              )}
               {isVip && (
                 <div className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
                   <Crown className="h-2 w-2 text-black" strokeWidth={3} />

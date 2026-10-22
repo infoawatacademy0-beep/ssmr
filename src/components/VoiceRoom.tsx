@@ -80,6 +80,7 @@ import ReportModal from './ReportModal';
 import PrivateChat from './PrivateChat';
 import HostControlsPanel from './HostControlsPanel';
 import RoomInviteModal from './RoomInviteModal';
+import IncomingChatToast from './IncomingChatToast';
 
 /* ─────────────────────────────────────────────────────────────
    SSMR — Ultra-Premium Gamified Voice Chat Room & Arena
@@ -246,11 +247,12 @@ export default function VoiceRoom() {
     // Register user presence in audience (automatic onDisconnect cleanup)
     let unregisterPresence: (() => void) | null = null;
     if (user) {
+      const myAvatar = user.avatar || user.profileImage || '';
       unregisterPresence = registerAudiencePresence(roomId, {
         uid: user.uid,
         username: user.username,
         level: user.level,
-        avatar: user.avatar,
+        avatar: myAvatar,
         badges: user.badges,
       });
 
@@ -259,7 +261,7 @@ export default function VoiceRoom() {
         uid: user.uid,
         username: user.username,
         level: user.level,
-        avatar: user.avatar,
+        avatar: myAvatar,
       }).catch(console.error);
     }
 
@@ -345,7 +347,7 @@ export default function VoiceRoom() {
         await joinSeat(room.id, seat.seatNo, {
           uid: user.uid,
           username: user.username,
-          avatar: user.avatar,
+          avatar: user.avatar || user.profileImage || '',
           isMuted: mySeat ? mySeat.isMuted : lastKnownMuteRef.current,
           voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
         });
@@ -447,6 +449,7 @@ export default function VoiceRoom() {
         user.uid || 'anon',
         user.username || 'User',
         messageText,
+        user.avatar || user.profileImage || null,
       );
     } catch (err: any) {
       console.error('Failed to send message:', err);
@@ -767,10 +770,27 @@ export default function VoiceRoom() {
                     >
                       {isOccupied ? (
                         <>
-                          {/* Occupied Avatar */}
-                          <div className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-tr from-violet-700 via-purple-600 to-cyan-500 text-sm font-bold text-white uppercase shadow-inner">
-                            {seat.username?.charAt(0) || 'U'}
-                          </div>
+                          {/* Occupied Seat Avatar (Profile Picture or Initial) */}
+                          {(() => {
+                            const seatAvatarUrl =
+                              seat.avatar ||
+                              (isCurrentUser ? user?.avatar || user?.profileImage : null) ||
+                              audience.find((a) => a.uid === seat.userId)?.avatar ||
+                              null;
+                            return (
+                              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-violet-700 via-purple-600 to-cyan-500 text-sm font-bold text-white uppercase shadow-inner">
+                                {seatAvatarUrl ? (
+                                  <img
+                                    src={seatAvatarUrl}
+                                    alt={seat.username || 'User'}
+                                    className="h-full w-full rounded-full object-cover"
+                                  />
+                                ) : (
+                                  seat.username?.charAt(0) || 'U'
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {/* Host Crown Indicator */}
                           {isHostSeat && (
@@ -999,32 +1019,54 @@ export default function VoiceRoom() {
                   );
                 }
 
+                const msgAvatarUrl =
+                  msg.senderAvatar ||
+                  (isMe ? user?.avatar || user?.profileImage : null) ||
+                  room.seats.find((s) => s.userId === msg.senderId)?.avatar ||
+                  audience.find((a) => a.uid === msg.senderId)?.avatar ||
+                  null;
+
                 return (
                   <div
                     key={msg.id}
-                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                    className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   >
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-[10px] font-semibold text-slate-400">
-                        {isMe ? 'You' : msg.senderName}
-                      </span>
-                      {isHostSender && (
-                        <span className="flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.2 text-[8px] font-bold text-amber-300">
-                          <Crown className="h-2 w-2" /> HOST
-                        </span>
+                    {/* Sender Profile Picture in Room Chat */}
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow">
+                      {msgAvatarUrl ? (
+                        <img
+                          src={msgAvatarUrl}
+                          alt={msg.senderName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        (msg.senderName || 'U').charAt(0).toUpperCase()
                       )}
                     </div>
-                    <div
-                      className={`
-                        max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed
-                        ${
-                          isMe
-                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-sm'
-                            : 'bg-white/[0.05] border border-white/[0.06] text-slate-200 rounded-tl-sm'
-                        }
-                      `}
-                    >
-                      {msg.text}
+
+                    <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          {isMe ? 'You' : msg.senderName}
+                        </span>
+                        {isHostSender && (
+                          <span className="flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.2 text-[8px] font-bold text-amber-300">
+                            <Crown className="h-2 w-2" /> HOST
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className={`
+                          rounded-2xl px-3 py-2 text-xs leading-relaxed
+                          ${
+                            isMe
+                              ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-sm'
+                              : 'bg-white/[0.05] border border-white/[0.06] text-slate-200 rounded-tl-sm'
+                          }
+                        `}
+                      >
+                        {msg.text}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1172,8 +1214,16 @@ export default function VoiceRoom() {
             >
               <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 font-bold text-white">
-                    {selectedSeat.username?.charAt(0) || 'U'}
+                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-violet-600 font-bold text-white">
+                    {selectedSeat.avatar ? (
+                      <img
+                        src={selectedSeat.avatar}
+                        alt={selectedSeat.username || 'User'}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      selectedSeat.username?.charAt(0) || 'U'
+                    )}
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white">{selectedSeat.username}</h3>
@@ -1578,6 +1628,13 @@ export default function VoiceRoom() {
           />
         )}
       </AnimatePresence>
+
+      {/* Live Incoming Direct Message & Activity Notification Toast (Inside Room) */}
+      <IncomingChatToast
+        currentUser={user}
+        activeChatRecipientUid={activeChatRecipient?.uid || null}
+        onOpenChat={(recipient) => setActiveChatRecipient(recipient)}
+      />
 
       {/* Floating Animated Hearts Reaction (TikTok Style) */}
       <FloatingHearts />

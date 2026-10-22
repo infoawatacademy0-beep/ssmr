@@ -101,7 +101,15 @@ export {
 
 export type { AudienceParticipant } from './presenceService';
 
-export { speakAnnouncement, speakUserEntrance } from './ttsService';
+export {
+  speakAnnouncement,
+  speakUserEntrance,
+  isSoundEffectsEnabled,
+  playGiftSoundEffect,
+  playChatNotificationSound,
+} from './ttsService';
+
+export { uploadImageToImgBB } from './imgbbService';
 
 export {
   viewUserProfile,

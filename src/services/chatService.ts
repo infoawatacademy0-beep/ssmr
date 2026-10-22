@@ -2,6 +2,7 @@ import {
   ref,
   push,
   set,
+  get,
   update,
   onValue,
   type Unsubscribe,
@@ -75,6 +76,25 @@ export async function sendDirectMessage(params: {
     throw new Error('Message text cannot be empty.');
   }
 
+  const [p1, p2] = threadId.split('_');
+  const targetUid = params.recipientUid || (senderUid === p1 ? p2 : p1);
+
+  // Enforce recipient's "Allow Direct Messages" privacy setting
+  if (targetUid && targetUid !== senderUid) {
+    try {
+      const dmSnap = await get(ref(database, `users/${targetUid}/allowDirectMessages`));
+      if (dmSnap.exists() && dmSnap.val() === false) {
+        throw new Error(
+          'ئەم بەکارهێنەرە وەرگرتنی نامەی تایبەتی (Direct Messages)ـی لە ڕێکخستنەکان داخستووە.',
+        );
+      }
+    } catch (err: any) {
+      if (err?.message?.includes('Direct Messages')) {
+        throw err;
+      }
+    }
+  }
+
   const messagesRef = ref(database, `chats/${threadId}/messages`);
   const newMessageRef = push(messagesRef);
   const messageId = newMessageRef.key;
@@ -129,9 +149,6 @@ export async function sendDirectMessage(params: {
   await update(metaRef, metaUpdate);
 
   // 3. Update both participants' inboxes for real-time list
-  const [p1, p2] = threadId.split('_');
-  const targetUid = params.recipientUid || (senderUid === p1 ? p2 : p1);
-
   if (targetUid) {
     try {
       const senderInboxRef = ref(database, `userInboxes/${senderUid}/${targetUid}`);

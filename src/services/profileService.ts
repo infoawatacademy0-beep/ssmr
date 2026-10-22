@@ -108,6 +108,56 @@ export async function updateUserSocialProfile(
   updates.lastSeen = Date.now();
 
   await update(userRef, updates);
+
+  // Sync updated avatar across user's existing posts and active room seats/audience
+  const newAvatarUrl = data.profileImage ?? data.avatar;
+  if (newAvatarUrl !== undefined) {
+    try {
+      const postsSnap = await get(ref(database, 'posts'));
+      if (postsSnap.exists()) {
+        const postsData = postsSnap.val() as Record<string, any>;
+        const postUpdates: Record<string, any> = {};
+        for (const [postId, postObj] of Object.entries(postsData)) {
+          if (postObj && postObj.authorUid === uid) {
+            postUpdates[`posts/${postId}/authorAvatar`] = newAvatarUrl || null;
+          }
+        }
+        if (Object.keys(postUpdates).length > 0) {
+          await update(ref(database), postUpdates);
+        }
+      }
+
+      const roomsSnap = await get(ref(database, 'rooms'));
+      if (roomsSnap.exists()) {
+        const roomsData = roomsSnap.val() as Record<string, any>;
+        const roomUpdates: Record<string, any> = {};
+        for (const [roomId, roomObj] of Object.entries(roomsData)) {
+          if (!roomObj) continue;
+          if (roomObj.hostId === uid) {
+            roomUpdates[`rooms/${roomId}/hostAvatar`] = newAvatarUrl || '';
+          }
+          if (roomObj.seats) {
+            const seats = Array.isArray(roomObj.seats)
+              ? roomObj.seats
+              : Object.values(roomObj.seats);
+            seats.forEach((seat: any, idx: number) => {
+              if (seat && seat.userId === uid) {
+                roomUpdates[`rooms/${roomId}/seats/${idx}/avatar`] = newAvatarUrl || null;
+              }
+            });
+          }
+          if (roomObj.audience && roomObj.audience[uid]) {
+            roomUpdates[`rooms/${roomId}/audience/${uid}/avatar`] = newAvatarUrl || '';
+          }
+        }
+        if (Object.keys(roomUpdates).length > 0) {
+          await update(ref(database), roomUpdates);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not sync updated avatar to posts/rooms:', err);
+    }
+  }
 }
 
 /**

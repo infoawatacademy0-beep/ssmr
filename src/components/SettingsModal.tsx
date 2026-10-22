@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ref, update } from 'firebase/database';
+import { database } from '../config/firebase';
 import {
   Settings,
   X,
@@ -43,10 +45,16 @@ export default function SettingsModal({
     () => localStorage.getItem('ssmr_sound_effects') !== 'false',
   );
   const [pushNotifs, setPushNotifs] = useState(
-    () => localStorage.getItem('ssmr_push_notifs') !== 'false',
+    () =>
+      currentUser.activityNotifications !== undefined
+        ? currentUser.activityNotifications
+        : localStorage.getItem('ssmr_push_notifs') !== 'false',
   );
   const [allowDirectMessages, setAllowDirectMessages] = useState(
-    () => localStorage.getItem('ssmr_allow_dms') !== 'false',
+    () =>
+      currentUser.allowDirectMessages !== undefined
+        ? currentUser.allowDirectMessages
+        : localStorage.getItem('ssmr_allow_dms') !== 'false',
   );
 
   // Sign out confirmation prompt state
@@ -96,24 +104,46 @@ export default function SettingsModal({
     const val = !noiseSuppression;
     setNoiseSuppression(val);
     localStorage.setItem('ssmr_noise_suppression', String(val));
+    window.dispatchEvent(new Event('ssmr-settings-changed'));
   };
 
   const toggleSoundEffects = () => {
     const val = !soundEffects;
     setSoundEffects(val);
     localStorage.setItem('ssmr_sound_effects', String(val));
+    window.dispatchEvent(new Event('ssmr-settings-changed'));
   };
 
-  const togglePushNotifs = () => {
+  const togglePushNotifs = async () => {
     const val = !pushNotifs;
     setPushNotifs(val);
     localStorage.setItem('ssmr_push_notifs', String(val));
+    window.dispatchEvent(new Event('ssmr-settings-changed'));
+    if (currentUser?.uid) {
+      try {
+        await update(ref(database, `users/${currentUser.uid}`), {
+          activityNotifications: val,
+        });
+      } catch (err) {
+        console.warn('Failed to sync activityNotifications setting:', err);
+      }
+    }
   };
 
-  const toggleAllowDMs = () => {
+  const toggleAllowDMs = async () => {
     const val = !allowDirectMessages;
     setAllowDirectMessages(val);
     localStorage.setItem('ssmr_allow_dms', String(val));
+    window.dispatchEvent(new Event('ssmr-settings-changed'));
+    if (currentUser?.uid) {
+      try {
+        await update(ref(database, `users/${currentUser.uid}`), {
+          allowDirectMessages: val,
+        });
+      } catch (err) {
+        console.warn('Failed to sync allowDirectMessages setting:', err);
+      }
+    }
   };
 
   const handleConfirmSignOut = async () => {

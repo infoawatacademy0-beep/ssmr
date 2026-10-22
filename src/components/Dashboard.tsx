@@ -64,6 +64,7 @@ import Leaderboard from './Leaderboard';
 import ArenaShop from './ArenaShop';
 import StoriesBar from './StoriesBar';
 import SettingsModal from './SettingsModal';
+import IncomingChatToast from './IncomingChatToast';
 
 const CATEGORIES: { label: string; value: RoomCategory | 'All'; icon: React.ElementType; color: string }[] = [
   { label: 'All Arenas', value: 'All', icon: Flame, color: 'text-amber-400' },
@@ -165,13 +166,23 @@ export default function Dashboard() {
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [inboxThreadsCount, setInboxThreadsCount] = useState(0);
 
-  // Unread Notifications live count
+  // Unread Notifications live count (respects Activity Notifications toggle)
   useEffect(() => {
     if (!user?.uid) return;
+    let latestCount = 0;
+    const applyCount = () => {
+      const enabled = localStorage.getItem('ssmr_push_notifs') !== 'false';
+      setUnreadNotifsCount(enabled ? latestCount : 0);
+    };
     const unsub = subscribeToUnreadCount(user.uid, (count) => {
-      setUnreadNotifsCount(count);
+      latestCount = count;
+      applyCount();
     });
-    return () => unsub();
+    window.addEventListener('ssmr-settings-changed', applyCount);
+    return () => {
+      unsub();
+      window.removeEventListener('ssmr-settings-changed', applyCount);
+    };
   }, [user?.uid]);
 
   // Live active chat threads count
@@ -243,7 +254,7 @@ export default function Dashboard() {
         hostUser: {
           uid: user.uid,
           username: user.username,
-          avatar: user.avatar,
+          avatar: user.avatar || user.profileImage || '',
         },
         category: newRoomCategory,
         isPrivate,
@@ -675,8 +686,16 @@ export default function Dashboard() {
 
                     <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] text-slate-400">
                       <div className="flex items-center gap-2 truncate max-w-[140px]">
-                        <div className="flex h-5 w-5 items-center justify-center rounded-lg bg-violet-600/40 text-[9px] font-black text-violet-200">
-                          {room.hostName.charAt(0).toUpperCase()}
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-violet-600/40 text-[9px] font-black text-violet-200">
+                          {room.hostAvatar || (room.hostId === user.uid ? user.avatar || user.profileImage : '') ? (
+                            <img
+                              src={room.hostAvatar || user.avatar || user.profileImage}
+                              alt={room.hostName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            room.hostName.charAt(0).toUpperCase()
+                          )}
                         </div>
                         <span className="truncate">{room.hostName}</span>
                       </div>
@@ -794,9 +813,9 @@ export default function Dashboard() {
                           className="group flex cursor-pointer items-center gap-2.5"
                         >
                           <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md">
-                            {post.authorAvatar ? (
+                            {post.authorAvatar || (isAuthor ? user.avatar || user.profileImage : null) ? (
                               <img
-                                src={post.authorAvatar}
+                                src={post.authorAvatar || user.avatar || user.profileImage || ''}
                                 alt={post.authorName}
                                 className="h-full w-full object-cover"
                               />
@@ -1467,6 +1486,13 @@ export default function Dashboard() {
           />
         )}
       </AnimatePresence>
+
+      {/* ── LIVE INCOMING CHAT & ACTIVITY NOTIFICATION BANNER ── */}
+      <IncomingChatToast
+        currentUser={user}
+        activeChatRecipientUid={activeChatRecipient?.uid || null}
+        onOpenChat={(recipient) => setActiveChatRecipient(recipient)}
+      />
 
       {/* ── SYSTEM SETTINGS & SIGN OUT MODAL ── */}
       <AnimatePresence>

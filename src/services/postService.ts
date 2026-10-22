@@ -173,11 +173,26 @@ export function subscribeToPosts(
 ): Unsubscribe {
   const postsRef = ref(database, 'posts');
 
-  return onValue(postsRef, (snapshot) => {
+  return onValue(postsRef, async (snapshot) => {
     if (!snapshot.exists()) {
       onUpdate([]);
     } else {
-      onUpdate(normalizePosts(snapshot.val()));
+      const normalized = normalizePosts(snapshot.val());
+      try {
+        const usersSnap = await get(ref(database, 'users'));
+        if (usersSnap.exists()) {
+          const usersMap = usersSnap.val() as Record<string, any>;
+          normalized.forEach((p) => {
+            const u = usersMap[p.authorUid];
+            if (u && (u.avatar || u.profileImage)) {
+              p.authorAvatar = u.avatar || u.profileImage;
+            }
+          });
+        }
+      } catch {
+        // Ignore user lookup error and use stored authorAvatar
+      }
+      onUpdate(normalized);
     }
   });
 }

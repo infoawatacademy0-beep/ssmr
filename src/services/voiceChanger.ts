@@ -67,8 +67,17 @@ export class VoiceChangerProcessor {
 
   /**
    * Builds the studio noise-suppression & anti-clatter vocal conditioner.
+   * Respects the user's "AI Background Noise Suppression" setting in SettingsModal.
    */
   private buildStudioCleanChain(ctx: AudioContext, rawInput: AudioNode): AudioNode {
+    const isNoiseSuppressionActive =
+      typeof window === 'undefined' ||
+      localStorage.getItem('ssmr_noise_suppression') !== 'false';
+
+    if (!isNoiseSuppressionActive) {
+      return rawInput;
+    }
+
     // 1. Cut low-end rumble, mic bumps, and wind noise (< 95 Hz)
     const rumbleFilter = ctx.createBiquadFilter();
     rumbleFilter.type = 'highpass';
@@ -375,6 +384,10 @@ export class VoiceChangerProcessor {
 
   public getMode(): VoiceEffectMode {
     return this.currentMode;
+  }
+
+  public refreshNoiseSuppression(): void {
+    this.setMode(this.currentMode);
   }
 
   public stop(): void {

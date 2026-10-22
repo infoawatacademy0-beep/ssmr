@@ -50,7 +50,7 @@ export default function AudienceGrid({
                 >
                   <div
                     className={`
-                      flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white transition-transform group-hover:scale-110 shadow
+                      flex h-7 w-7 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-white transition-transform group-hover:scale-110 shadow
                       ${
                         isVip
                           ? 'border border-amber-400 bg-gradient-to-tr from-amber-500 to-yellow-600 text-black shadow-amber-400/20'
@@ -58,7 +58,11 @@ export default function AudienceGrid({
                       }
                     `}
                   >
-                    <span>{member.username.charAt(0).toUpperCase()}</span>
+                    {member.avatar ? (
+                      <img src={member.avatar} alt={member.username} className="h-full w-full object-cover" />
+                    ) : (
+                      <span>{member.username.charAt(0).toUpperCase()}</span>
+                    )}
                   </div>
 
                   {isVip && (
@@ -95,8 +99,12 @@ export default function AudienceGrid({
               </div>
 
               {/* Avatar with Ring */}
-              <div className="relative mx-auto -mt-2 mb-3 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-tr from-violet-600 to-cyan-500 font-display text-xl font-bold text-white shadow-xl shadow-violet-500/25">
-                <span>{selectedMember.username.charAt(0).toUpperCase()}</span>
+              <div className="relative mx-auto -mt-2 mb-3 flex h-16 w-16 items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-tr from-violet-600 to-cyan-500 font-display text-xl font-bold text-white shadow-xl shadow-violet-500/25">
+                {selectedMember.avatar ? (
+                  <img src={selectedMember.avatar} alt={selectedMember.username} className="h-full w-full object-cover" />
+                ) : (
+                  <span>{selectedMember.username.charAt(0).toUpperCase()}</span>
+                )}
                 {selectedMember.level >= 10 && (
                   <div className="absolute -top-1.5 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 shadow-md">
                     <Crown className="h-3 w-3 text-black" strokeWidth={2.5} />
