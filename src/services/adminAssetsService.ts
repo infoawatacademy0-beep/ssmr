@@ -1,6 +1,6 @@
-import { ref, update, get } from 'firebase/database';
+import { ref, update, get, set, remove, onValue, type Unsubscribe } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { User, VoiceEffectMode } from '../types';
+import type { User, VoiceEffectMode, AccountDeletionRequest } from '../types';
 
 /**
  * Permanently bans a user account.
@@ -196,4 +196,105 @@ export function checkUserBanStatus(user: User | null | undefined): {
     isPermanent: true,
     reason: `${defaultReason} (Permanent ban)`,
   };
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Account Deletion Request & Admin Approval Workflow
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * Submits a user's request to permanently delete their account to the Admin Panel.
+ */
+export async function requestAccountDeletion(
+  user: User,
+  reason = 'User requested permanent account deletion from Settings.',
+): Promise<void> {
+  if (!user?.uid) throw new Error('User UID is required.');
+
+  const reqRef = ref(database, `accountDeletionRequests/${user.uid}`);
+  const payload: AccountDeletionRequest = {
+    uid: user.uid,
+    username: user.username || 'User',
+    email: user.email || '',
+    avatar: user.avatar || user.profileImage || '',
+    reason: reason.trim(),
+    status: 'pending',
+    requestedAt: Date.now(),
+  };
+
+  await set(reqRef, payload);
+}
+
+/**
+ * Cancels a pending account deletion request.
+ */
+export async function cancelAccountDeletionRequest(uid: string): Promise<void> {
+  if (!uid) return;
+  await remove(ref(database, `accountDeletionRequests/${uid}`));
+}
+
+/**
+ * Subscribes to a single user's account deletion request status.
+ */
+export function subscribeToUserDeletionRequest(
+  uid: string,
+  onUpdate: (req: AccountDeletionRequest | null) => void,
+): Unsubscribe {
+  const reqRef = ref(database, `accountDeletionRequests/${uid}`);
+  return onValue(reqRef, (snapshot) => {
+    if (snapshot.exists()) {
+      onUpdate(snapshot.val() as AccountDeletionRequest);
+    } else {
+      onUpdate(null);
+    }
+  });
+}
+
+/**
+ * Subscribes to all pending account deletion requests for the Admin Panel.
+ */
+export function subscribeToAllDeletionRequests(
+  onUpdate: (requests: AccountDeletionRequest[]) => void,
+): Unsubscribe {
+  const allRef = ref(database, 'accountDeletionRequests');
+  return onValue(allRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate([]);
+      return;
+    }
+
+    const raw = snapshot.val() as Record<string, AccountDeletionRequest>;
+    const list = Object.values(raw)
+      .filter((item) => item && item.uid && item.status === 'pending')
+      .sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0));
+    onUpdate(list);
+  });
+}
+
+/**
+ * Admin Action: Approves an account deletion request and permanently deletes the user's account.
+ */
+export async function approveAccountDeletion(targetUid: string): Promise<void> {
+  if (!targetUid) throw new Error('Target UID is required.');
+
+  // 1. Mark in /deletedAccounts/{targetUid} so active sessions are immediately terminated & blocked
+  await set(ref(database, `deletedAccounts/${targetUid}`), {
+    uid: targetUid,
+    deletedAt: Date.now(),
+    approvedByAdmin: true,
+  });
+
+  // 2. Remove user profile, stories, presence, notifications, and the deletion request
+  await remove(ref(database, `users/${targetUid}`));
+  await remove(ref(database, `stories/${targetUid}`));
+  await remove(ref(database, `notifications/${targetUid}`));
+  await remove(ref(database, `accountDeletionRequests/${targetUid}`));
+}
+
+/**
+ * Admin Action: Rejects/dismisses an account deletion request without deleting the account.
+ */
+export async function rejectAccountDeletion(targetUid: string): Promise<void> {
+  if (!targetUid) throw new Error('Target UID is required.');
+  await remove(ref(database, `accountDeletionRequests/${targetUid}`));
 }

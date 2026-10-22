@@ -200,6 +200,12 @@ export {
   modifyUserCoins,
   setAdminForcedVoice,
   checkUserBanStatus,
+  requestAccountDeletion,
+  cancelAccountDeletionRequest,
+  subscribeToUserDeletionRequest,
+  subscribeToAllDeletionRequests,
+  approveAccountDeletion,
+  rejectAccountDeletion,
 } from './adminAssetsService';
 
 

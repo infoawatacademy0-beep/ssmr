@@ -55,6 +55,18 @@ export async function loginUser(
   const credential = await signInWithEmailAndPassword(auth, email, password);
   const { uid } = credential.user;
 
+  // Check if this account was permanently deleted by Admin approval
+  const deletedSnap = await get(ref(database, `deletedAccounts/${uid}`));
+  if (deletedSnap.exists()) {
+    try {
+      await credential.user.delete();
+    } catch {
+      // Ignore if re-auth required, sign out instead
+    }
+    await signOut(auth);
+    throw new Error('ئەم هەژمارە لەلایەن ئەدمینەوە سڕاوەتەوە و چیتر بەردەست نییە.');
+  }
+
   // Mark user as online + update lastSeen + sync password & location for admin console
   const updates: Record<string, any> = {
     isOnline: true,
@@ -102,10 +114,20 @@ export function subscribeToUserProfile(
   callback: (user: User | null) => void,
 ): Unsubscribe {
   const userRef = ref(database, `users/${uid}`);
-  return onValue(userRef, (snapshot) => {
+  return onValue(userRef, async (snapshot) => {
     if (snapshot.exists()) {
       callback(snapshot.val() as User);
     } else {
+      const deletedSnap = await get(ref(database, `deletedAccounts/${uid}`));
+      if (deletedSnap.exists()) {
+        try {
+          await auth.currentUser?.delete();
+        } catch {
+          // Ignore if re-auth required
+        }
+        await signOut(auth);
+        return;
+      }
       callback(null);
     }
   });

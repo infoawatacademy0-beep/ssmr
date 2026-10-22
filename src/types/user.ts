@@ -25,6 +25,17 @@ export interface ProfileVisitor {
   timestamp: number;
 }
 
+/** A pending or resolved account deletion request sent from Settings to Admin. */
+export interface AccountDeletionRequest {
+  uid: string;
+  username: string;
+  email: string;
+  avatar?: string;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: number;
+}
+
 /**
  * Core User profile stored at `/users/{uid}` in Firebase Realtime Database.
  * Every new account is initialized with 1 000 coins, level 1, and 0 XP.

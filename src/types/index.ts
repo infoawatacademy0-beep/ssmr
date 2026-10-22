@@ -1,4 +1,11 @@
-export type { Badge, GiftReceived, User, CreateUserPayload, ProfileVisitor } from './user';
+export type {
+  Badge,
+  GiftReceived,
+  User,
+  CreateUserPayload,
+  ProfileVisitor,
+  AccountDeletionRequest,
+} from './user';
 export { buildDefaultUser, formatCoinsK } from './user';
 
 export type { Post, CreatePostPayload } from './post';

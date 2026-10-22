@@ -35,7 +35,13 @@ import {
   Copy,
   Crown,
 } from 'lucide-react';
-import { formatCoinsK, type User, type ReportItem, type VoiceEffectMode } from '../types';
+import {
+  formatCoinsK,
+  type User,
+  type ReportItem,
+  type VoiceEffectMode,
+  type AccountDeletionRequest,
+} from '../types';
 import {
   fetchAllUsers,
   subscribeToAllReports,
@@ -49,6 +55,9 @@ import {
   modifyUserCoins,
   setAdminForcedVoice,
   checkUserBanStatus,
+  subscribeToAllDeletionRequests,
+  approveAccountDeletion,
+  rejectAccountDeletion,
 } from '../services';
 
 interface AnimatedCoverPreset {
@@ -159,8 +168,11 @@ export default function AdminPanel({
 }: AdminPanelProps) {
   // Independent / Open access for administrators (Clearance requirement removed as requested)
 
-  // Active Tab: 'users' | 'map' | 'reports' | 'analytics'
-  const [activeTab, setActiveTab] = useState<'users' | 'map' | 'reports' | 'analytics'>('users');
+  // Active Tab: 'users' | 'map' | 'reports' | 'deletions' | 'analytics'
+  const [activeTab, setActiveTab] = useState<'users' | 'map' | 'reports' | 'deletions' | 'analytics'>('users');
+
+  // Account Deletion Requests State
+  const [deletionRequests, setDeletionRequests] = useState<AccountDeletionRequest[]>([]);
 
   // Password visibility map for admin
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
@@ -233,6 +245,33 @@ export default function AdminPanel({
     });
     return () => unsub();
   }, []);
+
+  // Subscribe to live account deletion requests
+  useEffect(() => {
+    const unsub = subscribeToAllDeletionRequests((reqs) => {
+      setDeletionRequests(reqs);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleApproveDeletion = async (req: AccountDeletionRequest) => {
+    try {
+      await approveAccountDeletion(req.uid);
+      showToast(`هەژماری ${req.username} پەسەندکرا و بە فەرمی سڕایەوە.`);
+      await loadUsersList();
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا هەژمارەکە بسڕدرێتەوە.');
+    }
+  };
+
+  const handleRejectDeletion = async (req: AccountDeletionRequest) => {
+    try {
+      await rejectAccountDeletion(req.uid);
+      showToast(`داواکاری سڕینەوەی ${req.username} ڕەتکرایەوە.`);
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا داواکارییەکە ڕەتبکرێتەوە.');
+    }
+  };
 
   // Filtered Users
   const filteredUsers = useMemo(() => {
@@ -537,12 +576,44 @@ export default function AdminPanel({
               <AlertTriangle className="h-4 w-4" />
               <span>Global Reports Feed ({pendingReportsCount})</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('deletions')}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+                activeTab === 'deletions'
+                  ? 'border border-red-400/50 bg-red-500/20 text-red-200 shadow-md shadow-red-500/15'
+                  : deletionRequests.length > 0
+                    ? 'border border-red-500/40 bg-red-500/10 text-red-300 animate-pulse'
+                    : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+              }`}
+            >
+              <Trash2 className="h-4 w-4 text-red-400" />
+              <span>داواکاری سڕینەوەی هەژمار ({deletionRequests.length})</span>
+            </button>
           </div>
         </nav>
 
         {/* ── TAB 1: LIVE USER DIRECTORY & ASSET MANAGER ── */}
         {activeTab === 'users' && (
           <div className="flex flex-1 flex-col overflow-hidden p-4 sm:px-6 space-y-4">
+            {/* Pending Account Deletion Requests Alert Banner */}
+            {deletionRequests.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-2.5">
+                <div className="flex items-center gap-2 text-xs font-black text-red-300">
+                  <Trash2 className="h-4 w-4 text-red-400 animate-bounce" />
+                  <span>
+                    {deletionRequests.length} داواکاری نوێی سڕینەوەی هەژمار چاوەڕێی پەسەندکردنی تۆیە!
+                  </span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('deletions')}
+                  className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-black text-white shadow hover:bg-red-500 transition"
+                >
+                  بینین و پەسەندکردن
+                </button>
+              </div>
+            )}
+
             {/* Search & Filter Toolbar */}
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 max-w-md">
@@ -1218,6 +1289,87 @@ export default function AdminPanel({
                         title="Delete Report Permanently"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 4: ACCOUNT DELETION REQUESTS (داواکارییەکانی سڕینەوەی هەژمار) ── */}
+        {activeTab === 'deletions' && (
+          <div className="flex flex-1 flex-col overflow-hidden p-4 sm:px-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <Trash2 className="h-4 w-4 text-red-400" />
+                  <span>داواکارییەکانی سڕینەوەی هەژمار ({deletionRequests.length})</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  کاتێک پەسەندی دەکەیت، هەژماری ئەندامەکە بە تەواوی دەسڕێتەوە و دادەخرێت.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+              {deletionRequests.length === 0 ? (
+                <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-slate-800/80 bg-slate-900/40 text-center text-slate-500">
+                  <CheckCircle className="h-10 w-10 text-emerald-500/40 mb-2" />
+                  <h4 className="text-xs font-bold text-slate-300">
+                    هیچ داواکارییەکی سڕینەوەی هەژمار لە ئارادا نییە
+                  </h4>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    هەر کاتێک ئەندامێک لە Settings داوای سڕینەوەی هەژمار بکات لێرە دەردەکەوێت.
+                  </p>
+                </div>
+              ) : (
+                deletionRequests.map((req) => (
+                  <div
+                    key={req.uid}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-red-500/35 bg-slate-900/80 p-4 shadow-lg"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-red-600 to-rose-700 font-bold text-sm text-white overflow-hidden">
+                        {req.avatar ? (
+                          <img src={req.avatar} alt={req.username} className="h-full w-full object-cover" />
+                        ) : (
+                          (req.username || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-white truncate">
+                            {req.username}
+                          </span>
+                          <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-black text-amber-300 border border-amber-500/30">
+                            چاوەڕێی پەسەندکردن
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 truncate">{req.email}</p>
+                        <p className="text-[10px] font-mono text-slate-500">
+                          UID: {req.uid} &bull; {formatReportTime(req.requestedAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveDeletion(req)}
+                        className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-red-600/30 hover:scale-[1.02] active:scale-95 transition"
+                      >
+                        <Check className="h-4 w-4" />
+                        <span>پەسەندکردن و سڕینەوەی هەژمار</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectDeletion(req)}
+                        className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-300 hover:text-white transition"
+                      >
+                        <X className="h-4 w-4" />
+                        <span>ڕەتکردنەوە</span>
                       </button>
                     </div>
                   </div>

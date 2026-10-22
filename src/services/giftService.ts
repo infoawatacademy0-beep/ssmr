@@ -2,7 +2,6 @@ import { ref, runTransaction, set, onValue, get, type Unsubscribe } from 'fireba
 import { database } from '../config/firebase';
 import type { GiftItem, GiftReceived, User, RoomGiftEvent, PkTeam } from '../types';
 import { sendRoomMessage } from './roomService';
-import { speakAnnouncement } from './ttsService';
 import { addPkBattlePoints } from './pkBattleService';
 
 /* ─────────────────────────────────────────────────────────────
@@ -106,14 +105,6 @@ export async function sendGift(
     'System',
     `[Gift] ${sender.username} presented ${gift.name} (${gift.cost} Coins) to ${recipient.username}.`,
   );
-
-  // 5. Text-to-Speech (TTS) Announcement for Luxury/Epic Gifts
-  if (gift.cost >= 200 || gift.tier === 'epic' || gift.tier === 'legendary' || gift.tier === 'mythic') {
-    speakAnnouncement(
-      `${sender.username} has presented a ${gift.name} to ${recipient.username}.`,
-      { pitch: 1.15, rate: 1.05 },
-    );
-  }
 }
 
 /**

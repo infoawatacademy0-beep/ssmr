@@ -1,25 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Settings,
   X,
   LogOut,
   User as UserIcon,
-  Shield,
   Volume2,
   Bell,
-  Moon,
   Lock,
   ChevronRight,
-  ExternalLink,
-  Check,
-  Smartphone,
   Info,
   Sliders,
-  ShieldCheck,
   AlertTriangle,
+  Trash2,
+  Clock,
 } from 'lucide-react';
-import type { User } from '../types';
+import type { User, AccountDeletionRequest } from '../types';
+import {
+  requestAccountDeletion,
+  cancelAccountDeletionRequest,
+  subscribeToUserDeletionRequest,
+} from '../services';
 
 interface SettingsModalProps {
   currentUser: User;
@@ -51,6 +52,45 @@ export default function SettingsModal({
   // Sign out confirmation prompt state
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // Account Deletion Request state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isRequestingDelete, setIsRequestingDelete] = useState(false);
+  const [pendingDeletionReq, setPendingDeletionReq] = useState<AccountDeletionRequest | null>(null);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const unsub = subscribeToUserDeletionRequest(currentUser.uid, (req) => {
+      setPendingDeletionReq(req);
+    });
+    return () => unsub();
+  }, [currentUser?.uid]);
+
+  const handleRequestDeleteAccount = async () => {
+    setIsRequestingDelete(true);
+    try {
+      await requestAccountDeletion(
+        currentUser,
+        'داواکاری سڕینەوەی هەژمار لەلایەن بەکارهێنەرەوە لە بەشی Settings.',
+      );
+      setShowDeleteConfirm(false);
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا داواکارییەکە بنێردرێت.');
+    } finally {
+      setIsRequestingDelete(false);
+    }
+  };
+
+  const handleCancelDeleteRequest = async () => {
+    setIsRequestingDelete(true);
+    try {
+      await cancelAccountDeletionRequest(currentUser.uid);
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا داواکارییەکە هەڵبوەشێنرێتەوە.');
+    } finally {
+      setIsRequestingDelete(false);
+    }
+  };
 
   const toggleNoiseSuppression = () => {
     const val = !noiseSuppression;
@@ -343,6 +383,78 @@ export default function SettingsModal({
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+
+          {/* ── 6. DELETE ACCOUNT (REQUIRES ADMIN APPROVAL) ── */}
+          <div className="pt-1 pb-2">
+            {pendingDeletionReq && pendingDeletionReq.status === 'pending' ? (
+              <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-center space-y-2.5">
+                <div className="flex items-center justify-center gap-2 text-amber-300">
+                  <Clock className="h-5 w-5 animate-pulse" />
+                  <span className="text-xs font-black">
+                    داواکاری سڕینەوەی هەژمار نێردراوە بۆ ئەدمین
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  داواکارییەکەت گەیشتووەتە لای ئەدمین. هەر کاتێک ئەدمین پەسەندی بکات، هەژمارەکەت بە یەکجاری دەسڕێتەوە.
+                </p>
+                <button
+                  type="button"
+                  disabled={isRequestingDelete}
+                  onClick={handleCancelDeleteRequest}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2 text-xs font-bold text-slate-300 hover:text-white disabled:opacity-50"
+                >
+                  پاشگەزبوونەوە و هەڵوەشاندنەوەی داواکاری
+                </button>
+              </div>
+            ) : (
+              <AnimatePresence mode="wait">
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-red-500/40 bg-red-950/30 py-3 text-xs font-black text-red-400 transition hover:bg-red-900/40 active:scale-95"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-400" />
+                    <span>سڕینەوەی هەژمار (Delete Account)</span>
+                  </button>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="rounded-2xl border border-red-500/50 bg-red-950/50 p-4 text-center space-y-3"
+                  >
+                    <div className="flex items-center justify-center gap-2 text-red-400">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span className="text-xs font-black">
+                        ئایا دڵنیایت دەتەوێت هەژمارەکەت بسڕیتەوە؟
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      کاتێک دڵنیا دەبیتەوە، داواکاری سڕینەوەکەت دەچێت بۆ ئەدمین و دوای ئەوەی ئەدمین پەسەندی دەکات هەژمارەکەت بە یەکجاری دەسڕێتەوە.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 rounded-xl border border-slate-800 bg-slate-900 py-2 text-xs font-bold text-slate-300 hover:text-white"
+                      >
+                        نەخێر، پاشگەزبوونەوە
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isRequestingDelete}
+                        onClick={handleRequestDeleteAccount}
+                        className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 py-2 text-xs font-black text-white shadow-md shadow-red-600/30 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                      >
+                        {isRequestingDelete ? 'دەنێردرێت...' : 'بەڵێ دڵنیام، بینێرە بۆ ئەدمین'}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
           </div>
         </div>
       </motion.div>
