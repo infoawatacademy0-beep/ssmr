@@ -12,6 +12,7 @@ export interface MusicTrack {
 export interface RoomMusicState {
   currentTrackId: string | null;
   isPlaying: boolean;
+  isRepeat?: boolean; // loop/repeat current track
   playbackPosition: number; // in seconds
   lastSyncTimestamp: number;
   queue: MusicTrack[];
@@ -19,19 +20,31 @@ export interface RoomMusicState {
 
 export const SAMPLE_MUSIC_TRACKS: Omit<MusicTrack, 'id' | 'addedBy' | 'addedByName' | 'addedAt'>[] = [
   {
-    title: 'Neon Nights (Synthwave Lounge)',
+    title: 'Kurdish & Oriental Melodic Vibes',
+    artist: 'SSMR Studio Beats',
+    duration: 210,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  },
+  {
+    title: 'Midnight Lounge & Chill Synth',
+    artist: 'DJ CyberPulse',
+    duration: 240,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+  },
+  {
+    title: 'Electro Party Night Mix',
+    artist: 'Club Nova',
+    duration: 195,
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+  },
+  {
+    title: 'Neon Nights (Ambient Lounge)',
     artist: 'CyberPulse',
     duration: 165,
-    url: 'https://actions.google.com/sounds/v1/ambient/rain_heavy.ogg', // reliable public audio stream
+    url: 'https://actions.google.com/sounds/v1/ambient/rain_heavy.ogg',
   },
   {
-    title: 'Arabic Oud & Lo-Fi Beats',
-    artist: 'Habibi Vibes',
-    duration: 180,
-    url: 'https://actions.google.com/sounds/v1/science_fiction/alien_spaceship_pass_by.ogg',
-  },
-  {
-    title: 'Late Night Chill Hop',
+    title: 'Late Night Chill Stream',
     artist: 'Tokyo Midnight',
     duration: 140,
     url: 'https://actions.google.com/sounds/v1/water/creek_water_fast.ogg',

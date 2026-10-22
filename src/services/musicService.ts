@@ -163,13 +163,137 @@ export async function skipToNextTrack(roomId: string): Promise<void> {
 
 /**
  * Removes a specific track from the queue.
+ * If the removed track is currently playing, advances to the next track or stops playback.
  */
 export async function removeTrackFromQueue(
   roomId: string,
   trackId: string,
 ): Promise<void> {
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  const playerSnap = await get(playerRef);
+  const currentTrackId = playerSnap.val()?.currentTrackId;
+
   const trackRef = ref(database, `rooms/${roomId}/musicQueue/${trackId}`);
   await remove(trackRef);
+
+  if (currentTrackId === trackId) {
+    const queueSnap = await get(ref(database, `rooms/${roomId}/musicQueue`));
+    const remaining = queueSnap.exists() ? normalizeMusicQueue(queueSnap.val()) : [];
+    if (remaining.length > 0) {
+      await update(playerRef, {
+        currentTrackId: remaining[0].id,
+        isPlaying: true,
+        playbackPosition: 0,
+        lastSyncTimestamp: Date.now(),
+      });
+    } else {
+      await update(playerRef, {
+        currentTrackId: null,
+        isPlaying: false,
+        playbackPosition: 0,
+        lastSyncTimestamp: Date.now(),
+      });
+    }
+  }
+}
+
+/**
+ * Cancels and removes the currently playing song and clears the music player.
+ */
+export async function cancelAndClearMusic(roomId: string): Promise<void> {
+  const queueRef = ref(database, `rooms/${roomId}/musicQueue`);
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+
+  await remove(queueRef);
+  await set(playerRef, {
+    currentTrackId: null,
+    isPlaying: false,
+    isRepeat: false,
+    playbackPosition: 0,
+    lastSyncTimestamp: Date.now(),
+  });
+}
+
+/**
+ * Immediately changes the currently playing song to a new track (replaces current active song).
+ */
+export async function changeCurrentTrack(
+  roomId: string,
+  trackData: Omit<MusicTrack, 'id' | 'addedAt'>,
+): Promise<void> {
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  const playerSnap = await get(playerRef);
+  const oldTrackId = playerSnap.val()?.currentTrackId;
+
+  // Remove the previous active track so changing song cleanly swaps it
+  if (oldTrackId) {
+    await remove(ref(database, `rooms/${roomId}/musicQueue/${oldTrackId}`));
+  }
+
+  const queueRef = ref(database, `rooms/${roomId}/musicQueue`);
+  const newTrackRef = push(queueRef);
+  const trackId = newTrackRef.key || `track_${Date.now()}`;
+
+  const newTrack: MusicTrack = {
+    id: trackId,
+    title: trackData.title.trim(),
+    artist: trackData.artist.trim(),
+    duration: trackData.duration,
+    url: trackData.url.trim(),
+    addedBy: trackData.addedBy,
+    addedByName: trackData.addedByName,
+    addedAt: Date.now(),
+  };
+
+  await set(newTrackRef, newTrack);
+
+  await update(playerRef, {
+    currentTrackId: trackId,
+    isPlaying: true,
+    playbackPosition: 0,
+    lastSyncTimestamp: Date.now(),
+  });
+}
+
+/**
+ * Immediately switches playback to a specific track already in the queue.
+ */
+export async function selectTrackFromQueue(
+  roomId: string,
+  trackId: string,
+): Promise<void> {
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  await update(playerRef, {
+    currentTrackId: trackId,
+    isPlaying: true,
+    playbackPosition: 0,
+    lastSyncTimestamp: Date.now(),
+  });
+}
+
+/**
+ * Toggles repeat/loop mode for the current song.
+ */
+export async function toggleMusicRepeat(
+  roomId: string,
+  isRepeat: boolean,
+): Promise<void> {
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  await update(playerRef, {
+    isRepeat: Boolean(isRepeat),
+  });
+}
+
+/**
+ * Restarts the currently playing song from the beginning (0:00).
+ */
+export async function restartCurrentTrack(roomId: string): Promise<void> {
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  await update(playerRef, {
+    isPlaying: true,
+    playbackPosition: 0,
+    lastSyncTimestamp: Date.now(),
+  });
 }
 
 /**
@@ -186,6 +310,7 @@ export function subscribeToMusicState(
       onUpdate({
         currentTrackId: null,
         isPlaying: false,
+        isRepeat: false,
         playbackPosition: 0,
         lastSyncTimestamp: Date.now(),
         queue: [],
@@ -200,6 +325,7 @@ export function subscribeToMusicState(
     onUpdate({
       currentTrackId: player.currentTrackId ?? (queue[0]?.id || null),
       isPlaying: Boolean(player.isPlaying),
+      isRepeat: Boolean(player.isRepeat),
       playbackPosition: Number(player.playbackPosition) || 0,
       lastSyncTimestamp: Number(player.lastSyncTimestamp) || Date.now(),
       queue,

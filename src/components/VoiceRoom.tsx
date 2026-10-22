@@ -922,6 +922,7 @@ export default function VoiceRoom() {
             isHost={Boolean(isHost || user.isAdmin)}
             seats={room.seats}
             musicState={musicState}
+            onClosePanel={() => setIsMusicPanelVisible(false)}
           />
         )}
 

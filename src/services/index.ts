@@ -85,6 +85,11 @@ export {
   setMusicPlayback,
   skipToNextTrack,
   removeTrackFromQueue,
+  cancelAndClearMusic,
+  changeCurrentTrack,
+  selectTrackFromQueue,
+  toggleMusicRepeat,
+  restartCurrentTrack,
   subscribeToMusicState,
 } from './musicService';
 
