@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatCoinsK, type RoomGiftEvent } from '../types';
 import { playGiftSoundEffect } from '../services';
 import GiftIcon from './GiftIcon';
+import ChromaKeyVideo from './ChromaKeyVideo';
 
 interface GiftAnimationOverlayProps {
   giftEvent: RoomGiftEvent | null;
@@ -11,6 +12,7 @@ interface GiftAnimationOverlayProps {
 export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlayProps) {
   const [activeEvent, setActiveEvent] = useState<RoomGiftEvent | null>(null);
   const [queue, setQueue] = useState<RoomGiftEvent[]>([]);
+  const [videoErrorMap, setVideoErrorMap] = useState<Record<string, boolean>>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // When a new gift arrives from the Firebase listener
@@ -326,40 +328,55 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
             </div>
           ) : isLion ? (
             /* SCENE B: TIKTOK GOLDEN FIRE LION VIDEO FX */
-            <div className="relative flex h-72 w-72 items-center justify-center">
-              {/* Expanding Roar Shockwave Rings */}
-              {[0, 1, 2].map((ringIdx) => (
-                <motion.div
-                  key={`roar-ring-${ringIdx}`}
-                  initial={{ scale: 0.4, opacity: 0.9 }}
-                  animate={{ scale: 2.5, opacity: 0 }}
-                  transition={{
-                    duration: 1.6,
-                    delay: 0.25 + ringIdx * 0.45,
-                    ease: 'easeOut',
-                  }}
-                  className="absolute h-44 w-44 rounded-full border-4 border-amber-400 shadow-[0_0_30px_#f97316]"
-                />
-              ))}
+            <div className="relative flex h-72 w-72 sm:h-96 sm:w-96 items-center justify-center">
+              {gift.videoUrl && !videoErrorMap[activeEvent.id] ? (
+                <div className="relative z-20 flex items-center justify-center">
+                  <ChromaKeyVideo
+                    src={gift.videoUrl}
+                    keyColor={gift.videoKeyColor || 'green'}
+                    className="h-72 w-72 sm:h-96 sm:w-96"
+                    onError={() => {
+                      setVideoErrorMap((prev) => ({ ...prev, [activeEvent.id]: true }));
+                    }}
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Expanding Roar Shockwave Rings */}
+                  {[0, 1, 2].map((ringIdx) => (
+                    <motion.div
+                      key={`roar-ring-${ringIdx}`}
+                      initial={{ scale: 0.4, opacity: 0.9 }}
+                      animate={{ scale: 2.5, opacity: 0 }}
+                      transition={{
+                        duration: 1.6,
+                        delay: 0.25 + ringIdx * 0.45,
+                        ease: 'easeOut',
+                      }}
+                      className="absolute h-44 w-44 rounded-full border-4 border-amber-400 shadow-[0_0_30px_#f97316]"
+                    />
+                  ))}
 
-              {/* Rotating Ring of Blazing Fire Behind Lion */}
-              <motion.div
-                animate={{ rotate: 360, scale: [1, 1.12, 1] }}
-                transition={{ duration: 3.5, ease: 'linear' }}
-                className="absolute inset-2 rounded-full border-4 border-dashed border-orange-500/70 bg-radial from-amber-400/40 via-red-600/35 to-transparent blur-md"
-              />
+                  {/* Rotating Ring of Blazing Fire Behind Lion */}
+                  <motion.div
+                    animate={{ rotate: 360, scale: [1, 1.12, 1] }}
+                    transition={{ duration: 3.5, ease: 'linear' }}
+                    className="absolute inset-2 rounded-full border-4 border-dashed border-orange-500/70 bg-radial from-amber-400/40 via-red-600/35 to-transparent blur-md"
+                  />
 
-              {/* Giant Animated Fire Lion */}
-              <motion.div
-                animate={{
-                  scale: [1, 1.22, 1.08, 1.18, 1],
-                  rotate: [0, -4, 4, -2, 0],
-                }}
-                transition={{ duration: 2.4, ease: 'easeInOut' }}
-                className="relative z-10 drop-shadow-[0_0_35px_rgba(249,115,22,0.95)]"
-              >
-                <GiftIcon iconKey="lion" size={200} />
-              </motion.div>
+                  {/* Giant Animated Fire Lion */}
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.22, 1.08, 1.18, 1],
+                      rotate: [0, -4, 4, -2, 0],
+                    }}
+                    transition={{ duration: 2.4, ease: 'easeInOut' }}
+                    className="relative z-10 drop-shadow-[0_0_35px_rgba(249,115,22,0.95)]"
+                  >
+                    <GiftIcon iconKey="lion" size={200} />
+                  </motion.div>
+                </>
+              )}
             </div>
           ) : isCar ? (
             /* SCENE C: NITRO SUPERCAR DRIFT WITH FLAMES */

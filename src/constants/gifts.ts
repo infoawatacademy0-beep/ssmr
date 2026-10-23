@@ -25,6 +25,10 @@ export interface GiftItem {
   description: string;
   /** CSS animation class applied to the gift icon in the store grid */
   animClass: string;
+  /** Optional video URL or local file path (e.g. '/videos/lion.mp4') */
+  videoUrl?: string;
+  /** Chroma-key background color to remove in real-time */
+  videoKeyColor?: 'green' | 'blue' | 'white' | 'black' | 'none';
 }
 
 /**
@@ -101,6 +105,8 @@ export const AVAILABLE_GIFTS: GiftItem[] = [
     tier: 'legendary',
     description: 'شێری ئاگرین نەڕەی دێت و ئاگری لێ هەڵدەستێت',
     animClass: 'gift-anim-roar',
+    videoUrl: '/videos/lion.mp4',
+    videoKeyColor: 'green',
   },
   {
     id: 'rocket',
