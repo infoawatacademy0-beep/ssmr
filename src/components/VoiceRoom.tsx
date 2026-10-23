@@ -33,6 +33,9 @@ import {
   Trash2,
   User as UserIcon,
   Smile,
+  Menu,
+  MessageSquare,
+  VolumeX,
   Maximize2,
   Minimize2,
 } from 'lucide-react';
@@ -206,6 +209,20 @@ export default function VoiceRoom() {
 
   // Interactive 3D Animated Seat & Room Emoji state
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  // Bottom navigation: "more" sheet + local speaker (incoming audio) mute
+  const [isRoomMenuOpen, setIsRoomMenuOpen] = useState(false);
+  const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
+  useEffect(() => {
+    const apply = () => {
+      document.querySelectorAll('audio').forEach((el) => {
+        el.muted = isSpeakerMuted;
+      });
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [isSpeakerMuted]);
   const [activeSeatEmojis, setActiveSeatEmojis] = useState<
     Record<number, { id: string; emojiId: string; timestamp: number }>
   >({});
@@ -1354,139 +1371,225 @@ export default function VoiceRoom() {
             )}
           </div>
 
-          {/* Chat Input Bar */}
-          <form onSubmit={handleSendMessage} className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsEmojiPickerOpen(true)}
-              title="ئیمۆجی جوڵاو (Animated Emojis)"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-gradient-to-tr from-amber-500/20 to-orange-500/20 text-amber-300 shadow-sm transition hover:bg-amber-500/30 active:scale-95"
-            >
-              <Smile className="h-4 w-4" />
-            </button>
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Send a message to the room…"
-              className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition-colors focus:border-violet-500 focus:bg-white/[0.06]"
-            />
-            <button
-              type="submit"
-              disabled={!chatInput.trim() || isSending}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-md shadow-violet-600/30 transition-transform active:scale-95 disabled:opacity-40"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </form>
         </section>
       </div>
 
       {/* ─────────────────────────────────────────────────────────
-         BOTTOM CONTROL PANEL: Mic, Games, Music, Gifts, Leave
+         BOTTOM NAVIGATION BAR (chat · gift · menu · input · emoji · mic · speaker)
          ───────────────────────────────────────────────────────── */}
-      <motion.footer initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", damping: 24, stiffness: 260 }} className="relative z-20 shrink-0 border-t border-white/[0.08] bg-surface-900/90 px-3 py-3 backdrop-blur-xl [&_button]:transition-all [&_button]:duration-200 [&_button]:ease-out [&_button:active]:scale-90 [&_button:hover]:-translate-y-0.5">
-        <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-          {/* Mic Quick Toggle + VIP Voice Changer Button */}
-          {mySeat ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleToggleMyMute}
-                className={`
-                  flex items-center justify-center gap-1 rounded-2xl px-2.5 py-2 text-xs font-semibold transition-all shadow-md active:scale-95
-                  ${
-                    mySeat.isMuted
-                      ? 'border border-rose-500/30 bg-rose-500/10 text-rose-300'
-                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/20'
-                  }
-                `}
-              >
-                {mySeat.isMuted ? (
-                  <>
-                    <MicOff className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Unmute</span>
-                  </>
-                ) : (
-                  <>
-                    <Mic className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Mute</span>
-                  </>
-                )}
-              </button>
-
-              {/* VIP Voice Changer Button (Normal / Child / Venom) */}
-              <button
-                onClick={() => setIsVoiceChangerOpen(true)}
-                className={`flex items-center gap-1 rounded-2xl border px-2.5 py-2 text-xs font-black transition-all shadow-md active:scale-95 ${
-                  mySeat.voiceEffect === 'venom'
-                    ? 'border-purple-400/60 bg-gradient-to-r from-purple-900 to-rose-900 text-purple-200 shadow-purple-500/30'
-                    : mySeat.voiceEffect === 'child'
-                      ? 'border-pink-400/60 bg-gradient-to-r from-pink-500/30 to-amber-500/30 text-pink-200 shadow-pink-500/20'
-                      : 'border-amber-500/40 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
-                }`}
-                title="VIP Voice Changer (گۆڕینی دەنگ: منداڵان / ڤینۆم)"
-              >
-                <span>
-                  {mySeat.voiceEffect === 'venom'
-                    ? '👹'
-                    : mySeat.voiceEffect === 'child'
-                      ? '👶'
-                      : '🎙️'}
-                </span>
-                <span className="text-[11px]">
-                  {mySeat.voiceEffect === 'venom'
-                    ? 'Venom'
-                    : mySeat.voiceEffect === 'child'
-                      ? 'منداڵ'
-                      : 'دەنگ'}
-                </span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 text-slate-400 text-[10px] bg-white/[0.02] border border-white/[0.05] rounded-2xl px-2 py-2">
-              <Volume2 className="h-3 w-3 text-violet-400" />
-              <span className="hidden xs:inline">Stage</span>
-            </div>
-          )}
-
-          {/* VIP JACKAROO GAME BUTTON — Compact Game Emoji Only */}
+      <motion.footer
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: 'spring', damping: 24, stiffness: 260 }}
+        dir="ltr"
+        className="relative z-20 shrink-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] backdrop-blur-md"
+      >
+        <form onSubmit={handleSendMessage} className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Chat expand / collapse */}
           <button
             type="button"
-            onClick={() => setIsJackarooOpen(true)}
-            title="یاری جاکۆرۆ (VIP Jackaroo Game)"
-            className="relative flex h-9 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-500/25 via-orange-500/20 to-rose-500/20 text-base shadow-md shadow-amber-500/15 transition-transform active:scale-95"
+            onClick={() => setIsChatExpanded((v) => !v)}
+            title={isChatExpanded ? 'بچووککردنەوەی چات' : 'گەورەکردنی چات'}
+            className={`room-nav-btn ${isChatExpanded ? 'room-nav-btn-active' : ''}`}
           >
-            <span>🎮</span>
-            {activeJackarooGame && (
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping" />
-            )}
+            <MessageSquare className="h-[22px] w-[22px]" strokeWidth={2.2} />
           </button>
 
-          {/* INTERACTIVE GIFTS BUTTON */}
+          {/* 3D Gift */}
           <button
+            type="button"
             onClick={() => {
               setGiftRecipient(null);
               setIsGiftModalOpen(true);
             }}
-            className="relative flex items-center gap-1 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-3 py-2 text-xs font-bold text-black shadow-lg shadow-amber-500/25 transition-transform active:scale-95"
+            title="دیاری (Gifts)"
+            className="room-nav-btn !bg-transparent !border-transparent"
           >
-            <Gift className="h-3.5 w-3.5" />
-            <span>Gifts</span>
+            <motion.img
+              src="https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/Wrapped%20gift/3D/wrapped_gift_3d.png"
+              alt="gift"
+              draggable={false}
+              animate={{ rotate: [0, -8, 8, -5, 0], scale: [1, 1.08, 1] }}
+              transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 1.2 }}
+              className="h-9 w-9 object-contain drop-shadow-[0_4px_8px_rgba(244,114,182,0.45)]"
+            />
           </button>
 
-          {/* Quick Leave Seat button (if seated) */}
-          {mySeat && (
-            <button
-              onClick={() => handleLeaveMySeat()}
-              className="flex items-center gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-2.5 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08] active:scale-95"
-              title="Leave current seat"
-            >
-              <PhoneOff className="h-3 w-3 text-rose-400" />
-              <span className="hidden xs:inline">Leave</span>
-            </button>
-          )}
-        </div>
+          {/* More menu */}
+          <button
+            type="button"
+            onClick={() => setIsRoomMenuOpen(true)}
+            title="زیاتر"
+            className={`room-nav-btn relative ${isRoomMenuOpen ? 'room-nav-btn-active' : ''}`}
+          >
+            <Menu className="h-[22px] w-[22px]" strokeWidth={2.2} />
+            {activeJackarooGame && (
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+            )}
+          </button>
+
+          {/* Message input pill */}
+          <div className="relative flex h-11 min-w-0 flex-1 items-center rounded-full border border-white/[0.06] bg-white/[0.07] pl-4 pr-1 transition-colors focus-within:border-violet-400/50 focus-within:bg-white/[0.1]">
+            <input
+              type="text"
+              dir="auto"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="شتێک بڵێ..."
+              className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-white placeholder-slate-400 outline-none"
+            />
+            <AnimatePresence>
+              {chatInput.trim() && (
+                <motion.button
+                  type="submit"
+                  disabled={isSending}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-600/40 disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Animated emoji picker */}
+          <button
+            type="button"
+            onClick={() => setIsEmojiPickerOpen(true)}
+            title="ئیمۆجی جوڵاو"
+            className={`room-nav-btn ${isEmojiPickerOpen ? 'room-nav-btn-active' : ''}`}
+          >
+            <Smile className="h-[24px] w-[24px]" strokeWidth={2.2} />
+          </button>
+
+          {/* Mic toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!mySeat) {
+                alert('سەرەتا لەسەر کورسییەک دابنیشە بۆ قسەکردن');
+                return;
+              }
+              handleToggleMyMute();
+            }}
+            title={!mySeat ? 'لەسەر کورسی نیت' : mySeat.isMuted ? 'کردنەوەی مایک' : 'داخستنی مایک'}
+            className={`room-nav-btn ${
+              mySeat && !mySeat.isMuted
+                ? '!border-emerald-400/50 !bg-emerald-500/25 !text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.45)]'
+                : ''
+            } ${!mySeat ? 'opacity-50' : ''}`}
+          >
+            {mySeat && !mySeat.isMuted ? (
+              <Mic className="h-[22px] w-[22px]" strokeWidth={2.2} />
+            ) : (
+              <MicOff className="h-[22px] w-[22px]" strokeWidth={2.2} />
+            )}
+          </button>
+
+          {/* Speaker (incoming audio) toggle */}
+          <button
+            type="button"
+            onClick={() => setIsSpeakerMuted((v) => !v)}
+            title={isSpeakerMuted ? 'کردنەوەی دەنگ' : 'بێدەنگکردنی ژوور'}
+            className={`room-nav-btn ${isSpeakerMuted ? '!border-rose-400/40 !bg-rose-500/20 !text-rose-300' : ''}`}
+          >
+            {isSpeakerMuted ? (
+              <VolumeX className="h-[22px] w-[22px]" strokeWidth={2.2} />
+            ) : (
+              <Volume2 className="h-[22px] w-[22px]" strokeWidth={2.2} />
+            )}
+          </button>
+        </form>
       </motion.footer>
+
+      {/* More-actions bottom sheet (opened from the ☰ button) */}
+      <AnimatePresence>
+        {isRoomMenuOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsRoomMenuOpen(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-t-3xl border-t border-white/10 bg-[#14141f] px-5 pt-3 pb-7 shadow-[0_-15px_40px_rgba(0,0,0,0.85)]"
+            >
+              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/15" />
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  {
+                    key: 'voice',
+                    emoji: mySeat?.voiceEffect === 'venom' ? '👹' : mySeat?.voiceEffect === 'child' ? '👶' : '🎙️',
+                    label: 'گۆڕینی دەنگ',
+                    show: Boolean(mySeat),
+                    onClick: () => setIsVoiceChangerOpen(true),
+                  },
+                  {
+                    key: 'jackaroo',
+                    emoji: '🎮',
+                    label: 'جاکۆرۆ',
+                    show: true,
+                    onClick: () => setIsJackarooOpen(true),
+                  },
+                  {
+                    key: 'invite',
+                    emoji: '📨',
+                    label: 'بانگهێشت',
+                    show: true,
+                    onClick: () => setIsInviteModalOpen(true),
+                  },
+                  {
+                    key: 'share',
+                    emoji: '🔗',
+                    label: 'هاوبەشکردن',
+                    show: true,
+                    onClick: () => handleShareRoom(),
+                  },
+                  {
+                    key: 'leave-seat',
+                    emoji: '🪑',
+                    label: 'هەستان لە کورسی',
+                    show: Boolean(mySeat),
+                    onClick: () => handleLeaveMySeat(),
+                  },
+                  {
+                    key: 'leave-room',
+                    emoji: '🚪',
+                    label: 'چوونەدەرەوە',
+                    show: true,
+                    onClick: () => handleLeaveRoom(),
+                  },
+                ]
+                  .filter((a) => a.show)
+                  .map((a, i) => (
+                    <motion.button
+                      key={a.key}
+                      type="button"
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      onClick={() => {
+                        setIsRoomMenuOpen(false);
+                        a.onClick();
+                      }}
+                      className="flex flex-col items-center gap-1.5 rounded-2xl p-2 transition hover:bg-white/[0.06] active:scale-90"
+                    >
+                      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.05] text-2xl shadow-inner">
+                        {a.emoji}
+                      </span>
+                      <span className="text-center text-[10px] font-semibold text-slate-300">{a.label}</span>
+                    </motion.button>
+                  ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────
          MODAL 1: Seat Action Sheet (Mute/Unmute, Leave Seat, Gift)
