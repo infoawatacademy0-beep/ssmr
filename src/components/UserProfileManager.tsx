@@ -122,6 +122,7 @@ export default function UserProfileManager({
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Editable fields state
+  const [usernameInput, setUsernameInput] = useState(currentUser.username || '');
   const [bioInput, setBioInput] = useState(currentUser.bio || '');
   const [avatarInput, setAvatarInput] = useState(currentUser.avatar || currentUser.profileImage || '');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -149,6 +150,7 @@ export default function UserProfileManager({
         .then((fetched) => {
           if (isMounted && fetched) {
             setProfileData(fetched);
+            setUsernameInput(fetched.username || '');
             setBioInput(fetched.bio || '');
             setAvatarInput(fetched.avatar || fetched.profileImage || '');
           }
@@ -158,6 +160,7 @@ export default function UserProfileManager({
         });
     } else {
       setProfileData(currentUser);
+      setUsernameInput(currentUser.username || '');
       setBioInput(currentUser.bio || '');
       setAvatarInput(currentUser.avatar || currentUser.profileImage || '');
     }
@@ -216,13 +219,16 @@ export default function UserProfileManager({
     setIsSaving(true);
     setErrorMessage(null);
     try {
+      const trimmedUsername = usernameInput.trim() || currentUser.username;
       await updateUserSocialProfile(currentUser.uid, {
+        username: trimmedUsername,
         bio: bioInput.trim(),
         avatar: newAvatarUrl.trim(),
         profileImage: newAvatarUrl.trim(),
       });
       const updated = {
         ...profileData,
+        username: trimmedUsername,
         bio: bioInput.trim(),
         avatar: newAvatarUrl.trim(),
         profileImage: newAvatarUrl.trim(),
@@ -235,7 +241,7 @@ export default function UserProfileManager({
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'نەتوانرا وێنەی پڕۆفایل خەزن بکرێت.');
+      setErrorMessage(err.message || tr('نەتوانرا وێنەی پڕۆفایل خەزن بکرێت.', 'Failed to save profile picture.'));
     } finally {
       setIsSaving(false);
     }
@@ -246,12 +252,27 @@ export default function UserProfileManager({
     e.preventDefault();
     if (!isViewingSelf) return;
 
+    const trimmedUsername = usernameInput.trim();
+    if (!trimmedUsername) {
+      setErrorMessage(tr('تکایە ناوی بەکارهێنەر بنووسە.', 'Please enter a username.'));
+      return;
+    }
+    if (trimmedUsername.length < 3) {
+      setErrorMessage(tr('ناو نابێت لە ٣ پیت کەمتر بێت.', 'Username must be at least 3 characters.'));
+      return;
+    }
+    if (trimmedUsername.length > 25) {
+      setErrorMessage(tr('ناو نابێت لە ٢٥ پیت زیاتر بێت.', 'Username cannot exceed 25 characters.'));
+      return;
+    }
+
     setIsSaving(true);
     setErrorMessage(null);
     setSaveSuccess(false);
 
     try {
       await updateUserSocialProfile(currentUser.uid, {
+        username: trimmedUsername,
         bio: bioInput.trim(),
         avatar: avatarInput.trim(),
         profileImage: avatarInput.trim(),
@@ -259,6 +280,7 @@ export default function UserProfileManager({
 
       const updated = {
         ...profileData,
+        username: trimmedUsername,
         bio: bioInput.trim(),
         avatar: avatarInput.trim(),
         profileImage: avatarInput.trim(),
@@ -272,11 +294,13 @@ export default function UserProfileManager({
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to update social profile.');
+      setErrorMessage(err.message || tr('نەتوانرا پڕۆفایل نوێ بکرێتەوە.', 'Failed to update social profile.'));
     } finally {
       setIsSaving(false);
     }
   };
+
+  const displayedUsername = (isViewingSelf ? usernameInput.trim() : '') || profileData.username;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
@@ -429,12 +453,12 @@ export default function UserProfileManager({
                         {avatarInput ? (
                           <img
                             src={avatarInput}
-                            alt={profileData.username}
+                            alt={displayedUsername}
                             className="h-full w-full object-cover"
                           />
                         ) : (
                           <span className="font-display text-2xl font-black text-amber-300">
-                            {profileData.username.charAt(0).toUpperCase()}
+                            {displayedUsername.charAt(0).toUpperCase()}
                           </span>
                         )}
                       </div>
@@ -449,7 +473,7 @@ export default function UserProfileManager({
                     <div className="flex-1 text-center sm:text-left space-y-1 sm:pt-4">
                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                         <h3 className="font-display text-base font-black text-white">
-                          {profileData.username}
+                          {displayedUsername}
                         </h3>
                         {profileData.isVerified && (
                           <div className="flex items-center gap-1.5">
@@ -545,6 +569,29 @@ export default function UserProfileManager({
               {/* Edit Form (Only visible when viewing one's own profile) */}
               {isViewingSelf && (
                 <form onSubmit={handleSaveProfile} className="space-y-4">
+                  {/* Change Username / گۆڕینی ناو */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
+                      {tr("ناوی بەکارهێنەر (گۆڕینی ناو)", "Username (Change Name)")}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={usernameInput}
+                        onChange={(e) => setUsernameInput(e.target.value)}
+                        placeholder={tr("ناوی نوێ بنووسە…", "Enter new username…")}
+                        minLength={3}
+                        maxLength={25}
+                        required
+                        className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 focus:bg-white/[0.06]"
+                      />
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                      <span>{tr("لانیکەم ٣ و زۆرینەی ٢٥ پیت", "3 to 25 characters")}</span>
+                      <span>{usernameInput.length} / 25</span>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
                       {tr("کورتەی پڕۆفایل / بایۆ (لانیکەم ١٦٠ پیت)", "Bio / Status (Max 160 chars)")}

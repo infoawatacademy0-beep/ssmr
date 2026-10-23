@@ -6,7 +6,8 @@ import {
   onValue,
   type Unsubscribe,
 } from 'firebase/database';
-import { database } from '../config/firebase';
+import { updateProfile } from 'firebase/auth';
+import { auth, database } from '../config/firebase';
 import type { ProfileVisitor, User } from '../types';
 
 /**
@@ -101,17 +102,28 @@ export async function updateUserSocialProfile(
     updates.profileImage = data.avatar;
   }
 
-  if (data.username && data.username.trim()) {
-    updates.username = data.username.trim();
+  const newUsername = typeof data.username === 'string' ? data.username.trim() : undefined;
+  if (newUsername) {
+    updates.username = newUsername;
+    updates.usernameLower = newUsername.toLowerCase();
   }
 
   updates.lastSeen = Date.now();
 
   await update(userRef, updates);
 
-  // Sync updated avatar across user's existing posts and active room seats/audience
+  // Sync with Firebase Auth user displayName if this is the authenticated user
+  if (auth.currentUser && auth.currentUser.uid === uid && newUsername) {
+    try {
+      await updateProfile(auth.currentUser, { displayName: newUsername });
+    } catch (e) {
+      console.warn('Could not update Firebase Auth displayName:', e);
+    }
+  }
+
+  // Sync updated avatar and username across user's existing posts, stories, and active room seats/audience
   const newAvatarUrl = data.profileImage ?? data.avatar;
-  if (newAvatarUrl !== undefined) {
+  if (newAvatarUrl !== undefined || newUsername) {
     try {
       const postsSnap = await get(ref(database, 'posts'));
       if (postsSnap.exists()) {
@@ -119,7 +131,12 @@ export async function updateUserSocialProfile(
         const postUpdates: Record<string, any> = {};
         for (const [postId, postObj] of Object.entries(postsData)) {
           if (postObj && postObj.authorUid === uid) {
-            postUpdates[`posts/${postId}/authorAvatar`] = newAvatarUrl || null;
+            if (newAvatarUrl !== undefined) {
+              postUpdates[`posts/${postId}/authorAvatar`] = newAvatarUrl || null;
+            }
+            if (newUsername) {
+              postUpdates[`posts/${postId}/authorName`] = newUsername;
+            }
           }
         }
         if (Object.keys(postUpdates).length > 0) {
@@ -134,7 +151,12 @@ export async function updateUserSocialProfile(
         for (const [roomId, roomObj] of Object.entries(roomsData)) {
           if (!roomObj) continue;
           if (roomObj.hostId === uid) {
-            roomUpdates[`rooms/${roomId}/hostAvatar`] = newAvatarUrl || '';
+            if (newAvatarUrl !== undefined) {
+              roomUpdates[`rooms/${roomId}/hostAvatar`] = newAvatarUrl || '';
+            }
+            if (newUsername) {
+              roomUpdates[`rooms/${roomId}/hostName`] = newUsername;
+            }
           }
           if (roomObj.seats) {
             const seats = Array.isArray(roomObj.seats)
@@ -142,20 +164,47 @@ export async function updateUserSocialProfile(
               : Object.values(roomObj.seats);
             seats.forEach((seat: any, idx: number) => {
               if (seat && seat.userId === uid) {
-                roomUpdates[`rooms/${roomId}/seats/${idx}/avatar`] = newAvatarUrl || null;
+                if (newAvatarUrl !== undefined) {
+                  roomUpdates[`rooms/${roomId}/seats/${idx}/avatar`] = newAvatarUrl || null;
+                }
+                if (newUsername) {
+                  roomUpdates[`rooms/${roomId}/seats/${idx}/username`] = newUsername;
+                }
               }
             });
           }
           if (roomObj.audience && roomObj.audience[uid]) {
-            roomUpdates[`rooms/${roomId}/audience/${uid}/avatar`] = newAvatarUrl || '';
+            if (newAvatarUrl !== undefined) {
+              roomUpdates[`rooms/${roomId}/audience/${uid}/avatar`] = newAvatarUrl || '';
+            }
+            if (newUsername) {
+              roomUpdates[`rooms/${roomId}/audience/${uid}/username`] = newUsername;
+            }
           }
         }
         if (Object.keys(roomUpdates).length > 0) {
           await update(ref(database), roomUpdates);
         }
       }
+
+      const storiesSnap = await get(ref(database, `stories/${uid}`));
+      if (storiesSnap.exists()) {
+        const storiesData = storiesSnap.val() as Record<string, any>;
+        const storyUpdates: Record<string, any> = {};
+        for (const storyId of Object.keys(storiesData)) {
+          if (newAvatarUrl !== undefined) {
+            storyUpdates[`stories/${uid}/${storyId}/authorAvatar`] = newAvatarUrl || null;
+          }
+          if (newUsername) {
+            storyUpdates[`stories/${uid}/${storyId}/authorName`] = newUsername;
+          }
+        }
+        if (Object.keys(storyUpdates).length > 0) {
+          await update(ref(database), storyUpdates);
+        }
+      }
     } catch (err) {
-      console.warn('Could not sync updated avatar to posts/rooms:', err);
+      console.warn('Could not sync updated avatar/username to posts/rooms/stories:', err);
     }
   }
 }
