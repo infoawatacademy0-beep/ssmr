@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Crown, Smile } from 'lucide-react';
 
@@ -35,6 +36,29 @@ export const SEAT_EMOJI_CATALOG: EmojiCatalogItem[] = [
 ];
 
 /**
+ * Real 3D emoji artwork (Microsoft Fluent Emoji 3D). The hand-drawn SVGs below
+ * are kept as an offline/error fallback.
+ */
+const FLUENT_3D_BASE = 'https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
+const FLUENT_3D_EMOJI: Record<string, string> = {
+  'grin': 'Grinning squinting face/3D/grinning_squinting_face_3d.png',
+  'wave-hand': 'Waving hand/Default/3D/waving_hand_3d_default.png',
+  'buzzer': 'Police car light/3D/police_car_light_3d.png',
+  'slot-machine': 'Slot machine/3D/slot_machine_3d.png',
+  'facepalm-laugh': 'Rolling on the floor laughing/3D/rolling_on_the_floor_laughing_3d.png',
+  'kiss-right': 'Face blowing a kiss/3D/face_blowing_a_kiss_3d.png',
+  'kiss-left': 'Kissing face/3D/kissing_face_3d.png',
+  'rose-smile': 'Rose/3D/rose_3d.png',
+  'heart-eyes': 'Smiling face with heart-eyes/3D/smiling_face_with_heart-eyes_3d.png',
+  'cool-shades': 'Smiling face with sunglasses/3D/smiling_face_with_sunglasses_3d.png',
+  'shisha': 'Face exhaling/3D/face_exhaling_3d.png',
+  'rainbow-vomit': 'Face vomiting/3D/face_vomiting_3d.png',
+  'peeking-shy': 'Flushed face/3D/flushed_face_3d.png',
+  'ninja-bomb': 'Bomb/3D/bomb_3d.png',
+  'angry-rage': 'Pouting face/3D/pouting_face_3d.png',
+  'crying-rivers': 'Loudly crying face/3D/loudly_crying_face_3d.png',
+};
+/**
  * Renders a 3D-shaded animated emoji matching the 16 voice-room emojis.
  */
 export function AnimatedEmojiGraphic({
@@ -44,6 +68,8 @@ export function AnimatedEmojiGraphic({
   emojiId: string;
   size?: number;
 }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const fluentUrl = FLUENT_3D_EMOJI[emojiId] ? `${FLUENT_3D_BASE}${encodeURI(FLUENT_3D_EMOJI[emojiId])}` : null;
   return (
     <motion.div
       style={{ width: size, height: size }}
@@ -79,6 +105,9 @@ export function AnimatedEmojiGraphic({
       transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
       className="relative flex items-center justify-center select-none pointer-events-none"
     >
+      {fluentUrl && !imgFailed ? (
+        <img src={fluentUrl} alt={emojiId} draggable={false} onError={() => setImgFailed(true)} className="h-full w-full object-contain drop-shadow-[0_8px_10px_rgba(0,0,0,0.5)]" />
+      ) : (
       <svg viewBox="0 0 120 120" className="h-full w-full overflow-visible drop-shadow-[0_6px_12px_rgba(0,0,0,0.45)]">
         <defs>
           <radialGradient id="emo-yellow-3d" cx="35%" cy="28%" r="70%">
@@ -464,6 +493,7 @@ export function AnimatedEmojiGraphic({
           </g>
         )}
       </svg>
+      )}
     </motion.div>
   );
 }

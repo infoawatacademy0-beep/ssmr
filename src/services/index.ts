@@ -15,6 +15,7 @@ export {
   setSeatVoiceEffect,
   sendRoomMessage,
   clearRoomChat,
+  deleteRoom,
   broadcastUserEntrance,
   subscribeToRoomEntrance,
   subscribeToRoom,

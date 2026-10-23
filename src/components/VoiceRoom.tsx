@@ -59,6 +59,7 @@ import {
   setSeatVoiceEffect,
   sendRoomMessage,
   clearRoomChat,
+  deleteRoom,
   closeJackarooGame,
   updateRoomPassword,
   setAdminForcedVoice,
@@ -800,6 +801,25 @@ export default function VoiceRoom() {
             </button>
           )}
 
+          {/* Delete Whole Room (Host / Admin) */}
+          {(isHost || user.isAdmin) && (
+            <button
+              onClick={async () => {
+                if (!window.confirm('ئایا دڵنیایت دەتەوێت ژوورەکە بە تەواوی بسڕیتەوە؟')) return;
+                try {
+                  await deleteRoom(room.id);
+                  navigate('/');
+                } catch (err: any) {
+                  alert(err.message || 'نەتوانرا ژوورەکە بسڕدرێتەوە');
+                }
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/40 bg-rose-500/15 text-rose-300 transition-colors hover:bg-rose-500/30"
+              title="سڕینەوەی ژوورەکە (Delete Room)"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+
           {/* Share Button */}
           <button
             onClick={handleShareRoom}
@@ -1315,7 +1335,9 @@ export default function VoiceRoom() {
                           className={`
                             rounded-2xl px-3 py-2 text-xs leading-relaxed
                             ${
-                              isMe
+                               isSenderVip
+                                 ? `bg-gradient-to-r from-amber-500/30 via-orange-500/25 to-rose-500/30 border border-amber-400/60 text-amber-50 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.35)] ${isMe ? 'rounded-tr-sm' : 'rounded-tl-sm'}`
+                                 : isMe
                                 ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-sm'
                                 : 'bg-white/[0.05] border border-white/[0.06] text-slate-200 rounded-tl-sm'
                             }

@@ -350,6 +350,15 @@ export async function clearRoomChat(roomId: string): Promise<void> {
 }
 
 /**
+ * Permanently deletes the whole room at once (Host / Admin action).
+ * All connected clients are notified through their room subscription.
+ */
+export async function deleteRoom(roomId: string): Promise<void> {
+  if (!roomId) return;
+  await set(ref(database, `rooms/${roomId}`), null);
+}
+
+/**
  * Broadcasts a live user entrance event into `/rooms/{roomId}/latestEntrance`.
  */
 export async function broadcastUserEntrance(

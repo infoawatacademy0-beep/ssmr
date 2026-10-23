@@ -42,7 +42,7 @@ export async function followUser(userUid: string, targetUid: string): Promise<vo
       senderUid: userUid,
       senderName,
       senderAvatar,
-      type: 'new_follower',
+      type: 'follow',
       title: 'فۆڵۆوکارێکی نوێ 👥',
       body: `${senderName} فۆڵۆوی هەژمارەکەتی کرد!`,
     });
