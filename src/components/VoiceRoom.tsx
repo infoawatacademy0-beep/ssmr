@@ -546,6 +546,7 @@ export default function VoiceRoom() {
   const handleSelectEmoji = useCallback(
     async (emojiId: string) => {
       if (!room || !user) return;
+      if (emojiId.startsWith('vip-') && !(user.isVerified || user.isAdmin)) return;
       try {
         if (mySeat) {
           // Immediately show locally and broadcast on seat
@@ -1384,7 +1385,7 @@ export default function VoiceRoom() {
       {/* ─────────────────────────────────────────────────────────
          BOTTOM CONTROL PANEL: Mic, Games, Music, Gifts, Leave
          ───────────────────────────────────────────────────────── */}
-      <footer className="relative z-20 shrink-0 border-t border-white/[0.08] bg-surface-900/90 px-3 py-3 backdrop-blur-xl">
+      <motion.footer initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", damping: 24, stiffness: 260 }} className="relative z-20 shrink-0 border-t border-white/[0.08] bg-surface-900/90 px-3 py-3 backdrop-blur-xl [&_button]:transition-all [&_button]:duration-200 [&_button]:ease-out [&_button:active]:scale-90 [&_button:hover]:-translate-y-0.5">
         <div className="flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Mic Quick Toggle + VIP Voice Changer Button */}
           {mySeat ? (
@@ -1485,7 +1486,7 @@ export default function VoiceRoom() {
             </button>
           )}
         </div>
-      </footer>
+      </motion.footer>
 
       {/* ─────────────────────────────────────────────────────────
          MODAL 1: Seat Action Sheet (Mute/Unmute, Leave Seat, Gift)
@@ -2001,6 +2002,7 @@ export default function VoiceRoom() {
         isOpen={isEmojiPickerOpen}
         onClose={() => setIsEmojiPickerOpen(false)}
         onSelectEmoji={handleSelectEmoji}
+        isVip={Boolean(user.isVerified || user.isAdmin)}
       />
 
       {/* Live Incoming Direct Message & Activity Notification Toast (Inside Room) */}

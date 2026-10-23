@@ -12,6 +12,7 @@ export interface SeatEmojiEvent {
 }
 
 export interface EmojiCatalogItem {
+  vip?: boolean;
   id: string;
   label: string;
 }
@@ -33,6 +34,18 @@ export const SEAT_EMOJI_CATALOG: EmojiCatalogItem[] = [
   { id: 'ninja-bomb', label: 'بۆمب' },
   { id: 'angry-rage', label: 'توڕەبوون' },
   { id: 'crying-rivers', label: 'گریان' },
+  { id: 'vip-crown', label: 'تاج', vip: true },
+  { id: 'vip-diamond', label: 'ئەڵماس', vip: true },
+  { id: 'vip-fire', label: 'ئاگر', vip: true },
+  { id: 'vip-rocket', label: 'ڕۆکێت', vip: true },
+  { id: 'vip-trophy', label: 'پاڵەوان', vip: true },
+  { id: 'vip-money', label: 'پارە', vip: true },
+  { id: 'vip-party', label: 'ئاهەنگ', vip: true },
+  { id: 'vip-star', label: 'ئەستێرە', vip: true },
+  { id: 'vip-heart', label: 'دڵ', vip: true },
+  { id: 'vip-unicorn', label: 'ئەسپی شاخدار', vip: true },
+  { id: 'vip-lion', label: 'شێر', vip: true },
+  { id: 'vip-ghost', label: 'تارمایی', vip: true },
 ];
 
 /**
@@ -57,6 +70,19 @@ const FLUENT_3D_EMOJI: Record<string, string> = {
   'ninja-bomb': 'Bomb/3D/bomb_3d.png',
   'angry-rage': 'Pouting face/3D/pouting_face_3d.png',
   'crying-rivers': 'Loudly crying face/3D/loudly_crying_face_3d.png',
+  // VIP-only emojis (full 3D spin animation)
+  'vip-crown': 'Crown/3D/crown_3d.png',
+  'vip-diamond': 'Gem stone/3D/gem_stone_3d.png',
+  'vip-fire': 'Fire/3D/fire_3d.png',
+  'vip-rocket': 'Rocket/3D/rocket_3d.png',
+  'vip-trophy': 'Trophy/3D/trophy_3d.png',
+  'vip-money': 'Money bag/3D/money_bag_3d.png',
+  'vip-party': 'Party popper/3D/party_popper_3d.png',
+  'vip-star': 'Glowing star/3D/glowing_star_3d.png',
+  'vip-heart': 'Sparkling heart/3D/sparkling_heart_3d.png',
+  'vip-unicorn': 'Unicorn/3D/unicorn_3d.png',
+  'vip-lion': 'Lion/3D/lion_3d.png',
+  'vip-ghost': 'Ghost/3D/ghost_3d.png',
 };
 /**
  * Renders a 3D-shaded animated emoji matching the 16 voice-room emojis.
@@ -69,6 +95,7 @@ export function AnimatedEmojiGraphic({
   size?: number;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const isVipEmoji = emojiId.startsWith('vip-');
   const fluentUrl = FLUENT_3D_EMOJI[emojiId] ? `${FLUENT_3D_BASE}${encodeURI(FLUENT_3D_EMOJI[emojiId])}` : null;
   return (
     <motion.div
@@ -106,7 +133,20 @@ export function AnimatedEmojiGraphic({
       className="relative flex items-center justify-center select-none pointer-events-none"
     >
       {fluentUrl && !imgFailed ? (
-        <img src={fluentUrl} alt={emojiId} draggable={false} onError={() => setImgFailed(true)} className="h-full w-full object-contain drop-shadow-[0_8px_10px_rgba(0,0,0,0.5)]" />
+        isVipEmoji ? (
+          <motion.img
+            src={fluentUrl}
+            alt={emojiId}
+            draggable={false}
+            onError={() => setImgFailed(true)}
+            animate={{ rotateY: [0, 360], scale: [1, 1.12, 1], y: [0, -5, 0] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ transformStyle: 'preserve-3d', perspective: 400 }}
+            className="h-full w-full object-contain drop-shadow-[0_0_14px_rgba(251,191,36,0.85)]"
+          />
+        ) : (
+          <img src={fluentUrl} alt={emojiId} draggable={false} onError={() => setImgFailed(true)} className="h-full w-full object-contain drop-shadow-[0_8px_10px_rgba(0,0,0,0.5)]" />
+        )
       ) : (
       <svg viewBox="0 0 120 120" className="h-full w-full overflow-visible drop-shadow-[0_6px_12px_rgba(0,0,0,0.45)]">
         <defs>
@@ -522,10 +562,12 @@ export function SeatEmojiPickerModal({
   isOpen,
   onClose,
   onSelectEmoji,
+  isVip = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSelectEmoji: (emojiId: string) => void;
+  isVip?: boolean;
 }) {
   return (
     <AnimatePresence>
@@ -574,13 +616,19 @@ export function SeatEmojiPickerModal({
                   key={item.id}
                   type="button"
                   onClick={() => {
+                    if (item.vip && !isVip) return;
                     onSelectEmoji(item.id);
                     onClose();
                   }}
-                  className="group flex flex-col items-center justify-center rounded-2xl p-2 transition hover:bg-white/[0.06] active:scale-90"
+                  className={`group relative flex flex-col items-center justify-center rounded-2xl p-2 transition hover:bg-white/[0.06] active:scale-90 ${item.vip ? "bg-amber-400/[0.06] ring-1 ring-amber-400/30" : ""} ${item.vip && !isVip ? "opacity-50" : ""}`}
                   title={item.label}
                 >
                   <AnimatedEmojiGraphic emojiId={item.id} size={64} />
+                  {item.vip && (
+                    <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-orange-500">
+                      <Crown className="h-2.5 w-2.5 fill-black text-black" />
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
