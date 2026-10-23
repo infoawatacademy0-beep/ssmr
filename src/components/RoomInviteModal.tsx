@@ -10,6 +10,7 @@ import {
   Search,
 } from 'lucide-react';
 import type { Room, User } from '../types';
+import { useLanguage } from '../contexts';
 import { searchUsersByUsername, sendRoomInvite } from '../services';
 
 interface RoomInviteModalProps {
@@ -23,6 +24,7 @@ export default function RoomInviteModal({
   currentUser,
   onClose,
 }: RoomInviteModalProps) {
+  const { tr } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [invitedUids, setInvitedUids] = useState<Set<string>>(new Set());
@@ -86,9 +88,9 @@ export default function RoomInviteModal({
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                بانگهێشت بۆ ژوور
+                {tr("بانگهێشت بۆ ژوور", "Invite to Room")}
               </h3>
-              <p className="text-[10px] text-slate-400">بانگهێشتکردنی هاوڕێیان بۆ {room.roomName}</p>
+              <p className="text-[10px] text-slate-400">{tr("بانگهێشتکردنی هاوڕێیان بۆ", "Invite friends to")} {room.roomName}</p>
             </div>
           </div>
 
@@ -117,12 +119,12 @@ export default function RoomInviteModal({
               {isCopied ? (
                 <>
                   <Check className="h-3.5 w-3.5" />
-                  <span>کۆپی کرا</span>
+                  <span>{tr("کۆپی کرا", "Copied")}</span>
                 </>
               ) : (
                 <>
                   <Share2 className="h-3.5 w-3.5" />
-                  <span>کۆپیکردنی لینک</span>
+                  <span>{tr("کۆپیکردنی لینک", "Copy Link")}</span>
                 </>
               )}
             </button>
@@ -137,7 +139,7 @@ export default function RoomInviteModal({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ناوی ئەندام بنووسە بۆ بانگهێشتکردن..."
+              placeholder={tr("ناوی ئەندام بنووسە بۆ بانگهێشتکردن...", "Type username to invite...")}
               className="w-full rounded-2xl border border-slate-800 bg-slate-950 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder-slate-500 outline-none focus:border-violet-500"
             />
           </div>
@@ -168,7 +170,7 @@ export default function RoomInviteModal({
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-white">{target.username}</h4>
-                    <span className="text-[10px] text-slate-400">ئاستی {target.level || 1}</span>
+                    <span className="text-[10px] text-slate-400">{tr("ئاستی", "Level")} {target.level || 1}</span>
                   </div>
                 </div>
 
@@ -184,12 +186,12 @@ export default function RoomInviteModal({
                   {hasBeenInvited ? (
                     <>
                       <Check className="h-3.5 w-3.5" />
-                      <span>نێردرا</span>
+                      <span>{tr("نێردرا", "Sent")}</span>
                     </>
                   ) : (
                     <>
                       <Send className="h-3.5 w-3.5" />
-                      <span>{isCurrentlySending ? 'دەنێردرێت...' : 'بانگهێشت'}</span>
+                      <span>{isCurrentlySending ? tr('دەنێردرێت...', 'Sending...') : tr('بانگهێشت', 'Invite')}</span>
                     </>
                   )}
                 </button>

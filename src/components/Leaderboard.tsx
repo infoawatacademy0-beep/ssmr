@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { LeaderboardEntry } from '../services';
+import { useLanguage } from '../contexts';
 import {
   subscribeToLeaderboardByCoins,
   subscribeToLeaderboardByXP,
@@ -22,6 +23,7 @@ interface LeaderboardProps {
 }
 
 export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps) {
+  const { tr } = useLanguage();
   const [activeTab, setActiveTab] = useState<'coins' | 'xp'>('coins');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,9 +66,9 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                ڕیزبەندی پاڵەوانانی گۆڕەپان
+                {tr("ڕیزبەندی پاڵەوانانی گۆڕەپان", "Hall of Fame Leaderboard")}
               </h3>
-              <p className="text-[10px] text-slate-400">ڕیزبەندی گشتی و ڕاستەوخۆ</p>
+              <p className="text-[10px] text-slate-400">{tr("ڕیزبەندی گشتی و ڕاستەوخۆ", "Live & Global Rankings")}</p>
             </div>
           </div>
 
@@ -90,7 +92,7 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
               }`}
             >
               <Coins className="h-4 w-4 text-amber-400" />
-              <span>سامان و دیاری</span>
+              <span>{tr("سامان و دیاری", "Wealth & Coins")}</span>
             </button>
 
             <button
@@ -102,7 +104,7 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
               }`}
             >
               <Sparkles className="h-4 w-4 text-purple-400" />
-              <span>ئاست و ئەزموون (XP)</span>
+              <span>{tr("ئاست و ئەزموون (XP)", "Level & XP")}</span>
             </button>
           </div>
         </div>
@@ -231,7 +233,7 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
                   <div>
                     <h4 className="text-xs font-bold text-white">{entry.username}</h4>
                     <span className="text-[10px] text-purple-300 font-medium">
-                      ئاستی {entry.level}
+                      {tr("ئاستی", "Level")} {entry.level}
                     </span>
                   </div>
                 </div>

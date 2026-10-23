@@ -14,6 +14,7 @@ import {
   FileText,
 } from 'lucide-react';
 import type { Post, User } from '../types';
+import { useLanguage } from '../contexts';
 import {
   createPost,
   toggleLikePost,
@@ -26,22 +27,24 @@ interface PostTimelineProps {
   onOpenUserProfile?: (uid: string) => void;
 }
 
-function formatPostTime(timestamp: number): string {
+function formatPostTime(timestamp: number, isEn: boolean = false): string {
   const diffMs = Date.now() - timestamp;
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 45) return 'هەر ئێستا';
+  if (diffSec < 45) return isEn ? 'Just now' : 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
+  if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
+  if (diffHr < 24) return isEn ? `${diffHr}h ago` : `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays} ڕۆژ لەمەوبەر`;
+  return isEn ? `${diffDays}d ago` : `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
 export default function PostTimeline({
   currentUser,
   onOpenUserProfile,
 }: PostTimelineProps) {
+  const { tr, language } = useLanguage();
+  const isEn = language === "en";
   const [posts, setPosts] = useState<Post[]>([]);
   const [newPostContent, setNewPostContent] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
@@ -91,7 +94,7 @@ export default function PostTimeline({
 
   // Handle Delete Post
   const handleDeletePost = async (postId: string) => {
-    if (!window.confirm('ئایا دڵنیایت لە سڕینەوەی ئەم پۆستە؟')) return;
+    if (!window.confirm(tr('ئایا دڵنیایت لە سڕینەوەی ئەم پۆستە؟', 'Are you sure you want to delete this post?'))) return;
     try {
       await deletePost(postId, currentUser.uid);
     } catch (err: any) {
@@ -134,7 +137,7 @@ export default function PostTimeline({
                 maxLength={400}
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="چی ڕوودەدات لە گۆڕەپانەکەت؟ نوێکاری، بانگهێشتی یاری یان بیرۆکەکانت بڵاوبکەرەوە…"
+                placeholder={tr("چی ڕوودەدات لە گۆڕەپانەکەت؟ نوێکاری، بانگهێشتی یاری یان بیرۆکەکانت بڵاوبکەرەوە…", "What's happening in your arena? Share updates, game invites or thoughts…")}
                 className="w-full resize-none rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-amber-400 focus:bg-white/[0.05]"
               />
 
@@ -156,7 +159,7 @@ export default function PostTimeline({
                   className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-4 py-2 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95 disabled:opacity-40"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  <span>{isPublishing ? 'خەریکی بڵاوکردنەوەیە…' : 'بڵاوکردنەوە'}</span>
+                  <span>{isPublishing ? tr('خەریکی بڵاوکردنەوەیە…', 'Publishing…') : tr('بڵاوکردنەوە', 'Publish')}</span>
                 </button>
               </div>
             </form>
@@ -170,10 +173,10 @@ export default function PostTimeline({
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-amber-400" />
             <h3 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
-              پۆستە گشتییەکان ({posts.length})
+              {tr("پۆستە گشتییەکان", "Public Posts")} ({posts.length})
             </h3>
           </div>
-          <span className="text-[10px] font-semibold text-slate-500">تۆڕی ڕاستەوخۆ</span>
+          <span className="text-[10px] font-semibold text-slate-500">{tr("تۆڕی ڕاستەوخۆ", "Live Feed")}</span>
         </div>
 
         {posts.length === 0 ? (
@@ -181,9 +184,9 @@ export default function PostTimeline({
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 mb-2 border border-amber-500/20">
               <MessageSquare className="h-6 w-6" />
             </div>
-            <p className="text-xs font-bold text-white">هێشتا هیچ پۆستێک نییە</p>
+            <p className="text-xs font-bold text-white">{tr("هێشتا هیچ پۆستێک نییە", "No posts yet")}</p>
             <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
-              یەکەم کەس بە کە پۆستێک یان بانگهێشتی یاری لە تەواوی گۆڕەپاندا بڵاوبکاتەوە!
+              {tr("یەکەم کەس بە کە پۆستێک یان بانگهێشتی یاری لە تەواوی گۆڕەپاندا بڵاوبکاتەوە!", "Be the first to share an update or game invite with the arena!")}
             </p>
           </div>
         ) : (
@@ -235,7 +238,7 @@ export default function PostTimeline({
 
                         <div className="flex items-center gap-1 text-[10px] text-slate-400">
                           <Clock className="h-3 w-3 text-slate-500" />
-                          <span>{formatPostTime(post.timestamp)}</span>
+                          <span>{formatPostTime(post.timestamp, isEn)}</span>
                         </div>
                       </div>
                     </div>
@@ -281,12 +284,12 @@ export default function PostTimeline({
                       {copiedPostId === post.id ? (
                         <>
                           <Check className="h-3.5 w-3.5 text-emerald-400" />
-                          <span className="text-emerald-400 text-[11px]">لینک کۆپی کرا</span>
+                          <span className="text-emerald-400 text-[11px]">{tr("لینک کۆپی کرا", "Link Copied")}</span>
                         </>
                       ) : (
                         <>
                           <Share2 className="h-3.5 w-3.5" />
-                          <span className="text-[11px]">هاوبەشکردن</span>
+                          <span className="text-[11px]">{tr("هاوبەشکردن", "Share")}</span>
                         </>
                       )}
                     </button>

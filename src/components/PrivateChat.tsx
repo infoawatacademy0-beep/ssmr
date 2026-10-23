@@ -21,6 +21,7 @@ import {
   Crown,
 } from 'lucide-react';
 import type { User, DirectMessage, DirectMessageType } from '../types';
+import { useLanguage } from '../contexts';
 import {
   getThreadId,
   sendDirectMessage,
@@ -49,6 +50,7 @@ export default function PrivateChat({
   recipientUser,
   onClose,
 }: PrivateChatProps) {
+  const { tr } = useLanguage();
   const threadId = getThreadId(currentUser.uid, recipientUser.uid);
 
   const [messages, setMessages] = useState<DirectMessage[]>([]);
@@ -373,7 +375,7 @@ export default function PrivateChat({
                   }`}
                 />
                 <span className={presence.isOnline ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
-                  {presence.statusText}
+                  {presence.isOnline ? tr('ئۆنلاینە', 'Online') : tr('ئۆفلاینە', 'Offline')}
                 </span>
               </div>
             </div>
@@ -384,7 +386,7 @@ export default function PrivateChat({
             <button
               onClick={handleToggleFollow}
               disabled={isTogglingFollow}
-              title={isFollowing ? 'فۆڵۆکراوە' : 'فۆڵۆکردن'}
+              title={isFollowing ? tr('فۆڵۆکراوە', 'Following') : tr('فۆڵۆکردن', 'Follow')}
               className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition ${
                 isFollowing
                   ? 'border border-amber-400/30 bg-amber-400/10 text-amber-300'
@@ -392,13 +394,13 @@ export default function PrivateChat({
               }`}
             >
               {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{isFollowing ? 'فۆڵۆکراوە' : 'فۆڵۆکردن'}</span>
+              <span className="hidden sm:inline">{isFollowing ? tr('فۆڵۆکراوە', 'Following') : tr('فۆڵۆکردن', 'Follow')}</span>
             </button>
 
             {/* Moderation Report Button */}
             <button
               onClick={() => setIsReportModalOpen(true)}
-              title="Report User"
+              title={tr("ناردنی ڕاپۆرت", "Report User")}
               className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 text-slate-400 transition hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400"
             >
               <ShieldAlert className="h-4 w-4" />
@@ -421,9 +423,9 @@ export default function PrivateChat({
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-amber-400 mb-2">
                 <Radio className="h-6 w-6" />
               </div>
-              <h4 className="text-xs font-bold text-white">کەناڵی تایبەتی ڕاستەوخۆ</h4>
+              <h4 className="text-xs font-bold text-white">{tr("کەناڵی تایبەتی ڕاستەوخۆ", "Direct Private Channel")}</h4>
               <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
-                پەیوەندی تایبەت و پارێزراو. نامە، بەستەری وێنە و تۆماری دەنگی ئاڵوگۆڕ بکە.
+                {tr('پەیوەندی تایبەت و پارێزراو. نامە، بەستەری وێنە و تۆماری دەنگی ئاڵوگۆڕ بکە.', 'Private & secure connection. Exchange messages, images and voice memos.')}
               </p>
             </div>
           ) : (
@@ -520,7 +522,7 @@ export default function PrivateChat({
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5">
                               <Volume2 className="h-3.5 w-3.5" />
-                              <span className="text-[11px] font-bold">دەنگی تۆمارکراو</span>
+                              <span className="text-[11px] font-bold">{tr("دەنگی تۆمارکراو", "Voice Memo")}</span>
                             </div>
                             {/* Animated Audio Waveform Mock */}
                             <div className="flex items-center gap-0.5">
@@ -561,7 +563,7 @@ export default function PrivateChat({
             <div className="border-t border-slate-800 bg-slate-900/90 p-3 backdrop-blur-md">
               <div className="flex items-center justify-between pb-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  بەستەری وێنە دابنێ
+                  {tr('بەستەری وێنە دابنێ', 'Attach Image Link')}
                 </span>
                 <button
                   onClick={() => setIsImagePickerOpen(false)}
@@ -576,7 +578,7 @@ export default function PrivateChat({
                   type="url"
                   value={imageUrlInput}
                   onChange={(e) => setImageUrlInput(e.target.value)}
-                  placeholder="بەستەری وێنە لێرە دابنێ (https://…)"
+                  placeholder={tr("بەستەری وێنە لێرە دابنێ (https://…)", "Paste image link here (https://...)")}
                   className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                 />
                 <button
@@ -598,7 +600,7 @@ export default function PrivateChat({
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
               <span className="text-xs font-bold">
-                تۆمارکردنی دەنگ: {recordingSeconds} چرکە
+                {tr('تۆمارکردنی دەنگ: ', 'Recording Voice: ')}{recordingSeconds} {tr('چرکە', 's')}
               </span>
             </div>
 
@@ -618,7 +620,7 @@ export default function PrivateChat({
             <button
               type="button"
               onClick={() => setIsImagePickerOpen(!isImagePickerOpen)}
-              title="هاوپێچکردنی وێنە"
+              title={tr("هاوپێچکردنی وێنە", "Attach Image")}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-amber-400/40 hover:text-amber-300"
             >
               <ImagePlus className="h-4 w-4" />
@@ -628,7 +630,7 @@ export default function PrivateChat({
             <button
               type="button"
               onClick={isRecordingVoice ? handleStopRecordingAndSend : handleStartRecording}
-              title={isRecordingVoice ? 'Stop Recording' : 'Record Voice Memo'}
+              title={isRecordingVoice ? tr('وەستاندنی تۆمارکردن', 'Stop Recording') : tr('تۆمارکردنی دەنگ', 'Record Voice Memo')}
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
                 isRecordingVoice
                   ? 'border-rose-500 bg-rose-500/20 text-rose-400 animate-pulse'
@@ -643,7 +645,7 @@ export default function PrivateChat({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="نامەی تایبەتی بنووسە…"
+              placeholder={tr("نامەی تایبەتی بنووسە…", "Write a private message…")}
               disabled={isRecordingVoice}
               className="flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 disabled:opacity-50"
             />

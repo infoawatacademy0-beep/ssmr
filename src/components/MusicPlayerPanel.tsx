@@ -14,6 +14,7 @@ import {
   Minus,
 } from 'lucide-react';
 import type { RoomMusicState, User, Seat } from '../types';
+import { useLanguage } from '../contexts';
 import { SAMPLE_MUSIC_TRACKS } from '../types';
 import {
   setMusicPlayback,
@@ -46,6 +47,7 @@ export default function MusicPlayerPanel({
   onOpenPanel,
   onClosePanel,
 }: MusicPlayerPanelProps) {
+  const { tr } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [localVolume, setLocalVolume] = useState<number>(musicState.volume ?? 0.7);
 
@@ -356,15 +358,15 @@ export default function MusicPlayerPanel({
               <p className="truncate text-xs font-bold text-white flex items-center gap-1.5">
                 {musicState.isRepeat && <span className="text-emerald-400 text-[10px]">🔁</span>}
                 <span className="truncate">
-                  {currentTrack ? currentTrack.title : 'بەشی گۆرانی ژوور'}
+                  {currentTrack ? currentTrack.title : tr('بەشی گۆرانی ژوور', 'Room Music Player')}
                 </span>
               </p>
               <p className="truncate text-[10px] text-slate-400">
                 {currentTrack
-                  ? `دەنگ: ${volumePercent}% · ${currentTrack.artist}`
+                  ? `${tr('دەنگ: ', 'Volume: ')}${volumePercent}% · ${currentTrack.artist}`
                   : canControlMusic
-                    ? 'کرتە بکە بۆ هەڵبژاردن یان زیادکردنی گۆرانی'
-                    : 'مۆدی گۆرانی ژوور چالاکە'}
+                    ? tr('کرتە بکە بۆ هەڵبژاردن یان زیادکردنی گۆرانی', 'Click to select or add music')
+                    : tr('مۆدی گۆرانی ژوور چالاکە', 'Room music mode active')}
               </p>
             </div>
           </div>
@@ -378,13 +380,13 @@ export default function MusicPlayerPanel({
                 className="flex h-8 items-center gap-1 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-2.5 text-xs font-black text-white shadow-md transition-transform active:scale-95"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span>{currentTrack ? 'گۆرانی' : 'زیادکردنی گۆرانی'}</span>
+                <span>{currentTrack ? tr('گۆرانی', 'Music') : tr('زیادکردنی گۆرانی', 'Add Song')}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleCancelAndRemoveMusic}
-                title="کۆتایی پێهێنان و لابردنی مۆدی گۆرانی لەسەر شاشەی ژوور"
+                title={tr("کۆتایی پێهێنان و لابردنی مۆدی گۆرانی لەسەر شاشەی ژوور", "Close & remove music mode")}
                 className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/40 bg-rose-500/20 text-rose-300 transition hover:bg-rose-500/30 active:scale-95"
               >
                 <X className="h-4 w-4" />
@@ -413,9 +415,9 @@ export default function MusicPlayerPanel({
                     <Music className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-white">زیادکردن و کۆنترۆڵی گۆرانی</h3>
+                    <h3 className="text-sm font-black text-white">{tr("زیادکردن و کۆنترۆڵی گۆرانی", "Music Controls & Playlist")}</h3>
                     <p className="text-[10px] text-slate-400 truncate max-w-[200px]">
-                      {currentTrack ? currentTrack.title : 'هیچ گۆرانییەک هەڵنەبژێردراوە'}
+                      {currentTrack ? currentTrack.title : tr('هیچ گۆرانییەک هەڵنەبژێردراوە', 'No track selected')}
                     </p>
                   </div>
                 </div>
@@ -436,7 +438,7 @@ export default function MusicPlayerPanel({
                     ) : (
                       <Volume2 className="h-4 w-4 text-violet-400" />
                     )}
-                    <span>دەنگی گۆرانی</span>
+                    <span>{tr("دەنگی گۆرانی", "Music Volume")}</span>
                   </span>
                   <span className="rounded-lg bg-violet-500/20 px-2 py-0.5 text-xs font-black text-violet-300">
                     {volumePercent}%
@@ -448,7 +450,7 @@ export default function MusicPlayerPanel({
                     type="button"
                     onClick={() => handleVolumeChange(localVolume - 0.1)}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.05] text-white hover:bg-white/[0.1] active:scale-90"
-                    title="کەمکردنی دەنگ"
+                    title={tr("کەمکردنی دەنگ", "Decrease Volume")}
                   >
                     <Minus className="h-4 w-4" />
                   </button>
@@ -466,7 +468,7 @@ export default function MusicPlayerPanel({
                     type="button"
                     onClick={() => handleVolumeChange(localVolume + 0.1)}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.05] text-white hover:bg-white/[0.1] active:scale-90"
-                    title="زیادکردنی دەنگ"
+                    title={tr("زیادکردنی دەنگ", "Increase Volume")}
                   >
                     <Plus className="h-4 w-4" />
                   </button>
@@ -485,12 +487,12 @@ export default function MusicPlayerPanel({
                     {musicState.isPlaying ? (
                       <>
                         <Pause className="h-4 w-4" />
-                        <span>وەستاندن</span>
+                        <span>{tr("وەستاندن", "Pause")}</span>
                       </>
                     ) : (
                       <>
                         <Play className="h-4 w-4" />
-                        <span>پێکردن</span>
+                        <span>{tr("پێکردن", "Play")}</span>
                       </>
                     )}
                   </button>
@@ -506,7 +508,7 @@ export default function MusicPlayerPanel({
                     }`}
                   >
                     <Repeat className="h-4 w-4" />
-                    <span>{musicState.isRepeat ? 'دووبارە: چالاکە' : 'دووبارەکردنەوە'}</span>
+                    <span>{musicState.isRepeat ? tr('دووبارە: چالاکە', 'Repeat: ON') : tr('دووبارەکردنەوە', 'Repeat')}</span>
                   </button>
 
                   {/* End Music Mode on Room Screen (کۆتایی پێهێنانی مۆدی گۆرانی) */}
@@ -516,7 +518,7 @@ export default function MusicPlayerPanel({
                     className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-rose-500/40 bg-rose-500/15 py-2.5 text-xs font-black text-rose-300 hover:bg-rose-500/25 active:scale-95"
                   >
                     <Trash2 className="h-4 w-4" />
-                    <span>داخستنی مۆد</span>
+                    <span>{tr("داخستنی مۆد", "Close Mode")}</span>
                   </button>
                 </div>
               )}
@@ -529,7 +531,7 @@ export default function MusicPlayerPanel({
                   className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-500/40 bg-rose-500/15 py-2.5 text-xs font-black text-rose-300 hover:bg-rose-500/25 active:scale-95"
                 >
                   <X className="h-4 w-4" />
-                  <span>لابردنی مۆدی گۆرانی لەسەر شاشەی ژوور</span>
+                  <span>{tr("لابردنی مۆدی گۆرانی لەسەر شاشەی ژوور", "Remove music from room screen")}</span>
                 </button>
               )}
 
@@ -538,7 +540,7 @@ export default function MusicPlayerPanel({
                 <div className="space-y-3 rounded-2xl border border-violet-500/25 bg-surface-900/70 p-3">
                   <p className="text-xs font-black text-violet-300 flex items-center gap-1.5">
                     <Plus className="h-4 w-4" />
-                    <span>زیادکردنی گۆرانی نوێ (تەنها ئەدمین)</span>
+                    <span>{tr("زیادکردنی گۆرانی نوێ (تەنها ئەدمین)", "Add New Track (Host Only)")}</span>
                   </p>
 
                   {/* Option A: Pick Audio File from Phone/Device */}
@@ -548,7 +550,7 @@ export default function MusicPlayerPanel({
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 py-2.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/25 active:scale-95"
                   >
                     <Music className="h-4 w-4" />
-                    <span>هەڵبژاردنی گۆرانی لە ناو مۆبایل / ئامێر</span>
+                    <span>{tr("هەڵبژاردنی گۆرانی لە ناو مۆبایل / ئامێر", "Pick audio file from device")}</span>
                   </button>
 
                   {/* Option B: Add by Title & MP3 Link */}
@@ -558,7 +560,7 @@ export default function MusicPlayerPanel({
                         type="text"
                         value={trackTitle}
                         onChange={(e) => setTrackTitle(e.target.value)}
-                        placeholder="ناوی گۆرانی..."
+                        placeholder={tr("ناوی گۆرانی...", "Track title...")}
                         required
                         className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
                       />
@@ -566,7 +568,7 @@ export default function MusicPlayerPanel({
                         type="text"
                         value={trackArtist}
                         onChange={(e) => setTrackArtist(e.target.value)}
-                        placeholder="ناوی هونەرمەند..."
+                        placeholder={tr("ناوی هونەرمەند...", "Artist name...")}
                         className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
                       />
                     </div>
@@ -574,7 +576,7 @@ export default function MusicPlayerPanel({
                       type="url"
                       value={trackUrl}
                       onChange={(e) => setTrackUrl(e.target.value)}
-                      placeholder="لینکی گۆرانی (https://...mp3)"
+                      placeholder={tr("لینکی گۆرانی (https://...mp3)", "Audio link (https://...mp3)")}
                       required
                       className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
                     />
@@ -584,7 +586,7 @@ export default function MusicPlayerPanel({
                       className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
                     >
                       <Plus className="h-4 w-4" />
-                      <span>{isSubmitting ? 'خەریکە...' : 'زیادکردن بۆ لیستی گۆرانییەکان'}</span>
+                      <span>{isSubmitting ? tr('خەریکە...', 'Adding...') : tr('زیادکردن بۆ لیستی گۆرانییەکان', 'Add to Playlist')}</span>
                     </button>
                   </form>
                 </div>
@@ -595,10 +597,10 @@ export default function MusicPlayerPanel({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-slate-300">
-                      لیستی گۆرانییە پارێزراوەکان ({allSavedSongs.length}):
+                      {tr("لیستی گۆرانییە پارێزراوەکان", "Saved Playlist")} ({allSavedSongs.length}):
                     </p>
                     <span className="text-[10px] text-emerald-400 font-semibold">
-                      پارێزراوە ✓
+                      {tr("پارێزراوە ✓", "Saved ✓")}
                     </span>
                   </div>
                   <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
@@ -634,7 +636,7 @@ export default function MusicPlayerPanel({
                                 : 'bg-violet-500/20 text-violet-300'
                             }`}
                           >
-                            {isCurrent ? '🎵 لێدەدرێت' : '▶ پێکردن'}
+                            {isCurrent ? tr('🎵 لێدەدرێت', '🎵 Playing') : tr('▶ پێکردن', '▶ Play')}
                           </span>
                         </button>
                       );

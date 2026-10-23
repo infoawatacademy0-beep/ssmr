@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldAlert, X, Check, AlertTriangle } from 'lucide-react';
 import type { ReportTargetType } from '../types';
+import { useLanguage } from '../contexts';
 import { submitReport } from '../services';
 
 interface ReportModalProps {
@@ -30,6 +31,7 @@ export default function ReportModal({
   reporterName,
   onClose,
 }: ReportModalProps) {
+  const { tr } = useLanguage();
   const [selectedReason, setSelectedReason] = useState(REPORT_REASONS[0]);
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,10 +77,10 @@ export default function ReportModal({
             </div>
             <div>
               <h3 className="font-display text-sm font-black text-white uppercase tracking-wider">
-                ناردنی ڕاپۆرت
+                {tr("ناردنی ڕاپۆرت", "Submit Report")}
               </h3>
               <p className="text-[10px] text-slate-400">
-                ڕاپۆرت لەسەر {targetType}: <strong className="text-slate-200">{targetName}</strong>
+                {tr("ڕاپۆرت لەسەر", "Report against")} {targetType}: <strong className="text-slate-200">{targetName}</strong>
               </p>
             </div>
           </div>
@@ -95,9 +97,9 @@ export default function ReportModal({
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 mb-3 animate-bounce">
               <Check className="h-7 w-7" />
             </div>
-            <h4 className="text-sm font-bold text-white">ڕاپۆرتەکەت گەیشت</h4>
+            <h4 className="text-sm font-bold text-white">{tr("ڕاپۆرتەکەت گەیشت", "Report Submitted")}</h4>
             <p className="mt-1 text-xs text-slate-400 max-w-xs">
-              سوپاس بۆ پاراستنی ژینگەی ژوورەکان. تیمی چاودێری بە زووترین کات پێداچوونەوەی بۆ دەکات.
+              {tr("سوپاس بۆ پاراستنی ژینگەی ژوورەکان. تیمی چاودێری بە زووترین کات پێداچوونەوەی بۆ دەکات.", "Thank you for keeping our community safe. Our team will review this shortly.")}
             </p>
           </div>
         ) : (
@@ -111,7 +113,7 @@ export default function ReportModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">
-                جۆری سەرپێچی
+                {tr("جۆری سەرپێچی", "Violation Category")}
               </label>
               <div className="space-y-1.5">
                 {REPORT_REASONS.map((reason) => (
@@ -125,7 +127,7 @@ export default function ReportModal({
                         : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-white'
                     }`}
                   >
-                    <span>{reason}</span>
+                    <span>{tr(reason, reason)}</span>
                     {selectedReason === reason && <span className="h-2 w-2 rounded-full bg-rose-400" />}
                   </button>
                 ))}
@@ -134,14 +136,14 @@ export default function ReportModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                زانیاری زیاتر (ئارەزوومەندانە)
+                {tr("زانیاری زیاتر (ئارەزوومەندانە)", "Additional Details (Optional)")}
               </label>
               <textarea
                 rows={3}
                 maxLength={300}
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
-                placeholder="باس لەوە بکە کە چی ڕوویداوە و زانیاری زیاتر بنووسە…"
+                placeholder={tr("باس لەوە بکە کە چی ڕوویداوە و زانیاری زیاتر بنووسە…", "Describe what happened in detail...")}
                 className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-xs text-white placeholder-slate-500 outline-none transition focus:border-rose-400"
               />
             </div>
@@ -153,7 +155,7 @@ export default function ReportModal({
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 py-3 text-xs font-bold text-white shadow-lg shadow-rose-600/25 transition active:scale-95 disabled:opacity-50 hover:bg-rose-500"
               >
                 <ShieldAlert className="h-4 w-4" />
-                <span>{isSubmitting ? 'خەریکی ناردنە…' : 'دڵنیاکردنەوە و ناردنی ڕاپۆرت'}</span>
+                <span>{isSubmitting ? tr('خەریکی ناردنە…', 'Submitting...') : tr('دڵنیاکردنەوە و ناردنی ڕاپۆرت', 'Confirm & Send Report')}</span>
               </button>
             </div>
           </form>

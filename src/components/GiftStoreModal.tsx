@@ -4,6 +4,7 @@ import { Coins, ChevronLeft, Pencil, Gift as GiftLucide, Crown, HelpCircle } fro
 import { AVAILABLE_GIFTS, formatCoinsK, type GiftItem, type User, type Seat } from '../types';
 import GiftIcon from './GiftIcon';
 import { sendGiftBatch, type GiftRecipientRef } from './GiftComboButton';
+import { useLanguage } from '../contexts';
 
 /* ─────────────────────────────────────────────────────────────
    Gift Drawer (live-app style)
@@ -35,6 +36,7 @@ export default function GiftStoreModal({
   onClose,
   onSent,
 }: GiftStoreModalProps) {
+  const { tr, isRTL } = useLanguage();
   // Everyone currently sitting on a seat (except me)
   const eligible = seats
     .filter((s) => s.userId && s.userId !== currentUser.uid)
@@ -164,7 +166,7 @@ export default function GiftStoreModal({
               allSelected ? 'border-amber-400 bg-amber-400/15 text-amber-300' : 'border-white/70 text-white'
             }`}
           >
-            هەموو
+            {tr('هەموو', 'All')}
           </button>
         </div>
 
@@ -173,8 +175,8 @@ export default function GiftStoreModal({
           <div className="flex items-center gap-5">
             {(
               [
-                ['hot', 'گەرم'],
-                ['luxury', 'ڕێزدار'],
+                ['hot', tr('گەرم', 'Hot')],
+                ['luxury', tr('ڕێزدار', 'Luxury')],
               ] as [Tab, string][]
             ).map(([key, label]) => (
               <button
@@ -199,7 +201,7 @@ export default function GiftStoreModal({
         {/* ── Info strip ── */}
         <div className="mx-3 mt-1 flex items-center justify-between rounded-lg bg-white/[0.06] px-3 py-1.5 text-[11px] text-slate-300">
           <span className="flex items-center gap-1">
-            وەرگر: <Coins className="h-3 w-3 text-amber-400" /> +{Math.floor(selectedGift.cost * qty * 0.5)}
+            {tr('وەرگر:', 'Recipient:')} <Coins className="h-3 w-3 text-amber-400" /> +{Math.floor(selectedGift.cost * qty * 0.5)}
             {recipients.length > 1 && <span className="text-slate-500"> × {recipients.length}</span>}
           </span>
           <HelpCircle className="h-3.5 w-3.5 text-slate-500" />
@@ -254,7 +256,7 @@ export default function GiftStoreModal({
                           isSending || coins < totalCost ? 'opacity-60' : 'active:brightness-90'
                         }`}
                       >
-                        {isSending ? '...' : 'بنێرە'}
+                        {isSending ? '...' : tr('بنێرە', 'Send')}
                       </span>
                     </>
                   ) : (
@@ -280,7 +282,7 @@ export default function GiftStoreModal({
             <button
               type="button"
               onClick={handleCustomQty}
-              title="ژمارەی تایبەت"
+              title={tr('ژمارەی تایبەت', 'Custom Quantity')}
               className={`flex h-8 w-8 items-center justify-center rounded-full ${
                 !QTY_OPTIONS.includes(qty) ? 'bg-white text-black' : 'text-slate-300'
               }`}

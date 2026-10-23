@@ -16,7 +16,7 @@ import {
   Zap,
   Star,
 } from 'lucide-react';
-import { useAuth } from '../contexts';
+import { useAuth, useLanguage } from '../contexts';
 import { captureUserLocation } from '../services/locationService';
 
 /* ──────────────────────────────────────────────
@@ -277,6 +277,7 @@ function ErrorToast({ message }: { message: string }) {
 
 export default function Auth() {
   const { register, login } = useAuth();
+  const { language, setLanguage, tr, isRTL } = useLanguage();
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
@@ -293,6 +294,20 @@ export default function Auth() {
 
   /* Map Firebase error codes → friendly messages */
   const friendlyError = (code: string): string => {
+    if (language === 'en') {
+      const enMap: Record<string, string> = {
+        'auth/email-already-in-use': 'This email is already registered. Try logging in.',
+        'auth/invalid-email': 'Please enter a valid email address.',
+        'auth/weak-password': 'Password must be at least 6 characters.',
+        'auth/user-not-found': 'No account found with this email.',
+        'auth/wrong-password': 'Incorrect password. Please try again.',
+        'auth/invalid-credential': 'Invalid email or password. Please try again.',
+        'auth/too-many-requests': 'Too many attempts. Please wait a moment.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
+      };
+      return enMap[code] ?? 'Something went wrong. Please try again.';
+    }
+
     const map: Record<string, string> = {
       'auth/email-already-in-use': 'ئەم ئیمەیڵە پێشتر تۆمارکراوە. هەوڵی چوونەژوورەوە بدە.',
       'auth/invalid-email': 'تکایە ئیمەیڵێکی دروست بنووسە.',
@@ -323,7 +338,13 @@ export default function Auth() {
 
         if (mode === 'register') {
           if (username.trim().length < 3) {
-            throw { code: 'custom', message: 'ناوی بەکارهێنەر دەبێت لانیکەم ٣ پیت بێت.' };
+            throw {
+              code: 'custom',
+              message: tr(
+                'ناوی بەکارهێنەر دەبێت لانیکەم ٣ پیت بێت.',
+                'Username must be at least 3 characters.',
+              ),
+            };
           }
           await register(email.trim(), password, username.trim(), locationData);
         } else {
@@ -332,7 +353,10 @@ export default function Auth() {
       } catch (err: unknown) {
         const firebaseErr = err as { code?: string; message?: string };
         if (firebaseErr.code === 'custom') {
-          setError(firebaseErr.message ?? 'هەڵەی پشتڕاستکردنەوە.');
+          setError(
+            firebaseErr.message ??
+              tr('هەڵەی پشتڕاستکردنەوە.', 'Validation error.'),
+          );
         } else {
           setError(friendlyError(firebaseErr.code ?? ''));
         }
@@ -340,7 +364,7 @@ export default function Auth() {
         setLoading(false);
       }
     },
-    [mode, email, password, username, register, login],
+    [mode, email, password, username, register, login, language, tr],
   );
 
   /* Animation variants */
@@ -366,6 +390,17 @@ export default function Auth() {
 
   return (
     <div className="relative flex min-h-[100dvh] items-center justify-center px-4 py-8">
+      {/* Top language toggle pill */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          type="button"
+          onClick={() => setLanguage(language === 'ku' ? 'en' : 'ku')}
+          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs font-bold text-slate-300 shadow-md backdrop-blur-md transition hover:border-amber-400/40 hover:text-white"
+        >
+          <span>{language === 'ku' ? '☀️ کوردی' : '🌐 EN'}</span>
+        </button>
+      </div>
+
       {/* Background layers */}
       <FloatingOrbs />
       <ParticleGrid />
@@ -395,7 +430,7 @@ export default function Auth() {
                 SSMR
               </h1>
               <p className="mt-1 text-xs font-medium tracking-widest text-violet-400/80 uppercase">
-                چاتی دەنگی و یاری
+                {tr('چاتی دەنگی و یاری', 'Voice Chat & Gaming')}
               </p>
             </motion.div>
 
@@ -417,12 +452,14 @@ export default function Auth() {
               </div>
               <div>
                 <h2 className="text-base font-semibold text-white">
-                  {mode === 'login' ? 'بەخێربێیتەوە' : 'دروستکردنی هەژمار'}
+                  {mode === 'login'
+                    ? tr('بەخێربێیتەوە', 'Welcome Back')
+                    : tr('دروستکردنی هەژمار', 'Create Account')}
                 </h2>
                 <p className="text-[11px] text-slate-500">
                   {mode === 'login'
-                    ? 'بچۆ ژوورەوە بۆ گەڕانەوە بۆ نێو چالاکییەکان'
-                    : 'بەشداری لە گۆڕەپان بکە و دەست بە گەشتەکەت بکە'}
+                    ? tr('بچۆ ژوورەوە بۆ گەڕانەوە بۆ نێو چالاکییەکان', 'Sign in to access your arenas & community')
+                    : tr('بەشداری لە گۆڕەپان بکە و دەست بە گەشتەکەت بکە', 'Join the arena and begin your journey')}
                 </p>
               </div>
             </motion.div>
@@ -453,11 +490,11 @@ export default function Auth() {
                     <InputField
                       id="username"
                       type="text"
-                      label="ناوی بەکارهێنەر"
+                      label={tr('ناوی بەکارهێنەر', 'Username')}
                       value={username}
                       onChange={setUsername}
                       icon={User}
-                      placeholder="ناوێک هەڵبژێرە"
+                      placeholder={tr('ناوێک هەڵبژێرە', 'Choose a username')}
                       autoComplete="username"
                     />
                   </motion.div>
@@ -469,7 +506,7 @@ export default function Auth() {
                 <InputField
                   id="email"
                   type="email"
-                  label="ئیمەیڵ"
+                  label={tr('ئیمەیڵ', 'Email')}
                   value={email}
                   onChange={setEmail}
                   icon={Mail}
@@ -483,7 +520,7 @@ export default function Auth() {
                 <InputField
                   id="password"
                   type="password"
-                  label="وشەی نهێنی"
+                  label={tr('وشەی نهێنی', 'Password')}
                   value={password}
                   onChange={setPassword}
                   icon={Lock}
@@ -493,23 +530,15 @@ export default function Auth() {
                 />
               </motion.div>
 
-              {/* Forgot password (login only) */}
-              {mode === 'login' && (
-                <motion.div variants={itemVariant} className="flex justify-end">
-                  <button
-                    type="button"
-                    className="text-[11px] font-medium text-violet-400/70 transition-colors hover:text-violet-300"
-                  >
-                    وشەی نهێنیت لەبیرچووە؟
-                  </button>
-                </motion.div>
-              )}
-
               {/* Submit */}
               <motion.div variants={itemVariant}>
                 <SubmitButton
                   loading={loading}
-                  label={mode === 'login' ? 'چوونەژوورەوە' : 'دروستکردنی هەژمار'}
+                  label={
+                    mode === 'login'
+                      ? tr('چوونەژوورەوە', 'Sign In')
+                      : tr('دروستکردنی هەژمار', 'Create Account')
+                  }
                 />
               </motion.div>
             </motion.form>
@@ -518,7 +547,7 @@ export default function Auth() {
             <div className="my-6 flex items-center gap-3">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
               <span className="text-[10px] font-medium tracking-widest text-slate-600 uppercase">
-                یان
+                {tr('یان', 'OR')}
               </span>
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
             </div>
@@ -530,13 +559,17 @@ export default function Auth() {
               transition={{ delay: 0.6 }}
               className="text-center text-sm text-slate-500"
             >
-              {mode === 'login' ? 'هەژمارت نییە؟' : 'پێشتر هەژمارت دروستکردووە؟'}{' '}
+              {mode === 'login'
+                ? tr('هەژمارت نییە؟', "Don't have an account?")
+                : tr('پێشتر هەژمارت دروستکردووە؟', 'Already have an account?')}{' '}
               <button
                 type="button"
                 onClick={switchMode}
                 className="font-semibold text-violet-400 transition-colors hover:text-violet-300"
               >
-                {mode === 'login' ? 'خۆتۆمارکردن' : 'چوونەژوورەوە'}
+                {mode === 'login'
+                  ? tr('خۆتۆمارکردن', 'Sign Up')
+                  : tr('چوونەژوورەوە', 'Sign In')}
               </button>
             </motion.p>
           </div>
@@ -549,7 +582,7 @@ export default function Auth() {
             className="mt-4 flex items-center justify-center gap-1.5 text-[10px] text-slate-600"
           >
             <Shield className="h-3 w-3" />
-            <span>پارێزراوە بە تەواوی · هێڵی پارێزراو</span>
+            <span>{tr('پارێزراوە بە تەواوی · هێڵی پارێزراو', 'End-to-End Encrypted & Secure')}</span>
           </motion.div>
         </motion.div>
       </AnimatePresence>

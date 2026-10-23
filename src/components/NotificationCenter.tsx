@@ -20,6 +20,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from '../services';
+import { useLanguage } from '../contexts';
 
 interface NotificationCenterProps {
   currentUid: string;
@@ -27,16 +28,16 @@ interface NotificationCenterProps {
   onOpenProfile?: (uid: string) => void;
 }
 
-function formatNotificationTime(timestamp: number): string {
+function formatNotificationTime(timestamp: number, isEn: boolean): string {
   const diffMs = Date.now() - timestamp;
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return 'هەر ئێستا';
+  if (diffSec < 60) return isEn ? 'Just now' : 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
+  if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
+  if (diffHr < 24) return isEn ? `${diffHr}h ago` : `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays} ڕۆژ لەمەوبەر`;
+  return isEn ? `${diffDays}d ago` : `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
 export default function NotificationCenter({
@@ -44,6 +45,8 @@ export default function NotificationCenter({
   onClose,
   onOpenProfile,
 }: NotificationCenterProps) {
+  const { tr, language } = useLanguage();
+  const isEn = language === 'en';
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
@@ -120,10 +123,12 @@ export default function NotificationCenter({
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                ئاگادارکردنەوەکان
+                {tr('ئاگادارکردنەوەکان', 'Notifications')}
               </h3>
               <p className="text-[10px] text-slate-400">
-                {unreadCount > 0 ? `${unreadCount} ئاگاداری نەخوێندراوە` : 'هەمووی خوێندراوەتەوە'}
+                {unreadCount > 0
+                  ? `${unreadCount} ${tr('ئاگاداری نەخوێندراوە', 'unread alerts')}`
+                  : tr('هەمووی خوێندراوەتەوە', 'All caught up')}
               </p>
             </div>
           </div>
@@ -136,7 +141,7 @@ export default function NotificationCenter({
                 className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/60 px-2.5 py-1.5 text-[11px] font-bold text-slate-300 hover:text-white transition"
               >
                 <CheckCheck className="h-3.5 w-3.5 text-amber-400" />
-                <span className="hidden sm:inline">خوێندنەوەی هەمووی</span>
+                <span className="hidden sm:inline">{tr('خوێندنەوەی هەمووی', 'Read all')}</span>
               </button>
             )}
 
@@ -149,14 +154,19 @@ export default function NotificationCenter({
           </div>
         </header>
 
-        {/* ئاگادارکردنەوەکان List */}
+        {/* Notifications List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
           {notifications.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <Bell className="h-10 w-10 text-slate-700 mb-3" />
-              <h4 className="text-xs font-bold text-slate-300">هیچ ئاگادارکردنەوەیەک نییە</h4>
+              <h4 className="text-xs font-bold text-slate-300">
+                {tr('هیچ ئاگادارکردنەوەیەک نییە', 'No Notifications Yet')}
+              </h4>
               <p className="mt-1 text-[11px] text-slate-500 max-w-xs">
-                کاتێک کەسێک دیاریت بۆ دەنێرێت، فۆڵۆت دەکات یان بانگهێشتت دەکات، لێرەدا دەردەکەوێت.
+                {tr(
+                  'کاتێک کەسێک دیاریت بۆ دەنێرێت، فۆڵۆت دەکات یان بانگهێشتت دەکات، لێرەدا دەردەکەوێت.',
+                  'You will be notified when someone gifts you, follows your profile, or invites you.',
+                )}
               </p>
             </div>
           ) : (
@@ -192,7 +202,7 @@ export default function NotificationCenter({
                         {notif.title}
                       </h4>
                       <span className="shrink-0 text-[10px] text-slate-500 font-medium">
-                        {formatNotificationTime(notif.timestamp)}
+                        {formatNotificationTime(notif.timestamp, isEn)}
                       </span>
                     </div>
 
@@ -202,7 +212,7 @@ export default function NotificationCenter({
 
                     {(notif.roomId || notif.actionUrl) && (
                       <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-400">
-                        <span>چوونە نێو ژوور</span>
+                        <span>{tr('چوونە نێو ژوور', 'Open Arena')}</span>
                         <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     )}

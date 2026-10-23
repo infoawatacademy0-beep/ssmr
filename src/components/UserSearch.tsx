@@ -13,6 +13,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import type { User } from '../types';
+import { useLanguage } from '../contexts';
 import {
   searchUsersByUsername,
   followUser,
@@ -33,6 +34,7 @@ export default function UserSearch({
   onOpenProfile,
   onOpenDirectMessage,
 }: UserSearchProps) {
+  const { tr } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,9 +103,9 @@ export default function UserSearch({
             </div>
             <div>
               <h2 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                دۆزینەوەی ئەندامان
+                {tr("دۆزینەوەی ئەندامان", "Discover Users")}
               </h2>
-              <p className="text-[10px] text-slate-400">گەڕان بەدوای ئەندامانی گۆڕەپانی دەنگی</p>
+              <p className="text-[10px] text-slate-400">{tr("گەڕان بەدوای ئەندامانی گۆڕەپانی دەنگی", "Search members across the arena")}</p>
             </div>
           </div>
           <button
@@ -123,7 +125,7 @@ export default function UserSearch({
               autoFocus
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="بەپێی ناوی بەکارهێنەر بگەڕێ..."
+              placeholder={tr("بەپێی ناوی بەکارهێنەر بگەڕێ...", "Search by username...")}
               className="w-full rounded-2xl border border-slate-800 bg-slate-950 py-3 pl-10 pr-10 text-xs font-semibold text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
             />
             {searchTerm && (
@@ -142,22 +144,22 @@ export default function UserSearch({
           {loading ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <Loader2 className="h-6 w-6 animate-spin text-amber-400 mb-2" />
-              <p className="text-xs">خەریکی گەڕانە...</p>
+              <p className="text-xs">{tr("خەریکی گەڕانە...", "Searching...")}</p>
             </div>
           ) : !searchTerm.trim() ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <UserIcon className="h-10 w-10 text-slate-700 mb-3" />
-              <h4 className="text-xs font-bold text-slate-300">ناوێک بنووسە بۆ گەڕان</h4>
+              <h4 className="text-xs font-bold text-slate-300">{tr("ناوێک بنووسە بۆ گەڕان", "Type a name to search")}</h4>
               <p className="mt-1 text-[11px] text-slate-500 max-w-xs">
-                هاوڕێکانت و یاریزانان بدۆزەرەوە بە نووسینی ناوی بەکارهێنەرییان.
+                {tr("هاوڕێکانت و یاریزانان بدۆزەرەوە بە نووسینی ناوی بەکارهێنەرییان.", "Find friends and players by typing their username.")}
               </p>
             </div>
           ) : results.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <Search className="h-10 w-10 text-slate-700 mb-3" />
-              <h4 className="text-xs font-bold text-slate-300">هیچ ئەندامێک نەدۆزرایەوە</h4>
+              <h4 className="text-xs font-bold text-slate-300">{tr("هیچ ئەندامێک نەدۆزرایەوە", "No members found")}</h4>
               <p className="mt-1 text-[11px] text-slate-500">
-                هیچ بەکارهێنەرێک نەدۆزرایەوە بە ناوی &quot;{searchTerm}&quot;. ناوی تر تاقی بکەرەوە.
+                {tr(`هیچ بەکارهێنەرێک نەدۆزرایەوە بە ناوی "${searchTerm}". ناوی تر تاقی بکەرەوە.`, `No users found matching "${searchTerm}". Try searching another name.`)}
               </p>
             </div>
           ) : (
@@ -213,7 +215,7 @@ export default function UserSearch({
                         <div className="flex items-center gap-2 text-[10px] text-slate-400">
                           <span className="flex items-center gap-0.5 text-purple-300">
                             <Sparkles className="h-3 w-3" />
-                            ئاستی {targetUser.level || 1}
+                            {tr("ئاستی", "Level")} {targetUser.level || 1}
                           </span>
                           <span>&bull;</span>
                           <span className="truncate max-w-[140px] text-slate-500">
@@ -236,12 +238,12 @@ export default function UserSearch({
                         {isFollowing ? (
                           <>
                             <UserCheck className="h-3.5 w-3.5" />
-                            <span>فۆڵۆکراوە</span>
+                            <span>{tr("فۆڵۆکراوە", "Following")}</span>
                           </>
                         ) : (
                           <>
                             <UserPlus className="h-3.5 w-3.5" />
-                            <span>فۆڵۆکردن</span>
+                            <span>{tr("فۆڵۆکردن", "Follow")}</span>
                           </>
                         )}
                       </button>
@@ -256,7 +258,7 @@ export default function UserSearch({
                               avatar: targetUser.avatar || (targetUser as any).profileImage,
                             });
                           }}
-                          title="ناردنی نامەی تایبەتی"
+                          title={tr("ناردنی نامەی تایبەتی", "Send Direct Message")}
                           className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-2 text-cyan-400 hover:bg-cyan-500/20 transition active:scale-95"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
@@ -268,7 +270,7 @@ export default function UserSearch({
                           onClose();
                           onOpenProfile(targetUser.uid);
                         }}
-                        title="بینینی تەواوی پڕۆفایل"
+                        title={tr("بینینی تەواوی پڕۆفایل", "View Full Profile")}
                         className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:text-white transition"
                       >
                         <ArrowRight className="h-3.5 w-3.5" />

@@ -17,6 +17,7 @@ import {
   Music,
 } from 'lucide-react';
 import type { Room, Seat, User, JackarooGame } from '../types';
+import { useLanguage } from '../contexts';
 import {
   kickUserFromSeat,
   toggleSeatLock,
@@ -42,6 +43,7 @@ export default function HostControlsPanel({
   onOpenMusicPlayer,
   onClose,
 }: HostControlsPanelProps) {
+  const { tr } = useLanguage();
   const [announcementText, setAnnouncementText] = useState('');
   const [isAnnouncing, setIsAnnouncing] = useState(false);
   const [announcementSuccess, setAnnouncementSuccess] = useState(false);
@@ -154,13 +156,13 @@ export default function HostControlsPanel({
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                  ناوەندی کۆنترۆڵی خاوەن ژوور
+                  {tr("ناوەندی کۆنترۆڵی خاوەن ژوور", "Host Control Center")}
                 </h3>
                 <span className="flex items-center gap-0.5 rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
-                  <Crown className="h-2.5 w-2.5" /> خاوەن
+                  <Crown className="h-2.5 w-2.5" /> {tr("خاوەن", "Host")}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">{room.roomName} &bull; بەڕێوەبردنی ٨ کورسی ژوور</p>
+              <p className="text-[10px] text-slate-400">{room.roomName} &bull; {tr("بەڕێوەبردنی ٨ کورسی ژوور", "Manage 8 Room Seats")}</p>
             </div>
           </div>
 
@@ -195,7 +197,7 @@ export default function HostControlsPanel({
               className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-center text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 active:scale-95"
             >
               <Trash2 className="h-4 w-4 text-rose-400" />
-              <span>سڕینەوەی چات</span>
+              <span>{tr("سڕینەوەی چات", "Clear Chat")}</span>
             </button>
 
             <button
@@ -211,7 +213,7 @@ export default function HostControlsPanel({
               className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-2.5 text-center text-[11px] font-bold text-amber-300 transition hover:bg-amber-500/20 active:scale-95 disabled:opacity-40"
             >
               <Gamepad2 className="h-4 w-4 text-amber-400" />
-              <span>داخستنی یاری</span>
+              <span>{tr("داخستنی یاری", "Close Game")}</span>
             </button>
 
             <button
@@ -223,7 +225,7 @@ export default function HostControlsPanel({
               className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-violet-500/30 bg-violet-500/10 p-2.5 text-center text-[11px] font-bold text-violet-300 transition hover:bg-violet-500/20 active:scale-95"
             >
               <Music className="h-4 w-4 text-violet-400" />
-              <span>پێکردنی گۆرانی</span>
+              <span>{tr("پێکردنی گۆرانی", "Play Music")}</span>
             </button>
           </div>
 
@@ -238,12 +240,12 @@ export default function HostControlsPanel({
                 )}
                 <div>
                   <h4 className="text-xs font-bold text-white">
-                    پاسۆردی ژوور (Room Password)
+                    {tr("پاسۆردی ژوور", "Room Password")}
                   </h4>
                   <p className="text-[10px] text-slate-400">
                     {room.isPrivate && room.password
-                      ? `ژوورەکە قفڵدراوە · پاسۆرد: ${room.password}`
-                      : 'ژوورەکە کراوەیە و بێ پاسۆردە'}
+                      ? tr(`ژوورەکە قفڵدراوە · پاسۆرد: ${room.password}`, `Locked · Password: ${room.password}`)
+                      : tr('ژوورەکە کراوەیە و بێ پاسۆردە', 'Public and unlocked')}
                   </p>
                 </div>
               </div>
@@ -256,7 +258,7 @@ export default function HostControlsPanel({
                   className="flex items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-xs font-black text-emerald-300 transition hover:bg-emerald-500/30 active:scale-95 disabled:opacity-50"
                 >
                   <Unlock className="h-3.5 w-3.5" />
-                  <span>لابردنی پاسۆرد</span>
+                  <span>{tr("لابردنی پاسۆرد", "Remove Password")}</span>
                 </button>
               )}
             </div>
@@ -270,7 +272,7 @@ export default function HostControlsPanel({
                 type="text"
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
-                placeholder="پاسۆردی نوێ بنووسە (بەتاڵی بهێڵەوە بۆ لابردن)..."
+                placeholder={tr("پاسۆردی نوێ بنووسە (بەتاڵی بهێڵەوە بۆ لابردن)...", "Enter new password (leave blank to remove)...")}
                 className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
               />
               <button
@@ -278,17 +280,17 @@ export default function HostControlsPanel({
                 disabled={isSavingPassword}
                 className="shrink-0 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-black text-black transition hover:bg-amber-400 active:scale-95 disabled:opacity-50"
               >
-                {passwordInput.trim() ? 'دانانی پاسۆرد' : 'لابردن'}
+                {passwordInput.trim() ? tr('دانانی پاسۆرد', 'Set Password') : tr('لابردن', 'Remove')}
               </button>
             </form>
           </div>
 
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-              کۆنترۆڵی کورسییەکان (٨ شوێن)
+              {tr("کۆنترۆڵی کورسییەکان (٨ شوێن)", "Seat Controls (8 Seats)")}
             </span>
             <span className="text-[10px] text-slate-500">
-              {room.seats.filter((s) => s.userId).length}/٨ قسەکەرانی چالاک
+              {room.seats.filter((s) => s.userId).length}/8 ' + tr('قسەکەرانی چالاک', 'Active Speakers')
             </span>
           </div>
 
@@ -331,7 +333,7 @@ export default function HostControlsPanel({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-white">
-                          کورسی #{seat.seatNo}
+                          {tr("کورسی", "Seat")} #{seat.seatNo}
                         </span>
                         {isOccupied && (
                           <span className="text-xs text-slate-300 font-medium">
@@ -347,11 +349,11 @@ export default function HostControlsPanel({
                       <p className="text-[10px] text-slate-500">
                         {isOccupied
                           ? seat.isMuted
-                            ? 'مایک: بێدەنگکراو'
-                            : 'مایک: چالاک'
+                            ? tr('مایک: بێدەنگکراو', 'Mic: Muted')
+                            : tr('مایک: چالاک', 'Mic: Active')
                           : seat.isLocked
-                          ? 'لەلایەن خاوەن ژوورەوە قفڵکراوە - ناتوانرێت دابنیشیت'
-                          : 'بەتاڵە - کراوەیە بۆ هەموو گوێگران'}
+                          ? tr('لەلایەن خاوەن ژوورەوە قفڵکراوە - ناتوانرێت دابنیشیت', 'Locked by host - cannot sit')
+                          : tr('بەتاڵە - کراوەیە بۆ هەموو گوێگران', 'Open for all listeners')}
                       </p>
                     </div>
                   </div>
@@ -394,12 +396,12 @@ export default function HostControlsPanel({
                         {seat.isLocked ? (
                           <>
                             <Unlock className="h-3.5 w-3.5" />
-                            <span>کردنەوە</span>
+                            <span>{tr("کردنەوە", "Unlock")}</span>
                           </>
                         ) : (
                           <>
                             <Lock className="h-3.5 w-3.5" />
-                            <span>قفڵکردنی کورسی</span>
+                            <span>{tr("قفڵکردنی کورسی", "Lock Seat")}</span>
                           </>
                         )}
                       </button>
@@ -410,7 +412,7 @@ export default function HostControlsPanel({
             })}
           </div>
 
-          {/* ئاگاداری ژوور Composer */}
+          {/* {tr("ئاگاداری ژوور", "Room Announcement")} Composer */}
           <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-400">
@@ -421,7 +423,7 @@ export default function HostControlsPanel({
               </div>
               {announcementSuccess && (
                 <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
-                  <Check className="h-3 w-3" /> بڵاوکرایەوە!
+                  <Check className="h-3 w-3" /> {tr("بڵاوکرایەوە!", "Sent!")}
                 </span>
               )}
             </div>
@@ -432,7 +434,7 @@ export default function HostControlsPanel({
                 maxLength={140}
                 value={announcementText}
                 onChange={(e) => setAnnouncementText(e.target.value)}
-                placeholder="نامەیەکی گرنگ لە چاتی ژووردا بڵاوبکەرەوە..."
+                placeholder={tr("نامەیەکی گرنگ لە چاتی ژووردا بڵاوبکەرەوە...", "Broadcast an announcement to room chat...")}
                 className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
               />
               <button
@@ -440,7 +442,7 @@ export default function HostControlsPanel({
                 disabled={!announcementText.trim() || isAnnouncing}
                 className="w-full rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-black transition hover:bg-amber-400 disabled:opacity-40"
               >
-                {isAnnouncing ? 'خەریکی بڵاوکردنەوەیە...' : 'بڵاوکردنەوەی ئاگاداری'}
+                {isAnnouncing ? tr('خەریکی بڵاوکردنەوەیە...', 'Publishing...') : tr('بڵاوکردنەوەی ئاگاداری', 'Post Announcement')}
               </button>
             </form>
           </div>

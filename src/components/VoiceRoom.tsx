@@ -40,7 +40,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../contexts';
+import { useAuth, useLanguage } from '../contexts';
 import {
   formatCoinsK,
   getVipAvatarClass,
@@ -125,6 +125,7 @@ export default function VoiceRoom() {
   const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language, t, tr, isRTL } = useLanguage();
 
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
@@ -864,10 +865,10 @@ export default function VoiceRoom() {
             onClick={handleLeaveRoom}
             disabled={isLeaving}
             className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/15 px-2.5 text-xs font-bold text-rose-300 transition-colors hover:bg-rose-500/25 active:scale-95 disabled:opacity-50"
-            title="دەرچوون لە ژوور"
+            title={t('room.leave', 'دەرچوون')}
           >
             <PhoneOff className="h-3.5 w-3.5" />
-            <span>دەرچوون</span>
+            <span>{t('room.leave', 'دەرچوون')}</span>
           </button>
         </div>
       </header>
@@ -1492,7 +1493,7 @@ export default function VoiceRoom() {
               onFocus={() => setIsChatInputFocused(true)}
               onBlur={() => setTimeout(() => setIsChatInputFocused(false), 160)}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="شتێک بڵێ..."
+              placeholder={tr('شتێک بڵێ...', 'Type a message...')}
               className={`h-full min-w-0 flex-1 bg-transparent text-white placeholder-slate-400 outline-none transition-all ${
                 isChatInputFocused ? 'text-[15px] font-medium' : 'text-[13px]'
               }`}
@@ -1847,16 +1848,16 @@ export default function VoiceRoom() {
                           className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-xs font-semibold text-slate-300 hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-300 transition-all"
                         >
                           <PhoneOff className="h-3.5 w-3.5 text-rose-400" />
-                          <span>لادان لەسەر کورسی</span>
+                          <span>{t('room.leaveSeat', 'لادان لەسەر کورسی')}</span>
                         </button>
                       </div>
                     )}
 
                     <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2.5 text-center text-xs text-slate-400">
                       <p>
-                        دۆخی مایک:{' '}
+                        {tr('دۆخی مایک:', 'Mic Status:')}{' '}
                         <span className={selectedSeat.isMuted ? 'text-rose-400 font-semibold' : 'text-emerald-400 font-semibold'}>
-                          {selectedSeat.isMuted ? 'بێدەنگکراو' : 'چالاک / قسە دەکات'}
+                          {selectedSeat.isMuted ? tr('بێدەنگکراو', 'Muted') : tr('چالاک / قسە دەکات', 'Active / Speaking')}
                         </span>
                       </p>
                     </div>

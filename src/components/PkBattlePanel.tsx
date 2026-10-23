@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Trophy, Clock, X, RotateCcw } from 'lucide-react';
 import type { PkBattleState, PkTeam, User, Seat } from '../types';
+import { useLanguage } from '../contexts';
 import { startPkBattle, endPkBattle, resetPkBattle } from '../services';
 
 interface PkBattlePanelProps {
@@ -19,6 +20,7 @@ export default function PkBattlePanel({
   seats,
   pkBattle,
 }: PkBattlePanelProps) {
+  const { tr } = useLanguage();
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
   // Timer countdown
@@ -101,13 +103,13 @@ export default function PkBattlePanel({
             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500 text-white shadow">
               <Swords className="h-3.5 w-3.5" />
             </div>
-            <span className="tracking-wide">دەستپێکردنی جەنگی ٤ بە ٤ (PK)</span>
+            <span className="tracking-wide">{tr("دەستپێکردنی جەنگی ٤ بە ٤ (PK)", "Start 4v4 PK Battle")}</span>
             <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-black text-rose-300 uppercase">
               ٥ خولەک
             </span>
           </div>
           <span className="text-[10px] text-amber-300 font-semibold group-hover:underline">
-            دەستپێکردن ئێستا ←
+            {tr("دەستپێکردن ئێستا ←", "Start Now →")}
           </span>
         </button>
       </div>
@@ -136,7 +138,7 @@ export default function PkBattlePanel({
                 <span className="text-amber-300 font-mono tracking-wider">{formatTime(timeLeft)}</span>
               </>
             ) : (
-              <span className="text-rose-400 uppercase tracking-widest text-[10px]">تەواوبوو</span>
+              <span className="text-rose-400 uppercase tracking-widest text-[10px]">{tr("تەواوبوو", "FINISHED")}</span>
             )}
           </div>
 
@@ -196,10 +198,10 @@ export default function PkBattlePanel({
               <div className="text-left">
                 <p className="text-xs font-black uppercase text-white">
                   {pkBattle.winner === 'red'
-                    ? '🏆 تیمی سوور سەرکەوت!'
+                    ? tr('🏆 تیمی سوور سەرکەوت!', '🏆 RED Team Victory!')
                     : pkBattle.winner === 'blue'
-                    ? '🏆 تیمی شین سەرکەوت!'
-                    : '🤝 یەکسانبوون!'}
+                    ? tr('🏆 تیمی شین سەرکەوت!', '🏆 BLUE Team Victory!')
+                    : tr('🤝 یەکسانبوون!', '🤝 Draw / Tie!')}
                 </p>
                 <p className="text-[10px] text-amber-300">
                   Red: {redScore} pts &bull; Blue: {blueScore} pts

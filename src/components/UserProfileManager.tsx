@@ -24,6 +24,7 @@ import {
   Crown,
 } from 'lucide-react';
 import { getVipAvatarClass, type User, type ProfileVisitor } from '../types';
+import { useLanguage } from '../contexts';
 import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
 import {
   updateUserSocialProfile,
@@ -75,16 +76,16 @@ const AVATAR_PRESETS = [
   'https://api.dicebear.com/7.x/lorelei/svg?seed=NarinStar&backgroundColor=ffd5dc',
 ];
 
-function formatTimeAgo(timestamp: number): string {
+function formatTimeAgo(timestamp: number, isEn: boolean = false): string {
   const diffMs = Date.now() - timestamp;
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return 'هەر ئێستا';
+  if (diffSec < 60) return isEn ? 'Just now' : 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
+  if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
+  if (diffHr < 24) return isEn ? `${diffHr}h ago` : `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays} ڕۆژ لەمەوبەر`;
+  return isEn ? `${diffDays}d ago` : `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
 export default function UserProfileManager({
@@ -98,6 +99,8 @@ export default function UserProfileManager({
   const navigate = useNavigate();
   const location = useLocation();
   const isViewingSelf = !targetUid || targetUid === currentUser.uid;
+  const { tr, language } = useLanguage();
+  const isEn = language === "en";
   const activeUid = targetUid || currentUser.uid;
 
   const [profileData, setProfileData] = useState<User>(currentUser);
@@ -300,7 +303,7 @@ export default function UserProfileManager({
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">
-                ناسنامە و سەردانیکەرانی پڕۆفایل
+                {tr('ناسنامە و سەردانیکەرانی پڕۆفایل', 'Identity & profile visitors')}
               </p>
             </div>
           </div>
@@ -336,7 +339,7 @@ export default function UserProfileManager({
             }`}
           >
             <UserIcon className="h-3.5 w-3.5" />
-            <span>ناسنامەی پڕۆفایل</span>
+            <span>{tr("ناسنامەی پڕۆفایل", "Profile Identity")}</span>
           </button>
 
           <button
@@ -348,7 +351,7 @@ export default function UserProfileManager({
             }`}
           >
             <Eye className="h-3.5 w-3.5" />
-            <span>سەردانیکەرانی ئەم دواییە ({visitors.length})</span>
+            <span>{tr("سەردانیکەرانی ئەم دواییە", "Recent Visitors")} ({visitors.length})</span>
           </button>
         </div>
 
@@ -363,7 +366,7 @@ export default function UserProfileManager({
           {saveSuccess && (
             <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs font-bold text-emerald-300">
               <Check className="h-4 w-4" />
-              <span>پڕۆفایل بە سەرکەوتوویی نوێکرایەوە!</span>
+              <span>{tr("پڕۆفایل بە سەرکەوتوویی نوێکرایەوە!", "Profile updated successfully!")}</span>
             </div>
           )}
 
@@ -478,12 +481,12 @@ export default function UserProfileManager({
                     <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                       <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300">
                         <Coins className="h-3.5 w-3.5 text-amber-400" />
-                        <span>{(profileData.coins ?? 0).toLocaleString()} کۆین</span>
+                        <span>{(profileData.coins ?? 0).toLocaleString()} {tr("کۆین", "Coins")}</span>
                       </div>
 
                       <div className="flex items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-300">
                         <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                        <span>ئاستی {profileData.level || 1} ({profileData.xp || 0} XP)</span>
+                        <span>{tr("ئاستی", "Level")} {profileData.level || 1} ({profileData.xp || 0} XP)</span>
                       </div>
                     </div>
                   </div>
@@ -503,7 +506,7 @@ export default function UserProfileManager({
                       }`}
                     >
                       {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
-                      <span>{isFollowing ? 'فۆڵۆکراوە' : 'فۆڵۆکردن'}</span>
+                      <span>{isFollowing ? tr("فۆڵۆکراوە", "Following") : tr("فۆڵۆکردن", "Follow")}</span>
                     </button>
 
                     {/* Direct Message Button */}
@@ -520,7 +523,7 @@ export default function UserProfileManager({
                         className="flex items-center gap-1.5 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-500/20"
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
-                        <span>نامە</span>
+                        <span>{tr("نامە", "Message")}</span>
                       </button>
                     )}
 
@@ -531,7 +534,7 @@ export default function UserProfileManager({
                         className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-4 py-2 text-xs font-black text-black shadow-md shadow-amber-500/20"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
-                        <span>ناردنی دیاری</span>
+                        <span>{tr("ناردنی دیاری", "Send Gift")}</span>
                       </button>
                     )}
                   </div>
@@ -544,14 +547,14 @@ export default function UserProfileManager({
                 <form onSubmit={handleSaveProfile} className="space-y-4">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                      کورتەی پڕۆفایل / بایۆ (لانیکەم ١٦٠ پیت)
+                      {tr("کورتەی پڕۆفایل / بایۆ (لانیکەم ١٦٠ پیت)", "Bio / Status (Max 160 chars)")}
                     </label>
                     <textarea
                       rows={3}
                       maxLength={160}
                       value={bioInput}
                       onChange={(e) => setBioInput(e.target.value)}
-                      placeholder="کورتەیەک دەربارەی خۆت یان ئارەزووەکانت بنووسە…"
+                      placeholder={tr("کورتەیەک دەربارەی خۆت یان ئارەزووەکانت بنووسە…", "Write something about yourself or your interests…")}
                       className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 focus:bg-white/[0.06]"
                     />
                     <div className="mt-1 flex justify-end text-[10px] text-slate-500 font-mono">
@@ -562,7 +565,7 @@ export default function UserProfileManager({
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        وێنەی پڕۆفایل (Profile Image)
+                        {tr("وێنەی پڕۆفایل (Profile Image)", "Profile Picture")}
                       </label>
                       <label
                         className={`flex cursor-pointer items-center gap-1 rounded-xl border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25 transition ${
@@ -570,7 +573,7 @@ export default function UserProfileManager({
                         }`}
                       >
                         <Camera className="h-3.5 w-3.5" />
-                        <span>{isUploadingImage ? 'خەریکی بەرزکردنەوەیە...' : 'هەڵبژاردن لە مۆبایل'}</span>
+                        <span>{isUploadingImage ? tr('خەریکی بەرزکردنەوەیە...', 'Uploading...') : tr('هەڵبژاردن لە مۆبایل', 'Upload from Device')}</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -599,7 +602,7 @@ export default function UserProfileManager({
                         type="text"
                         value={avatarInput}
                         onChange={(e) => setAvatarInput(e.target.value)}
-                        placeholder="بەستەری وێنە دابنێ یان لە خوارەوە هەڵبژێرە..."
+                        placeholder={tr("بەستەری وێنە دابنێ یان لە خوارەوە هەڵبژێرە...", "Paste image URL or pick preset below...")}
                         className="flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
                       />
                     </div>
@@ -607,7 +610,7 @@ export default function UserProfileManager({
                     {/* Quick Avatar Presets (24 Options) — Auto-saves & redirects to Dashboard on click */}
                     <div className="mt-3">
                       <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                        هەڵبژاردنی وێنەی پڕۆفایل ({AVATAR_PRESETS.length} وێنە · خەزنکردنی خۆکار):
+                        {tr("هەڵبژاردنی وێنەی پڕۆفایل", "Avatar Presets")} ({AVATAR_PRESETS.length} {tr("وێنە · خەزنکردنی خۆکار", "presets · auto-saves")}):
                       </span>
                       <div className="mt-2 grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-40 overflow-y-auto p-1">
                         {AVATAR_PRESETS.map((preset, idx) => (
@@ -636,7 +639,7 @@ export default function UserProfileManager({
                       className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 py-3.5 text-xs font-black text-black shadow-lg shadow-amber-500/25 transition-transform active:scale-95 disabled:opacity-50"
                     >
                       <Save className="h-4 w-4" />
-                      <span>{isSaving ? 'خەریکی خەزنکردنە…' : 'خەزنکردنی پڕۆفایل'}</span>
+                      <span>{isSaving ? tr('خەریکی خەزنکردنە…', 'Saving…') : tr('خەزنکردنی پڕۆفایل', 'Save Profile')}</span>
                     </button>
                   </div>
                 </form>
@@ -648,10 +651,10 @@ export default function UserProfileManager({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  تۆماری سەردانیکەران
+                  {tr("تۆماری سەردانیکەران", "Visitors History")}
                 </span>
                 <span className="text-[10px] text-slate-500">
-                  تۆمارکردنی ئۆتۆماتیکی هەر ٥ خولەک جارێک
+                  {tr("تۆمارکردنی ئۆتۆماتیکی هەر ٥ خولەک جارێک", "Recorded automatically every 5 minutes")}
                 </span>
               </div>
 
@@ -660,9 +663,9 @@ export default function UserProfileManager({
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] text-slate-500 mb-2">
                     <Eye className="h-6 w-6" />
                   </div>
-                  <p className="text-xs font-bold text-slate-300">هێشتا هیچ سەردانیکەرێک تۆمار نەکراوە</p>
+                  <p className="text-xs font-bold text-slate-300">{tr("هێشتا هیچ سەردانیکەرێک تۆمار نەکراوە", "No visitors recorded yet")}</p>
                   <p className="mt-1 text-[11px] text-slate-500 max-w-xs">
-                    کاتێک کەسانی تر پڕۆفایلەکەت دەکەنەوە، لێرەدا بە کاتەوە دەردەکەون.
+                    {tr("کاتێک کەسانی تر پڕۆفایلەکەت دەکەنەوە، لێرەدا بە کاتەوە دەردەکەون.", "When other users open your profile, they will appear here.")}
                   </p>
                 </div>
               ) : (
@@ -692,14 +695,14 @@ export default function UserProfileManager({
                             {visitor.visitorName}
                           </h4>
                           <span className="text-[10px] text-slate-400">
-                            سەردانی پڕۆفایلەکەتی کرد
+                            {tr("سەردانی پڕۆفایلەکەتی کرد", "Visited your profile")}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-300/80">
                         <Clock className="h-3 w-3 text-amber-400" />
-                        <span>{formatTimeAgo(visitor.timestamp)}</span>
+                        <span>{formatTimeAgo(visitor.timestamp, isEn)}</span>
                       </div>
                     </motion.div>
                   ))}

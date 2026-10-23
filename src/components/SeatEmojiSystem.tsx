@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Crown, Smile } from 'lucide-react';
+import { useLanguage } from '../contexts';
 
 export interface SeatEmojiEvent {
   id: string;
@@ -569,6 +570,7 @@ export function SeatEmojiPickerModal({
   onSelectEmoji: (emojiId: string) => void;
   isVip?: boolean;
 }) {
+  const { tr } = useLanguage();
   return (
     <AnimatePresence>
       {isOpen && (
@@ -595,7 +597,7 @@ export function SeatEmojiPickerModal({
                   <X className="h-4 w-4" />
                 </button>
                 <span className="text-xs font-bold text-slate-300">
-                  ئیمۆجی جوڵاو (Animated Emojis)
+                  {tr("ئیمۆجی جوڵاو", "Animated Emojis")}
                 </span>
               </div>
 

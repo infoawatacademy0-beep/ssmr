@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { User, ShopItem, ShopItemType } from '../types';
+import { useLanguage } from '../contexts';
 import { SHOP_CATALOG, purchaseShopItem } from '../services';
 
 interface ArenaShopProps {
@@ -20,6 +21,7 @@ interface ArenaShopProps {
 }
 
 export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
+  const { tr } = useLanguage();
   const [activeCategory, setActiveCategory] = useState<ShopItemType | 'all'>('all');
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
     }
 
     if (currentUser.coins < item.price) {
-      setErrorMsg(`کۆینی پێویستت نییە! پێویستت بە ${item.price.toLocaleString()} کۆینە.`);
+      setErrorMsg(tr(`کۆینی پێویستت نییە! پێویستت بە ${item.price.toLocaleString()} کۆینە.`, `Insufficient coins! You need ${item.price.toLocaleString()} coins.`));
       return;
     }
 
@@ -85,9 +87,9 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                فرۆشگا و خەزێنەی گۆڕەپان
+                {tr("فرۆشگا و خەزێنەی گۆڕەپان", "Arena Shop & Vault")}
               </h3>
-              <p className="text-[10px] text-slate-400">باجەکان، چوارچێوە و کۆین</p>
+              <p className="text-[10px] text-slate-400">{tr("باجەکان، چوارچێوە و کۆین", "Badges, Frames & Coins")}</p>
             </div>
           </div>
 
@@ -110,11 +112,11 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
         <div className="flex items-center gap-1.5 overflow-x-auto p-3 border-b border-slate-800/80 bg-slate-950/40">
           {(
             [
-              { id: 'all', label: 'هەموو شتەکان' },
-              { id: 'coin_pack', label: 'کۆمەڵە کۆین' },
-              { id: 'avatar_frame', label: 'چوارچێوەی پڕۆفایل' },
-              { id: 'vip_badge', label: 'باجی VIP' },
-              { id: 'entrance_effect', label: 'کاریگەری هاتنەژوورەوە' },
+              { id: 'all', label: tr('هەموو شتەکان', 'All Items') },
+              { id: 'coin_pack', label: tr('کۆمەڵە کۆین', 'Coin Packs') },
+              { id: 'avatar_frame', label: tr('چوارچێوەی پڕۆفایل', 'Avatar Frames') },
+              { id: 'vip_badge', label: tr('باجی VIP', 'VIP Badges') },
+              { id: 'entrance_effect', label: tr('کاریگەری هاتنەژوورەوە', 'Entrance Effects') },
             ] as const
           ).map((tab) => (
             <button
@@ -141,7 +143,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
         {purchaseSuccess && (
           <div className="m-4 mb-0 flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
             <Check className="h-4 w-4 shrink-0 text-emerald-400" />
-            <span>بە سەرکەوتوویی بەدەستهات: {purchaseSuccess}! بۆ کەرەستەکانت زیادکرا.</span>
+            <span>{tr("بە سەرکەوتوویی بەدەستهات: ", "Successfully purchased: ")}{purchaseSuccess}! {tr("بۆ کەرەستەکانت زیادکرا.", "Added to your inventory.")}</span>
           </div>
         )}
 
@@ -190,7 +192,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
                     {isOwned ? (
                       <span className="flex items-center gap-1 rounded-xl bg-white/[0.05] border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300">
                         <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>کڕدراوە</span>
+                        <span>{tr("کڕدراوە", "Owned")}</span>
                       </span>
                     ) : (
                       <button
@@ -198,7 +200,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
                         disabled={isPurchasing}
                         className="rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-bold text-black shadow-md transition hover:bg-amber-400 active:scale-95 disabled:opacity-50"
                       >
-                        {isPurchasing ? 'خەریکە...' : 'کڕین'}
+                        {isPurchasing ? tr('خەریکە...', 'Processing...') : tr('کڕین', 'Purchase')}
                       </button>
                     )}
                   </div>

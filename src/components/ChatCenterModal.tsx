@@ -1,18 +1,15 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   MessageSquare,
   Search,
   X,
-  User as UserIcon,
   ArrowRight,
-  Sparkles,
-  Clock,
-  Send,
   Plus,
 } from 'lucide-react';
 import type { User, UserInboxItem } from '../types';
 import { subscribeToUserInbox, searchUsersByUsername } from '../services';
+import { useLanguage } from '../contexts';
 
 interface ChatCenterModalProps {
   currentUser: User;
@@ -20,16 +17,16 @@ interface ChatCenterModalProps {
   onSelectUser: (user: { uid: string; username: string; avatar?: string | null }) => void;
 }
 
-function formatInboxTime(timestamp: number): string {
+function formatInboxTime(timestamp: number, isEn: boolean): string {
   if (!timestamp) return '';
   const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-  if (diffSec < 60) return 'هەر ئێستا';
+  if (diffSec < 60) return isEn ? 'Just now' : 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
+  if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
+  if (diffHr < 24) return isEn ? `${diffHr}h ago` : `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays} ڕۆژ لەمەوبەر`;
+  return isEn ? `${diffDays}d ago` : `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
 export default function ChatCenterModal({
@@ -37,6 +34,9 @@ export default function ChatCenterModal({
   onClose,
   onSelectUser,
 }: ChatCenterModalProps) {
+  const { tr, language } = useLanguage();
+  const isEn = language === 'en';
+
   const [inboxThreads, setInboxThreads] = useState<UserInboxItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -96,8 +96,12 @@ export default function ChatCenterModal({
               <MessageSquare className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-display text-base font-black text-white">نامەی تایبەتی</h2>
-              <p className="text-[11px] text-slate-400">چاتی ڕاستەوخۆ و پارێزراو</p>
+              <h2 className="font-display text-base font-black text-white">
+                {tr('نامەی تایبەتی', 'Direct Messages')}
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                {tr('چاتی ڕاستەوخۆ و پارێزراو', 'Live & Secure Private Chat')}
+              </p>
             </div>
           </div>
 
@@ -124,7 +128,7 @@ export default function ChatCenterModal({
                   setActiveTab('inbox');
                 }
               }}
-              placeholder="گەڕان لە گفتوگۆکان یان دۆزینەوەی ئەندام..."
+              placeholder={tr('گەڕان لە گفتوگۆکان یان دۆزینەوەی ئەندام...', 'Search chats or discover users...')}
               className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition"
             />
           </div>
@@ -140,7 +144,7 @@ export default function ChatCenterModal({
               }`}
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              <span>گفتوگۆکان ({inboxThreads.length})</span>
+              <span>{tr('گفتوگۆکان', 'Conversations')} ({inboxThreads.length})</span>
             </button>
 
             <button
@@ -152,7 +156,7 @@ export default function ChatCenterModal({
               }`}
             >
               <Search className="h-3.5 w-3.5" />
-              <span>دۆزینەوەی ئەندام</span>
+              <span>{tr('دۆزینەوەی ئەندام', 'Find Members')}</span>
             </button>
           </div>
         </div>
@@ -167,16 +171,18 @@ export default function ChatCenterModal({
                   <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900 border border-slate-800 text-slate-500 mb-3">
                     <MessageSquare className="h-6 w-6" />
                   </div>
-                  <h3 className="font-display text-sm font-bold text-white">هێشتا هیچ گفتوگۆیەک نییە</h3>
+                  <h3 className="font-display text-sm font-bold text-white">
+                    {tr('هێشتا هیچ گفتوگۆیەک نییە', 'No conversations yet')}
+                  </h3>
                   <p className="mt-1 text-xs text-slate-400 max-w-xs">
-                    هێشتا هیچ نامەیەکت نەناردووە. بەدوای ئەنداماندا بگەڕێ بۆ دەستپێکردنی چات!
+                    {tr('هێشتا هیچ نامەیەکت نەناردووە. بەدوای ئەنداماندا بگەڕێ بۆ دەستپێکردنی چات!', 'You haven\'t started any chats yet. Search for members to begin!')}
                   </p>
                   <button
                     onClick={() => setActiveTab('search')}
                     className="mt-4 flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:scale-[1.02] transition"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>دەستپێکردنی چاتی نوێ</span>
+                    <span>{tr('دەستپێکردنی چاتی نوێ', 'Start New Chat')}</span>
                   </button>
                 </div>
               ) : (
@@ -211,12 +217,12 @@ export default function ChatCenterModal({
                           {item.recipientName}
                         </span>
                         <span className="text-[10px] font-medium text-slate-500 shrink-0">
-                          {formatInboxTime(item.lastMessageTimestamp)}
+                          {formatInboxTime(item.lastMessageTimestamp, isEn)}
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 truncate mt-0.5">
-                        {item.lastSenderUid === currentUser.uid ? 'تۆ: ' : ''}
-                        {item.lastMessage || 'فایلی نارد'}
+                        {item.lastSenderUid === currentUser.uid ? tr('تۆ: ', 'You: ') : ''}
+                        {item.lastMessage || tr('فایلی نارد', 'Sent an attachment')}
                       </p>
                     </div>
 
@@ -231,17 +237,21 @@ export default function ChatCenterModal({
           {activeTab === 'search' && (
             <>
               {isSearching ? (
-                <div className="py-12 text-center text-xs text-slate-400">خەریکی گەڕانە...</div>
+                <div className="py-12 text-center text-xs text-slate-400">
+                  {tr('خەریکی گەڕانە...', 'Searching...')}
+                </div>
               ) : searchResults.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center py-12 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 mb-2">
                     <Search className="h-5 w-5" />
                   </div>
                   <h4 className="text-xs font-bold text-white">
-                    {searchTerm.trim() ? `هیچ ئەندامێک نەدۆزرایەوە بە ناوی "${searchTerm}"` : 'ناوی ئەندامێک بنووسە بۆ چاتکردن'}
+                    {searchTerm.trim()
+                      ? tr(`هیچ ئەندامێک نەدۆزرایەوە بە ناوی "${searchTerm}"`, `No users found matching "${searchTerm}"`)
+                      : tr('ناوی ئەندامێک بنووسە بۆ چاتکردن', 'Type a username to start chatting')}
                   </h4>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    بەدوای ناودا بگەڕێ بۆ ناردنی نامەی ڕاستەوخۆ
+                    {tr('بەدوای ناودا بگەڕێ بۆ ناردنی نامەی ڕاستەوخۆ', 'Search by username to send direct messages')}
                   </p>
                 </div>
               ) : (
@@ -267,7 +277,7 @@ export default function ChatCenterModal({
                           {targetUser.username}
                         </span>
                         <span className="text-[10px] text-slate-500 block truncate">
-                          Level {targetUser.level || 1} &bull; {(targetUser.coins ?? 0).toLocaleString()} Coins
+                          {tr('ئاستی', 'Level')} {targetUser.level || 1} &bull; {(targetUser.coins ?? 0).toLocaleString()} {tr('کۆین', 'Coins')}
                         </span>
                       </div>
                     </div>
@@ -284,7 +294,7 @@ export default function ChatCenterModal({
                       className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-500/20 hover:scale-105 active:scale-95 transition"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
-                      <span>چات</span>
+                      <span>{tr('چات', 'Chat')}</span>
                     </button>
                   </div>
                 ))

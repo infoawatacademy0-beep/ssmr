@@ -12,6 +12,7 @@ import {
   Eye,
 } from 'lucide-react';
 import type { User, Story, StoryGroup } from '../types';
+import { useLanguage } from '../contexts';
 import {
   createStory,
   markStoryViewed,
@@ -32,6 +33,7 @@ const BG_GRADIENTS = [
 ];
 
 export default function StoriesBar({ currentUser }: StoriesBarProps) {
+  const { tr } = useLanguage();
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
   const [activeViewerGroup, setActiveViewerGroup] = useState<StoryGroup | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
@@ -122,7 +124,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
     const currentStory = activeViewerGroup.stories[activeStoryIndex];
     if (!currentStory) return;
 
-    if (!window.confirm('ئەم ستۆرییە بسڕدرێتەوە؟')) return;
+    if (!window.confirm(tr('ئەم ستۆرییە بسڕدرێتەوە؟', 'Delete this story?'))) return;
 
     try {
       await deleteStory(currentUser.uid, currentStory.id);
@@ -192,7 +194,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                 </div>
               </div>
               <span className="mt-1.5 truncate max-w-[65px] text-[10px] font-medium text-slate-300">
-                {isMe ? 'ستۆری تۆ' : group.authorName}
+                {isMe ? tr('ستۆری تۆ', 'Your Story') : group.authorName}
               </span>
             </div>
           );
@@ -213,7 +215,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-amber-400" />
                   <h3 className="font-display text-xs font-bold text-white uppercase tracking-wider">
-                    دروستکردنی ستۆری ٢٤ کاتژمێری
+                    {tr("دروستکردنی ستۆری ٢٤ کاتژمێری", "Create 24h Story")}
                   </h3>
                 </div>
                 <button
@@ -261,7 +263,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                         maxLength={180}
                         value={textContent}
                         onChange={(e) => setTextContent(e.target.value)}
-                        placeholder="ئەمڕۆ چی لە ژوورەکەت ڕوودەدات؟..."
+                        placeholder={tr("ئەمڕۆ چی لە ژوورەکەت ڕوودەدات؟...", "What is happening in your room today?...")}
                         className="w-full resize-none bg-transparent text-sm font-bold text-white placeholder-white/60 outline-none text-center"
                       />
                     </div>
@@ -286,7 +288,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                       type="url"
                       value={imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="بەستەری وێنە لێرە دابنێ (https://...)"
+                      placeholder={tr("بەستەری وێنە لێرە دابنێ (https://...)", "Paste image URL here (https://...)")}
                       className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                     />
                     {imageUrl && (
@@ -303,7 +305,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20 disabled:opacity-40"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  <span>{isPublishing ? 'خەریکی بڵاوکردنەوەیە...' : 'بڵاوکردنەوە بۆ ٢٤ کاتژمێر'}</span>
+                  <span>{isPublishing ? tr('خەریکی بڵاوکردنەوەیە...', 'Publishing...') : tr('بڵاوکردنەوە بۆ ٢٤ کاتژمێر', 'Publish for 24 Hours')}</span>
                 </button>
               </form>
             </motion.div>
@@ -351,7 +353,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                     <h4 className="text-xs font-bold text-white drop-shadow">
                       {activeViewerGroup.authorName}
                     </h4>
-                    <span className="text-[9px] text-white/70 drop-shadow">ستۆری ٢٤ کاتژمێری</span>
+                    <span className="text-[9px] text-white/70 drop-shadow">{tr("ستۆری ٢٤ کاتژمێری", "24h Story")}</span>
                   </div>
                 </div>
 
