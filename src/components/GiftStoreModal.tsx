@@ -230,7 +230,13 @@ export default function GiftStoreModal({
                     transition={isSel ? { duration: 1.2, repeat: Infinity } : {}}
                     className="flex h-14 w-14 items-center justify-center"
                   >
-                    <GiftIcon iconKey={gift.iconKey} size={50} />
+                    <GiftIcon
+                      iconKey={gift.iconKey}
+                      size={50}
+                      videoUrl={gift.videoUrl}
+                      imageUrl={gift.imageUrl}
+                      videoKeyColor={gift.videoKeyColor}
+                    />
                   </motion.div>
                   {isSel ? (
                     <>

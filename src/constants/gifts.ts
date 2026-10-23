@@ -27,8 +27,10 @@ export interface GiftItem {
   animClass: string;
   /** Optional video URL or local file path (e.g. '/videos/lion.mp4') */
   videoUrl?: string;
+  /** Optional static image URL (e.g. '/images/lion.png') */
+  imageUrl?: string;
   /** Chroma-key background color to remove in real-time */
-  videoKeyColor?: 'green' | 'blue' | 'white' | 'black' | 'none';
+  videoKeyColor?: 'auto' | 'green' | 'blue' | 'white' | 'black' | 'none';
 }
 
 /**
@@ -106,7 +108,7 @@ export const AVAILABLE_GIFTS: GiftItem[] = [
     description: 'شێری ئاگرین نەڕەی دێت و ئاگری لێ هەڵدەستێت',
     animClass: 'gift-anim-roar',
     videoUrl: '/videos/lion.mp4',
-    videoKeyColor: 'green',
+    videoKeyColor: 'auto',
   },
   {
     id: 'rocket',

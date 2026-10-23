@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-export type ChromaKeyColor = 'green' | 'blue' | 'white' | 'black' | 'none';
+export type ChromaKeyColor = 'auto' | 'green' | 'blue' | 'white' | 'black' | 'none';
 
 export interface ChromaKeyVideoProps {
   src: string;
@@ -8,6 +8,7 @@ export interface ChromaKeyVideoProps {
   similarity?: number;
   smoothness?: number;
   className?: string;
+  canvasClassName?: string;
   autoPlay?: boolean;
   playsInline?: boolean;
   muted?: boolean;
@@ -24,14 +25,13 @@ export interface ChromaKeyVideoProps {
  */
 export default function ChromaKeyVideo({
   src,
-  keyColor = 'green',
-  similarity = 0.38,
-  smoothness = 0.12,
+  keyColor = 'auto',
   className = '',
+  canvasClassName = 'drop-shadow-[0_0_15px_rgba(249,115,22,0.7)]',
   autoPlay = true,
   playsInline = true,
-  muted = false,
-  loop = false,
+  muted = true,
+  loop = true,
   onEnded,
   onError,
 }: ChromaKeyVideoProps) {
@@ -39,7 +39,6 @@ export default function ChromaKeyVideo({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
   const rvfcIdRef = useRef<number | null>(null);
-  const [isReady, setIsReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
   // Chroma-key per-frame processing
@@ -48,8 +47,8 @@ export default function ChromaKeyVideo({
     const canvas = canvasRef.current;
     if (!video || !canvas || video.paused || video.ended) return;
 
-    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
       }
@@ -64,8 +63,34 @@ export default function ChromaKeyVideo({
       const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = frame.data;
       const len = data.length;
+      const w = canvas.width;
+      const h = canvas.height;
 
-      if (keyColor === 'green') {
+      let effectiveColor = keyColor;
+      if (effectiveColor === 'auto' && w > 8 && h > 8) {
+        // Sample 4 corners slightly inset to detect background color
+        const c1 = (4 * w + 4) * 4;
+        const c2 = (4 * w + (w - 5)) * 4;
+        const c3 = ((h - 5) * w + 4) * 4;
+        const c4 = ((h - 5) * w + (w - 5)) * 4;
+        const rAvg = (data[c1] + data[c2] + data[c3] + data[c4]) / 4;
+        const gAvg = (data[c1 + 1] + data[c2 + 1] + data[c3 + 1] + data[c4 + 1]) / 4;
+        const bAvg = (data[c1 + 2] + data[c2 + 2] + data[c3 + 2] + data[c4 + 2]) / 4;
+
+        if (gAvg > 60 && gAvg > rAvg * 1.2 && gAvg > bAvg * 1.2) {
+          effectiveColor = 'green';
+        } else if (bAvg > 60 && bAvg > rAvg * 1.2 && bAvg > gAvg * 1.2) {
+          effectiveColor = 'blue';
+        } else if (rAvg > 200 && gAvg > 200 && bAvg > 200) {
+          effectiveColor = 'white';
+        } else if (rAvg < 50 && gAvg < 50 && bAvg < 50) {
+          effectiveColor = 'black';
+        } else {
+          effectiveColor = 'green'; // Default fallback
+        }
+      }
+
+      if (effectiveColor === 'green') {
         // Green Screen Chroma Key
         for (let i = 0; i < len; i += 4) {
           const r = data[i];
@@ -73,36 +98,35 @@ export default function ChromaKeyVideo({
           const b = data[i + 2];
 
           // Green dominance formula with soft edge feathering
-          if (g > 65 && g > r * 1.25 && g > b * 1.25) {
+          if (g > 65 && g > r * 1.22 && g > b * 1.22) {
             const diff = g - Math.max(r, b);
-            if (diff > 45) {
+            if (diff > 40) {
               data[i + 3] = 0; // Completely transparent
             } else {
-              // Edge feathering to eliminate green fringing
-              data[i + 3] = Math.max(0, Math.floor(255 * (1 - diff / 45)));
-              // Despill: pull green channel down to reduce fringe discoloration
-              data[i + 1] = Math.floor((r + b) / 2);
+              // Edge feathering
+              data[i + 3] = Math.max(0, Math.floor(255 * (1 - diff / 40)));
+              data[i + 1] = Math.floor((r + b) / 2); // Despill green fringe
             }
           }
         }
-      } else if (keyColor === 'blue') {
+      } else if (effectiveColor === 'blue') {
         // Blue Screen Chroma Key
         for (let i = 0; i < len; i += 4) {
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
 
-          if (b > 65 && b > r * 1.25 && b > g * 1.25) {
+          if (b > 65 && b > r * 1.22 && b > g * 1.22) {
             const diff = b - Math.max(r, g);
-            if (diff > 45) {
+            if (diff > 40) {
               data[i + 3] = 0;
             } else {
-              data[i + 3] = Math.max(0, Math.floor(255 * (1 - diff / 45)));
-              data[i + 2] = Math.floor((r + g) / 2); // Despill blue
+              data[i + 3] = Math.max(0, Math.floor(255 * (1 - diff / 40)));
+              data[i + 2] = Math.floor((r + g) / 2); // Despill blue fringe
             }
           }
         }
-      } else if (keyColor === 'white') {
+      } else if (effectiveColor === 'white') {
         // White background removal (Luminance Threshold)
         for (let i = 0; i < len; i += 4) {
           const r = data[i];
@@ -115,7 +139,7 @@ export default function ChromaKeyVideo({
             data[i + 3] = Math.max(0, Math.floor(255 * (1 - diff / 40)));
           }
         }
-      } else if (keyColor === 'black') {
+      } else if (effectiveColor === 'black') {
         // Black background removal
         for (let i = 0; i < len; i += 4) {
           const r = data[i];
@@ -147,7 +171,6 @@ export default function ChromaKeyVideo({
     if (!video) return;
 
     const handleLoadedMetadata = () => {
-      setIsReady(true);
       if (canvasRef.current && video.videoWidth > 0 && video.videoHeight > 0) {
         canvasRef.current.width = video.videoWidth;
         canvasRef.current.height = video.videoHeight;
@@ -175,7 +198,6 @@ export default function ChromaKeyVideo({
 
     // Attempt video playback
     video.play().catch((err) => {
-      // If browser blocked unmuted autoplay, retry muted
       if (!video.muted) {
         video.muted = true;
         video.play().catch((playErr) => {
@@ -220,9 +242,11 @@ export default function ChromaKeyVideo({
     );
   }
 
+  const isExternal = src.startsWith('http://') || src.startsWith('https://');
+
   return (
     <div className={`relative flex items-center justify-center ${className}`}>
-      {/* Hidden offscreen HTML5 video providing stream */}
+      {/* Offscreen HTML5 video (keeps decoding active on mobile without display: none) */}
       <video
         ref={videoRef}
         src={src}
@@ -230,14 +254,21 @@ export default function ChromaKeyVideo({
         playsInline={playsInline}
         muted={muted}
         loop={loop}
-        crossOrigin="anonymous"
-        className="hidden"
+        crossOrigin={isExternal ? 'anonymous' : undefined}
+        style={{
+          position: 'absolute',
+          opacity: 0,
+          pointerEvents: 'none',
+          width: '1px',
+          height: '1px',
+          zIndex: -1,
+        }}
       />
 
       {/* Hardware-accelerated Chroma-Key Canvas output */}
       <canvas
         ref={canvasRef}
-        className="max-h-full max-w-full object-contain pointer-events-none drop-shadow-[0_0_35px_rgba(249,115,22,0.85)]"
+        className={`max-h-full max-w-full object-contain pointer-events-none ${canvasClassName}`}
       />
     </div>
   );

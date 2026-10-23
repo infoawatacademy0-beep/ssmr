@@ -163,7 +163,13 @@ export default function GiftComboButton({
             </defs>
           </svg>
           <span className="flex h-[66px] w-[66px] flex-col items-center justify-center rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-[0_0_24px_rgba(249,115,22,0.65)]">
-            <GiftIcon iconKey={combo.gift.iconKey} size={30} />
+            <GiftIcon
+              iconKey={combo.gift.iconKey}
+              size={30}
+              videoUrl={combo.gift.videoUrl}
+              imageUrl={combo.gift.imageUrl}
+              videoKeyColor={combo.gift.videoKeyColor}
+            />
             <span className="text-[10px] font-black tracking-wider text-white">COMBO</span>
           </span>
         </button>

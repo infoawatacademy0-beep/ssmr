@@ -122,7 +122,13 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
           </div>
 
           <div className={`shrink-0 ${gift.animClass}`}>
-            <GiftIcon iconKey={gift.iconKey} size={38} />
+            <GiftIcon
+              iconKey={gift.iconKey}
+              size={38}
+              videoUrl={gift.videoUrl}
+              imageUrl={gift.imageUrl}
+              videoKeyColor={gift.videoKeyColor}
+            />
           </div>
 
           <motion.span

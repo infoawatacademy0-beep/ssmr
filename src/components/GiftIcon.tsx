@@ -1,19 +1,68 @@
+import { useState } from 'react';
 import type { GiftIconKey } from '../constants/gifts';
+import ChromaKeyVideo, { type ChromaKeyColor } from './ChromaKeyVideo';
 
 /* ─────────────────────────────────────────────────────────────
-   TikTok-Style Gift Icons — Pure Inline SVG with CSS Animations
-   Every gift has a unique hand-crafted SVG icon that animates
-   using CSS keyframes. Zero external images, zero GIFs.
+   TikTok-Style Gift Icons — Pure Inline SVG or Chroma-Key Video / Image
+   When a gift has videoUrl or imageUrl, it displays the live video
+   or image; otherwise it falls back to the hand-crafted SVG icon.
    ───────────────────────────────────────────────────────────── */
 
 interface GiftIconProps {
   iconKey: GiftIconKey;
   size?: number;
   className?: string;
+  videoUrl?: string;
+  imageUrl?: string;
+  videoKeyColor?: ChromaKeyColor;
 }
 
-export default function GiftIcon({ iconKey, size = 48, className = '' }: GiftIconProps) {
+export default function GiftIcon({
+  iconKey,
+  size = 48,
+  className = '',
+  videoUrl,
+  imageUrl,
+  videoKeyColor = 'auto',
+}: GiftIconProps) {
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const s = size;
+
+  // 1. If videoUrl is provided and not errored, render real-time Chroma-Key video!
+  if (videoUrl && !videoFailed) {
+    return (
+      <div
+        style={{ width: s, height: s }}
+        className={`relative flex items-center justify-center overflow-hidden ${className}`}
+      >
+        <ChromaKeyVideo
+          src={videoUrl}
+          keyColor={videoKeyColor}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="h-full w-full object-contain"
+          canvasClassName="drop-shadow-[0_0_8px_rgba(249,115,22,0.65)]"
+          onError={() => setVideoFailed(true)}
+        />
+      </div>
+    );
+  }
+
+  // 2. If imageUrl is provided, render high-res image
+  if (imageUrl && !imageFailed) {
+    return (
+      <img
+        src={imageUrl}
+        alt={iconKey}
+        style={{ width: s, height: s }}
+        className={`object-contain drop-shadow ${className}`}
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
 
   switch (iconKey) {
     /* ━━━ HEART ME — Cute smiling heart ━━━ */
