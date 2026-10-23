@@ -28,13 +28,13 @@ export interface GiftItem {
 }
 
 /**
- * TikTok-Style Luxury Video-FX Animated Gift Collection
+ * Luxury Video-FX Animated Gift Collection
  * Ordered from 1 Coin (Teapot pouring tea into a glass) to 99,999 Coins.
  */
 export const AVAILABLE_GIFTS: GiftItem[] = [
   {
     id: 'teapot',
-    name: 'Kurdish Tea · چای کوردی',
+    name: 'Rebaz',
     iconKey: 'teapot',
     cost: 1,
     color: 'text-amber-400',

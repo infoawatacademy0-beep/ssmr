@@ -634,7 +634,7 @@ export default function Dashboard() {
                 Active Arenas (Strict 4 Directory)
               </h2>
             </div>
-            <span className="text-[10px] font-semibold text-slate-500">Firebase Real-Time Listeners</span>
+            <span className="text-[10px] font-semibold text-slate-500"></span>
           </div>
 
           {displayRooms.length === 0 ? (
@@ -806,7 +806,7 @@ export default function Dashboard() {
                   Global Stream ({posts.length})
                 </h3>
               </div>
-              <span className="text-[10px] font-semibold text-slate-500">Real-Time Firebase Feed</span>
+              <span className="text-[10px] font-semibold text-slate-500">Social Post</span>
             </div>
 
             {posts.length === 0 ? (
