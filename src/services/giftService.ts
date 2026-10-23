@@ -16,9 +16,8 @@ export async function sendGift(
   recipient: { uid: string; username: string },
   gift: GiftItem,
 ): Promise<void> {
-  if (sender.uid === recipient.uid) {
-    throw new Error('You cannot send a gift to yourself.');
-  }
+  // Allow sending to self when testing alone in room
+  const isSelf = sender.uid === recipient.uid;
 
   // 1. Deduct coins from sender atomically
   const senderRef = ref(database, `users/${sender.uid}`);
@@ -55,8 +54,10 @@ export async function sendGift(
       : [];
 
     recipientData.giftsReceived = [...currentGifts, newGift];
-    // Recipient receives 50% coin cash-out tip + 50 XP
-    recipientData.coins = (recipientData.coins ?? 0) + Math.floor(gift.cost * 0.5);
+    // Recipient receives 50% coin cash-out tip + 50 XP (unless sending to self)
+    if (!isSelf) {
+      recipientData.coins = (recipientData.coins ?? 0) + Math.floor(gift.cost * 0.5);
+    }
     const newXp = (recipientData.xp ?? 0) + 50;
     recipientData.xp = newXp;
     recipientData.level = Math.max(recipientData.level ?? 1, Math.floor(newXp / 500) + 1);
@@ -64,15 +65,16 @@ export async function sendGift(
     return recipientData;
   });
 
-  // 3. ONLY if a 4v4 PK battle is currently active, track per-seat PK points and award team points
+  // 3. Track per-seat gift coins for room trophy ranking & award PK battle points if active
   // Seats 1, 2, 5, 6 are Team Red; Seats 3, 4, 7, 8 are Team Blue
   try {
+    const seatCoinsRef = ref(database, `rooms/${roomId}/seatGiftCoins/${recipient.uid}`);
+    await runTransaction(seatCoinsRef, (current) => (current || 0) + gift.cost);
+
     const pkSnapshot = await get(ref(database, `rooms/${roomId}/pkBattle`));
     const isPkActive = pkSnapshot.exists() && pkSnapshot.val()?.status === 'active';
 
     if (isPkActive) {
-      const seatCoinsRef = ref(database, `rooms/${roomId}/seatGiftCoins/${recipient.uid}`);
-      await runTransaction(seatCoinsRef, (current) => (current || 0) + gift.cost);
 
       const seatsSnapshot = await get(ref(database, `rooms/${roomId}/seats`));
       if (seatsSnapshot.exists()) {

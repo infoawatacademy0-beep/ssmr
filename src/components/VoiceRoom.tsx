@@ -83,6 +83,7 @@ import {
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import JackarooGamePanel from './JackarooGamePanel';
 import GiftStoreModal from './GiftStoreModal';
+import GiftComboButton, { type GiftComboState } from './GiftComboButton';
 import AudioStreams from './AudioStreams';
 import EntranceAnimation from './EntranceAnimation';
 import GiftAnimationOverlay from './GiftAnimationOverlay';
@@ -170,9 +171,11 @@ export default function VoiceRoom() {
   // Interactive Gift Store modal state
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [giftRecipient, setGiftRecipient] = useState<{ uid: string; username: string } | null>(null);
+  const [giftCombo, setGiftCombo] = useState<GiftComboState | null>(null);
 
   // Chat message input
   const [chatInput, setChatInput] = useState('');
+  const [isChatInputFocused, setIsChatInputFocused] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -885,12 +888,52 @@ export default function VoiceRoom() {
           />
 
           <div className="flex items-center justify-between pb-2 px-1">
-            <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-              Live Mic Stage (8 Seats)
+            <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-300">
+              <span>🌻</span>
+              <span>
+                کۆی دیاری: {formatCoinsK(Object.values(seatGiftCoins).reduce((a, b) => a + b, 0))}
+              </span>
             </span>
-            <span className="text-[10px] text-slate-500">
-              {room.seats.filter((s) => s.userId).length} / 8 Seated
-            </span>
+            <div className="flex items-center gap-2">
+              {/* Top 3 seated gift receivers podium */}
+              <div className="flex items-center -space-x-1.5">
+                {room.seats
+                  .filter((s) => s.userId && (seatGiftCoins[s.userId] ?? 0) > 0)
+                  .sort((a, b) => (seatGiftCoins[b.userId!] ?? 0) - (seatGiftCoins[a.userId!] ?? 0))
+                  .slice(0, 3)
+                  .map((s, idx) => {
+                    const av = s.avatar || (s.userId ? usersAvatarMap[s.userId] : null);
+                    const ringColors = [
+                      'ring-amber-400 bg-amber-500',
+                      'ring-slate-300 bg-slate-400',
+                      'ring-amber-700 bg-amber-700',
+                    ];
+                    return (
+                      <button
+                        key={s.userId}
+                        type="button"
+                        onClick={() => s.userId && setSelectedProfileUid(s.userId)}
+                        title={`#${idx + 1} ${s.username}: ${formatCoinsK(seatGiftCoins[s.userId!] ?? 0)}`}
+                        className={`relative flex h-6 w-6 items-center justify-center rounded-full ring-2 ${ringColors[idx]} text-[9px] font-black text-white`}
+                      >
+                        <span className="h-full w-full overflow-hidden rounded-full flex items-center justify-center bg-surface-800">
+                          {av ? (
+                            <img src={av} alt={s.username || ''} className="h-full w-full object-cover" />
+                          ) : (
+                            (s.username || 'U').charAt(0).toUpperCase()
+                          )}
+                        </span>
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-amber-400 px-1 text-[7px] font-black text-black leading-tight">
+                          {idx + 1}
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
+              <span className="text-[10px] text-slate-500">
+                {room.seats.filter((s) => s.userId).length} / 8 Seated
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-4 gap-3 sm:gap-4">
@@ -1016,8 +1059,8 @@ export default function VoiceRoom() {
                             )
                           )}
 
-                          {/* PK Points Badge on Seat Profile Icon — Shown ONLY during an active PK Battle */}
-                          {isPkActive && seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
+                          {/* Gift / PK Coins Badge on Seat Profile Icon */}
+                          {seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
                             <div
                               title={`${formatCoinsK(seatGiftCoins[seat.userId] ?? 0)} PK Points`}
                               className="absolute -bottom-2 -left-1.5 z-20 flex items-center gap-0.5 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-500 to-yellow-500 px-1.5 py-0.5 text-[8px] font-black text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
@@ -1386,67 +1429,84 @@ export default function VoiceRoom() {
       >
         <form onSubmit={handleSendMessage} className="flex items-center gap-1.5 sm:gap-2.5">
           {/* Chat expand / collapse */}
-          <button
-            type="button"
-            onClick={() => setIsChatExpanded((v) => !v)}
-            title={isChatExpanded ? 'بچووککردنەوەی چات' : 'گەورەکردنی چات'}
-            className={`room-nav-btn ${isChatExpanded ? 'room-nav-btn-active' : ''}`}
-          >
-            <MessageSquare className="h-[22px] w-[22px]" strokeWidth={2.2} />
-          </button>
+          {!isChatInputFocused && (
+            <button
+              type="button"
+              onClick={() => setIsChatExpanded((v) => !v)}
+              title={isChatExpanded ? 'بچووککردنەوەی چات' : 'گەورەکردنی چات'}
+              className={`room-nav-btn ${isChatExpanded ? 'room-nav-btn-active' : ''}`}
+            >
+              <MessageSquare className="h-[22px] w-[22px]" strokeWidth={2.2} />
+            </button>
+          )}
 
           {/* 3D Gift */}
-          <button
-            type="button"
-            onClick={() => {
-              setGiftRecipient(null);
-              setIsGiftModalOpen(true);
-            }}
-            title="دیاری (Gifts)"
-            className="room-nav-btn !bg-transparent !border-transparent"
-          >
-            <motion.img
-              src="https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/Wrapped%20gift/3D/wrapped_gift_3d.png"
-              alt="gift"
-              draggable={false}
-              animate={{ rotate: [0, -8, 8, -5, 0], scale: [1, 1.08, 1] }}
-              transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 1.2 }}
-              className="h-9 w-9 object-contain drop-shadow-[0_4px_8px_rgba(244,114,182,0.45)]"
-            />
-          </button>
+          {!isChatInputFocused && (
+            <button
+              type="button"
+              onClick={() => {
+                setGiftRecipient(null);
+                setIsGiftModalOpen(true);
+              }}
+              title="دیاری (Gifts)"
+              className="room-nav-btn !bg-transparent !border-transparent"
+            >
+              <motion.img
+                src="https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/Wrapped%20gift/3D/wrapped_gift_3d.png"
+                alt="gift"
+                draggable={false}
+                animate={{ rotate: [0, -8, 8, -5, 0], scale: [1, 1.08, 1] }}
+                transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 1.2 }}
+                className="h-9 w-9 object-contain drop-shadow-[0_4px_8px_rgba(244,114,182,0.45)]"
+              />
+            </button>
+          )}
 
           {/* More menu */}
-          <button
-            type="button"
-            onClick={() => setIsRoomMenuOpen(true)}
-            title="زیاتر"
-            className={`room-nav-btn relative ${isRoomMenuOpen ? 'room-nav-btn-active' : ''}`}
-          >
-            <Menu className="h-[22px] w-[22px]" strokeWidth={2.2} />
-            {activeJackarooGame && (
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-            )}
-          </button>
+          {!isChatInputFocused && (
+            <button
+              type="button"
+              onClick={() => setIsRoomMenuOpen(true)}
+              title="زیاتر"
+              className={`room-nav-btn relative ${isRoomMenuOpen ? 'room-nav-btn-active' : ''}`}
+            >
+              <Menu className="h-[22px] w-[22px]" strokeWidth={2.2} />
+              {activeJackarooGame && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+              )}
+            </button>
+          )}
 
-          {/* Message input pill */}
-          <div className="relative flex h-11 min-w-0 flex-1 items-center rounded-full border border-white/[0.06] bg-white/[0.07] pl-4 pr-1 transition-colors focus-within:border-violet-400/50 focus-within:bg-white/[0.1]">
+          {/* Message input pill (expands wide when focused/typing so user clearly sees what they wrote) */}
+          <div
+            className={`relative flex min-w-0 flex-1 items-center rounded-full border transition-all duration-200 ${
+              isChatInputFocused
+                ? 'h-12 border-violet-400/70 bg-[#1a1829]/95 pl-4 pr-1.5 shadow-[0_0_20px_rgba(139,92,246,0.3)]'
+                : 'h-11 border-white/[0.06] bg-white/[0.07] pl-4 pr-1'
+            }`}
+          >
             <input
               type="text"
               dir="auto"
               value={chatInput}
+              onFocus={() => setIsChatInputFocused(true)}
+              onBlur={() => setTimeout(() => setIsChatInputFocused(false), 160)}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder="شتێک بڵێ..."
-              className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-white placeholder-slate-400 outline-none"
+              className={`h-full min-w-0 flex-1 bg-transparent text-white placeholder-slate-400 outline-none transition-all ${
+                isChatInputFocused ? 'text-[15px] font-medium' : 'text-[13px]'
+              }`}
             />
             <AnimatePresence>
-              {chatInput.trim() && (
+              {(chatInput.trim() || isChatInputFocused) && (
                 <motion.button
                   type="submit"
-                  disabled={isSending}
+                  disabled={isSending || !chatInput.trim()}
+                  onMouseDown={(e) => e.preventDefault()}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-600/40 disabled:opacity-50"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-600/40 disabled:opacity-40"
                 >
                   <Send className="h-4 w-4" />
                 </motion.button>
@@ -1465,42 +1525,46 @@ export default function VoiceRoom() {
           </button>
 
           {/* Mic toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!mySeat) {
-                alert('سەرەتا لەسەر کورسییەک دابنیشە بۆ قسەکردن');
-                return;
-              }
-              handleToggleMyMute();
-            }}
-            title={!mySeat ? 'لەسەر کورسی نیت' : mySeat.isMuted ? 'کردنەوەی مایک' : 'داخستنی مایک'}
-            className={`room-nav-btn ${
-              mySeat && !mySeat.isMuted
-                ? '!border-emerald-400/50 !bg-emerald-500/25 !text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.45)]'
-                : ''
-            } ${!mySeat ? 'opacity-50' : ''}`}
-          >
-            {mySeat && !mySeat.isMuted ? (
-              <Mic className="h-[22px] w-[22px]" strokeWidth={2.2} />
-            ) : (
-              <MicOff className="h-[22px] w-[22px]" strokeWidth={2.2} />
-            )}
-          </button>
+          {!isChatInputFocused && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!mySeat) {
+                  alert('سەرەتا لەسەر کورسییەک دابنیشە بۆ قسەکردن');
+                  return;
+                }
+                handleToggleMyMute();
+              }}
+              title={!mySeat ? 'لەسەر کورسی نیت' : mySeat.isMuted ? 'کردنەوەی مایک' : 'داخستنی مایک'}
+              className={`room-nav-btn ${
+                mySeat && !mySeat.isMuted
+                  ? '!border-emerald-400/50 !bg-emerald-500/25 !text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.45)]'
+                  : ''
+              } ${!mySeat ? 'opacity-50' : ''}`}
+            >
+              {mySeat && !mySeat.isMuted ? (
+                <Mic className="h-[22px] w-[22px]" strokeWidth={2.2} />
+              ) : (
+                <MicOff className="h-[22px] w-[22px]" strokeWidth={2.2} />
+              )}
+            </button>
+          )}
 
           {/* Speaker (incoming audio) toggle */}
-          <button
-            type="button"
-            onClick={() => setIsSpeakerMuted((v) => !v)}
-            title={isSpeakerMuted ? 'کردنەوەی دەنگ' : 'بێدەنگکردنی ژوور'}
-            className={`room-nav-btn ${isSpeakerMuted ? '!border-rose-400/40 !bg-rose-500/20 !text-rose-300' : ''}`}
-          >
-            {isSpeakerMuted ? (
-              <VolumeX className="h-[22px] w-[22px]" strokeWidth={2.2} />
-            ) : (
-              <Volume2 className="h-[22px] w-[22px]" strokeWidth={2.2} />
-            )}
-          </button>
+          {!isChatInputFocused && (
+            <button
+              type="button"
+              onClick={() => setIsSpeakerMuted((v) => !v)}
+              title={isSpeakerMuted ? 'کردنەوەی دەنگ' : 'بێدەنگکردنی ژوور'}
+              className={`room-nav-btn ${isSpeakerMuted ? '!border-rose-400/40 !bg-rose-500/20 !text-rose-300' : ''}`}
+            >
+              {isSpeakerMuted ? (
+                <VolumeX className="h-[22px] w-[22px]" strokeWidth={2.2} />
+              ) : (
+                <Volume2 className="h-[22px] w-[22px]" strokeWidth={2.2} />
+              )}
+            </button>
+          )}
         </form>
       </motion.footer>
 
@@ -2006,6 +2070,9 @@ export default function VoiceRoom() {
             currentUser={user}
             seats={room.seats}
             initialRecipient={giftRecipient}
+            onSent={(gift, recipients, qty) =>
+              setGiftCombo({ gift, recipients, qty, sessionId: Date.now() })
+            }
             onClose={() => {
               setIsGiftModalOpen(false);
               setGiftRecipient(null);
@@ -2013,6 +2080,13 @@ export default function VoiceRoom() {
           />
         )}
       </AnimatePresence>
+
+      <GiftComboButton
+        roomId={room.id}
+        currentUser={user}
+        combo={giftCombo}
+        onEnd={() => setGiftCombo(null)}
+      />
 
       {/* ─────────────────────────────────────────────────────────
          MODAL 5: Room Report Modal
