@@ -74,6 +74,7 @@ import ArenaShop from './ArenaShop';
 import StoriesBar from './StoriesBar';
 import SettingsModal from './SettingsModal';
 import IncomingChatToast from './IncomingChatToast';
+import { useLanguage } from '../contexts';
 
 const CATEGORIES: { label: string; value: RoomCategory | 'All'; icon: React.ElementType; color: string }[] = [
   { label: 'هەموو ژوورەکان', value: 'All', icon: Flame, color: 'text-amber-400' },
@@ -118,6 +119,7 @@ function getAccountAge(createdAt: number): string {
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const { language, t, isRTL } = useLanguage();
   const navigate = useNavigate();
 
   // Active navigation tab
@@ -402,7 +404,7 @@ export default function Dashboard() {
               }`}
             >
               <LayoutDashboard className="h-4 w-4" />
-              <span>سەرەکی</span>
+              <span>{t('nav.dashboard', 'سەرەکی')}</span>
             </button>
 
             <button
@@ -417,7 +419,7 @@ export default function Dashboard() {
               }`}
             >
               <Compass className="h-4 w-4" />
-              <span>گەڕان لە ژوورەکان</span>
+              <span>{t('nav.exploreRooms', 'گەڕان لە ژوورەکان')}</span>
             </button>
 
             <button
@@ -425,7 +427,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <Search className="h-4 w-4" />
-              <span>دۆزینەوەی ئەندامان</span>
+              <span>{t('nav.discoverUsers', 'دۆزینەوەی ئەندامان')}</span>
             </button>
 
             <button
@@ -433,7 +435,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <Trophy className="h-4 w-4 text-amber-400" />
-              <span>ڕیزبەندی پاڵەوانان</span>
+              <span>{t('nav.hallOfFame', 'ڕیزبەندی پاڵەوانان')}</span>
             </button>
 
             <button
@@ -441,7 +443,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <ShoppingBag className="h-4 w-4 text-purple-400" />
-              <span>فرۆشگا و خەزێنە</span>
+              <span>{t('nav.shop', 'فرۆشگا و خەزێنە')}</span>
             </button>
 
             <button
@@ -450,7 +452,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-3">
                 <Bell className="h-4 w-4" />
-                <span>ئاگادارکردنەوەکان</span>
+                <span>{t('nav.notifications', 'ئاگادارکردنەوەکان')}</span>
               </div>
               {unreadNotifsCount > 0 && (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
@@ -1159,7 +1161,7 @@ export default function Dashboard() {
           }`}
         >
           <LayoutDashboard className="h-5 w-5" />
-          <span>گۆڕەپان</span>
+          <span>{t('nav.dashboard', 'گۆڕەپان')}</span>
         </button>
 
         <button
@@ -1172,7 +1174,7 @@ export default function Dashboard() {
           }`}
         >
           <Compass className="h-5 w-5" />
-          <span>گەڕان</span>
+          <span>{t('nav.exploreRooms', 'گەڕان')}</span>
         </button>
 
         <button
@@ -1189,7 +1191,7 @@ export default function Dashboard() {
           }`}
         >
           <Wallet className="h-5 w-5" />
-          <span>جزدان</span>
+          <span>{t('nav.shop', 'جزدان')}</span>
         </button>
 
         <button
@@ -1197,7 +1199,7 @@ export default function Dashboard() {
           className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500"
         >
           <Settings className="h-5 w-5" />
-          <span>ڕێکخستنەکان</span>
+          <span>{t('settings.title', 'ڕێکخستنەکان')}</span>
         </button>
       </nav>
 

@@ -1,7 +1,7 @@
 import { lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Ban, LogOut, Clock, AlertTriangle } from 'lucide-react';
-import { AuthProvider, useAuth } from './contexts';
+import { AuthProvider, useAuth, LanguageProvider } from './contexts';
 import LoadingScreen from './components/LoadingScreen';
 import Auth from './components/Auth';
 import { checkUserBanStatus } from './services';
@@ -219,9 +219,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <ErrorBoundary>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </LanguageProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );

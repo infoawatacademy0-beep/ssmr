@@ -16,8 +16,11 @@ import {
   AlertTriangle,
   Trash2,
   Clock,
+  Globe,
+  Check,
 } from 'lucide-react';
 import type { User, AccountDeletionRequest } from '../types';
+import { useLanguage } from '../contexts';
 import {
   requestAccountDeletion,
   cancelAccountDeletionRequest,
@@ -37,6 +40,8 @@ export default function SettingsModal({
   onLogout,
   onOpenEditProfile,
 }: SettingsModalProps) {
+  const { language, setLanguage, t, isRTL } = useLanguage();
+
   // Local settings toggles
   const [noiseSuppression, setNoiseSuppression] = useState(
     () => localStorage.getItem('ssmr_noise_suppression') !== 'false',
@@ -173,8 +178,12 @@ export default function SettingsModal({
               <Settings className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-display text-base font-black text-white">ڕێکخستنەکان</h2>
-              <p className="text-[11px] text-slate-400">هەژمار، دەنگ و ڕێکخستنەکانی سیستەم</p>
+              <h2 className="font-display text-base font-black text-white">
+                {t('settings.title', 'ڕێکخستنەکان')}
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                {t('settings.subtitle', 'هەژمار، دەنگ و ڕێکخستنەکانی سیستەم')}
+              </p>
             </div>
           </div>
 
@@ -232,16 +241,89 @@ export default function SettingsModal({
             >
               <div className="flex items-center gap-2">
                 <UserIcon className="h-4 w-4" />
-                <span>دەستکاریکردنی پڕۆفایل و بەرگ</span>
+                <span>{t('settings.editProfile', 'دەستکاریکردنی پڕۆفایل و بەرگ')}</span>
               </div>
-              <ChevronRight className="h-4 w-4 text-slate-500" />
+              <ChevronRight className={`h-4 w-4 text-slate-500 ${isRTL ? 'rotate-180' : ''}`} />
             </button>
           </div>
 
-          {/* 2. Audio & Live Voice Arena Settings */}
+          {/* ── 2. LANGUAGE PREFERENCE (زمانی سەرەکی: کوردی / ئینگلیزی) ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                {t('settings.languageSection', 'زمان / Language')}
+              </h4>
+              <span className="text-[10px] text-amber-400 font-bold">
+                {language === 'ku' ? 'کوردی سۆرانی' : 'English'}
+              </span>
+            </div>
+
+            <div className="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-3 space-y-2.5">
+              <div className="flex items-center gap-2 text-[11px] text-slate-400 px-1">
+                <Globe className="h-4 w-4 text-cyan-400 shrink-0" />
+                <span>{t('settings.languageDesc', 'زمانی سەرەکی بەرنامە هەڵبژێرە (کوردی یان ئینگلیزی)')}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Kurdish Option (Primary / Default) */}
+                <button
+                  type="button"
+                  onClick={() => setLanguage('ku')}
+                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                    language === 'ku'
+                      ? 'border-amber-400/80 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent text-white ring-2 ring-amber-400/30 shadow-lg shadow-amber-500/10'
+                      : 'border-slate-800/80 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-400/10 text-base border border-amber-400/20 shadow-sm">
+                      ☀️
+                    </span>
+                    <div className="min-w-0 text-start">
+                      <p className="text-xs font-black truncate text-white">کوردی (سۆرانی)</p>
+                      <p className="text-[9px] text-amber-300 font-bold truncate">سەرەکی (Default)</p>
+                    </div>
+                  </div>
+                  {language === 'ku' && (
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-black shadow">
+                      <Check className="h-3 w-3 stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+
+                {/* English Option */}
+                <button
+                  type="button"
+                  onClick={() => setLanguage('en')}
+                  className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
+                    language === 'en'
+                      ? 'border-amber-400/80 bg-gradient-to-br from-amber-500/20 via-blue-500/10 to-transparent text-white ring-2 ring-amber-400/30 shadow-lg shadow-amber-500/10'
+                      : 'border-slate-800/80 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-cyan-400/10 text-base border border-cyan-400/20 shadow-sm">
+                      🌐
+                    </span>
+                    <div className="min-w-0 text-start">
+                      <p className="text-xs font-black truncate text-white">English</p>
+                      <p className="text-[9px] text-cyan-300 font-bold truncate">International</p>
+                    </div>
+                  </div>
+                  {language === 'en' && (
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-black shadow">
+                      <Check className="h-3 w-3 stroke-[3]" />
+                    </div>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Audio & Live Voice Arena Settings */}
           <div className="space-y-2">
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-              دەنگ و بزوێنەری پەخش
+              {t('settings.audioSection', 'دەنگ و بزوێنەری پەخش')}
             </h4>
             <div className="rounded-3xl border border-slate-800/80 bg-slate-900/40 divide-y divide-slate-800/60 overflow-hidden">
               {/* Noise Suppression Toggle */}
@@ -249,10 +331,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Volume2 className="h-4 w-4 text-cyan-400" />
-                    <span>کەمکردنەوەی ژاوەژاوی دەنگ بە ژیری دەستکرد</span>
+                    <span>{t('settings.noiseSuppression', 'کەمکردنەوەی ژاوەژاوی دەنگ بە ژیری دەستکرد')}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    فلتەرکردنی دەنگی پانکە، دەنگدانەوە و دەنگە زیادەکانی دەوروبەر
+                    {t('settings.noiseSuppressionDesc', 'فلتەرکردنی دەنگی پانکە، دەنگدانەوە و دەنگە زیادەکانی دەوروبەر')}
                   </p>
                 </div>
                 <button
@@ -275,10 +357,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Sliders className="h-4 w-4 text-purple-400" />
-                    <span>دەنگە تایبەتەکانی بەرنامە</span>
+                    <span>{t('settings.soundEffects', 'دەنگە تایبەتەکانی بەرنامە')}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    دەنگی ناردنی دیاری و هاتنەژوورەوەی ئەندامان
+                    {t('settings.soundEffectsDesc', 'دەنگی ناردنی دیاری و هاتنەژوورەوەی ئەندامان')}
                   </p>
                 </div>
                 <button
@@ -298,10 +380,10 @@ export default function SettingsModal({
             </div>
           </div>
 
-          {/* 3. Privacy & Communication */}
+          {/* 4. Privacy & Communication */}
           <div className="space-y-2">
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-              پاراستن و نامەی تایبەتی
+              {t('settings.privacySection', 'پاراستن و نامەی تایبەتی')}
             </h4>
             <div className="rounded-3xl border border-slate-800/80 bg-slate-900/40 divide-y divide-slate-800/60 overflow-hidden">
               {/* Direct Messages Toggle */}
@@ -309,10 +391,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Lock className="h-4 w-4 text-emerald-400" />
-                    <span>ڕێگەدان بە نامەی تایبەتی</span>
+                    <span>{t('settings.allowDMs', 'ڕێگەدان بە نامەی تایبەتی')}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    ڕێگەدان بە ئەندامانی تر تاوەکو نامەی تایبەتیت بۆ بنێرن
+                    {t('settings.allowDMsDesc', 'ڕێگەدان بە ئەندامانی تر تاوەکو نامەی تایبەتیت بۆ بنێرن')}
                   </p>
                 </div>
                 <button
@@ -335,10 +417,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Bell className="h-4 w-4 text-yellow-400" />
-                    <span>ئاگادارکردنەوەی چالاکییەکان</span>
+                    <span>{t('settings.pushNotifs', 'ئاگادارکردنەوەی چالاکییەکان')}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    وەرگرتنی بانگهێشتی ژوور و ئاگاداری فۆڵۆکەران
+                    {t('settings.pushNotifsDesc', 'وەرگرتنی بانگهێشتی ژوور و ئاگاداری فۆڵۆکەران')}
                   </p>
                 </div>
                 <button
@@ -358,16 +440,16 @@ export default function SettingsModal({
             </div>
           </div>
 
-          {/* 4. App Info & System Status */}
+          {/* 5. App Info & System Status */}
           <div className="rounded-3xl border border-slate-800/80 bg-slate-900/30 p-3.5 flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 text-slate-500" />
-              <span>وەشانی گۆڕەپانی دەنگی SSMR</span>
+              <span>{t('settings.appVersion', 'وەشانی گۆڕەپانی دەنگی SSMR')}</span>
             </div>
             <span className="font-mono text-[10px] text-slate-500">v2.4.0 (Production)</span>
           </div>
 
-          {/* ── 5. PROMINENT SIGN OUT SECTION ── */}
+          {/* ── 6. PROMINENT SIGN OUT SECTION ── */}
           <div className="pt-2">
             <AnimatePresence mode="wait">
               {!showSignoutConfirm ? (
@@ -377,7 +459,7 @@ export default function SettingsModal({
                   className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20 active:scale-95 shadow-lg shadow-rose-500/10"
                 >
                   <LogOut className="h-4 w-4 text-rose-400" />
-                  <span>چوونەدەرەوە لە هەژمار</span>
+                  <span>{t('settings.signOut', 'چوونەدەرەوە لە هەژمار')}</span>
                 </button>
               ) : (
                 <motion.div
@@ -388,10 +470,10 @@ export default function SettingsModal({
                 >
                   <div className="flex items-center justify-center gap-2 text-rose-400">
                     <AlertTriangle className="h-5 w-5" />
-                    <span className="text-xs font-bold">ئایا دڵنیایت دەتەوێت لە هەژمارەکەت دەربچیت؟</span>
+                    <span className="text-xs font-bold">{t('settings.signOutConfirm', 'ئایا دڵنیایت دەتەوێت لە هەژمارەکەت دەربچیت؟')}</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    پێویستت بە ئیمەیڵ و وشەی نهێنیت دەبێت بۆ چوونەژوورەوەی دووبارە.
+                    {t('settings.signOutDesc', 'پێویستت بە ئیمەیڵ و وشەی نهێنیت دەبێت بۆ چوونەژوورەوەی دووبارە.')}
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -399,7 +481,7 @@ export default function SettingsModal({
                       onClick={() => setShowSignoutConfirm(false)}
                       className="flex-1 rounded-xl border border-slate-800 bg-slate-900 py-2 text-xs font-bold text-slate-300 hover:text-white"
                     >
-                      پاشگەزبوونەوە
+                      {t('settings.cancel', 'پاشگەزبوونەوە')}
                     </button>
                     <button
                       type="button"
@@ -407,7 +489,7 @@ export default function SettingsModal({
                       onClick={handleConfirmSignOut}
                       className="flex-1 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 py-2 text-xs font-black text-white shadow-md shadow-rose-600/30 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                     >
-                      {isSigningOut ? 'خەریکی دەرچوونە...' : 'بەڵێ، دەرچوون'}
+                      {isSigningOut ? t('settings.signingOut', 'خەریکی دەرچوونە...') : t('settings.yesSignOut', 'بەڵێ، دەرچوون')}
                     </button>
                   </div>
                 </motion.div>
@@ -415,18 +497,18 @@ export default function SettingsModal({
             </AnimatePresence>
           </div>
 
-          {/* ── 6. DELETE ACCOUNT (REQUIRES ADMIN APPROVAL) ── */}
+          {/* ── 7. DELETE ACCOUNT (REQUIRES ADMIN APPROVAL) ── */}
           <div className="pt-1 pb-2">
             {pendingDeletionReq && pendingDeletionReq.status === 'pending' ? (
               <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-center space-y-2.5">
                 <div className="flex items-center justify-center gap-2 text-amber-300">
                   <Clock className="h-5 w-5 animate-pulse" />
                   <span className="text-xs font-black">
-                    داواکاری سڕینەوەی هەژمار نێردراوە بۆ ئەدمین
+                    {t('settings.deleteReqPending', 'داواکاری سڕینەوەی هەژمار نێردراوە بۆ ئەدمین')}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  داواکارییەکەت گەیشتووەتە لای ئەدمین. هەر کاتێک ئەدمین پەسەندی بکات، هەژمارەکەت بە یەکجاری دەسڕێتەوە.
+                  {t('settings.deleteReqPendingDesc', 'داواکارییەکەت گەیشتووەتە لای ئەدمین. هەر کاتێک ئەدمین پەسەندی بکات، هەژمارەکەت بە یەکجاری دەسڕێتەوە.')}
                 </p>
                 <button
                   type="button"
@@ -434,7 +516,7 @@ export default function SettingsModal({
                   onClick={handleCancelDeleteRequest}
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2 text-xs font-bold text-slate-300 hover:text-white disabled:opacity-50"
                 >
-                  پاشگەزبوونەوە و هەڵوەشاندنەوەی داواکاری
+                  {t('settings.cancelDeleteReq', 'پاشگەزبوونەوە و هەڵوەشاندنەوەی داواکاری')}
                 </button>
               </div>
             ) : (
@@ -446,7 +528,7 @@ export default function SettingsModal({
                     className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-red-500/40 bg-red-950/30 py-3 text-xs font-black text-red-400 transition hover:bg-red-900/40 active:scale-95"
                   >
                     <Trash2 className="h-4 w-4 text-red-400" />
-                    <span>سڕینەوەی هەژمار (Delete Account)</span>
+                    <span>{t('settings.deleteAccount', 'سڕینەوەی هەژمار (Delete Account)')}</span>
                   </button>
                 ) : (
                   <motion.div
@@ -458,11 +540,11 @@ export default function SettingsModal({
                     <div className="flex items-center justify-center gap-2 text-red-400">
                       <AlertTriangle className="h-5 w-5" />
                       <span className="text-xs font-black">
-                        ئایا دڵنیایت دەتەوێت هەژمارەکەت بسڕیتەوە؟
+                        {t('settings.deleteAccountConfirm', 'ئایا دڵنیایت دەتەوێت هەژمارەکەت بسڕیتەوە؟')}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
-                      کاتێک دڵنیا دەبیتەوە، داواکاری سڕینەوەکەت دەچێت بۆ ئەدمین و دوای ئەوەی ئەدمین پەسەندی دەکات هەژمارەکەت بە یەکجاری دەسڕێتەوە.
+                      {t('settings.deleteAccountDesc', 'کاتێک دڵنیا دەبیتەوە، داواکاری سڕینەوەکەت دەچێت بۆ ئەدمین و دوای ئەوەی ئەدمین پەسەندی دەکات هەژمارەکەت بە یەکجاری دەسڕێتەوە.')}
                     </p>
                     <div className="flex items-center gap-2">
                       <button
@@ -470,7 +552,7 @@ export default function SettingsModal({
                         onClick={() => setShowDeleteConfirm(false)}
                         className="flex-1 rounded-xl border border-slate-800 bg-slate-900 py-2 text-xs font-bold text-slate-300 hover:text-white"
                       >
-                        نەخێر، پاشگەزبوونەوە
+                        {t('settings.noCancel', 'نەخێر، پاشگەزبوونەوە')}
                       </button>
                       <button
                         type="button"
@@ -478,7 +560,7 @@ export default function SettingsModal({
                         onClick={handleRequestDeleteAccount}
                         className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 py-2 text-xs font-black text-white shadow-md shadow-red-600/30 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                       >
-                        {isRequestingDelete ? 'دەنێردرێت...' : 'بەڵێ دڵنیام، بینێرە بۆ ئەدمین'}
+                        {isRequestingDelete ? t('settings.submitting', 'دەنێردرێت...') : t('settings.yesDelete', 'بەڵێ دڵنیام، بینێرە بۆ ئەدمین')}
                       </button>
                     </div>
                   </motion.div>
