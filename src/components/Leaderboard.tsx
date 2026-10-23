@@ -64,9 +64,9 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                Arena Hall of Fame
+                ڕیزبەندی پاڵەوانانی گۆڕەپان
               </h3>
-              <p className="text-[10px] text-slate-400">Live Global Competitive Standings</p>
+              <p className="text-[10px] text-slate-400">ڕیزبەندی گشتی و ڕاستەوخۆ</p>
             </div>
           </div>
 
@@ -90,7 +90,7 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
               }`}
             >
               <Coins className="h-4 w-4 text-amber-400" />
-              <span>Wealth &amp; Gifting</span>
+              <span>سامان و دیاری</span>
             </button>
 
             <button
@@ -102,7 +102,7 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
               }`}
             >
               <Sparkles className="h-4 w-4 text-purple-400" />
-              <span>XP &amp; Leveling</span>
+              <span>ئاست و ئەزموون (XP)</span>
             </button>
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function Leaderboard({ onClose, onOpenProfile }: LeaderboardProps
                   <div>
                     <h4 className="text-xs font-bold text-white">{entry.username}</h4>
                     <span className="text-[10px] text-purple-300 font-medium">
-                      Level {entry.level}
+                      ئاستی {entry.level}
                     </span>
                   </div>
                 </div>

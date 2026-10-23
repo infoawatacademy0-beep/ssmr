@@ -122,7 +122,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
     const currentStory = activeViewerGroup.stories[activeStoryIndex];
     if (!currentStory) return;
 
-    if (!window.confirm('Delete this story?')) return;
+    if (!window.confirm('ئەم ستۆرییە بسڕدرێتەوە؟')) return;
 
     try {
       await deleteStory(currentUser.uid, currentStory.id);
@@ -158,7 +158,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
             </div>
           </div>
           <span className="mt-1.5 truncate max-w-[60px] text-[10px] font-bold text-slate-300">
-            Add Story
+            ستۆری نوێ
           </span>
         </div>
 
@@ -192,7 +192,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                 </div>
               </div>
               <span className="mt-1.5 truncate max-w-[65px] text-[10px] font-medium text-slate-300">
-                {isMe ? 'Your Story' : group.authorName}
+                {isMe ? 'ستۆری تۆ' : group.authorName}
               </span>
             </div>
           );
@@ -213,7 +213,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-amber-400" />
                   <h3 className="font-display text-xs font-bold text-white uppercase tracking-wider">
-                    Create 24H Arena Story
+                    دروستکردنی ستۆری ٢٤ کاتژمێری
                   </h3>
                 </div>
                 <button
@@ -235,7 +235,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                       : 'border border-slate-800 bg-slate-950 text-slate-400'
                   }`}
                 >
-                  Text Card
+                  کارتی نووسین
                 </button>
                 <button
                   type="button"
@@ -246,7 +246,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                       : 'border border-slate-800 bg-slate-950 text-slate-400'
                   }`}
                 >
-                  Image Story
+                  ستۆری وێنە
                 </button>
               </div>
 
@@ -261,7 +261,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                         maxLength={180}
                         value={textContent}
                         onChange={(e) => setTextContent(e.target.value)}
-                        placeholder="What's happening in your arena today?..."
+                        placeholder="ئەمڕۆ چی لە ژوورەکەت ڕوودەدات؟..."
                         className="w-full resize-none bg-transparent text-sm font-bold text-white placeholder-white/60 outline-none text-center"
                       />
                     </div>
@@ -286,7 +286,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                       type="url"
                       value={imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
-                      placeholder="Paste image link (https://...)"
+                      placeholder="بەستەری وێنە لێرە دابنێ (https://...)"
                       className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                     />
                     {imageUrl && (
@@ -303,7 +303,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20 disabled:opacity-40"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  <span>{isPublishing ? 'Broadcasting...' : 'Publish to Arena (24h)'}</span>
+                  <span>{isPublishing ? 'خەریکی بڵاوکردنەوەیە...' : 'بڵاوکردنەوە بۆ ٢٤ کاتژمێر'}</span>
                 </button>
               </form>
             </motion.div>
@@ -351,7 +351,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                     <h4 className="text-xs font-bold text-white drop-shadow">
                       {activeViewerGroup.authorName}
                     </h4>
-                    <span className="text-[9px] text-white/70 drop-shadow">24H Story</span>
+                    <span className="text-[9px] text-white/70 drop-shadow">ستۆری ٢٤ کاتژمێری</span>
                   </div>
                 </div>
 

@@ -417,7 +417,7 @@ export default function JackarooGamePanel({
                       >
                         <Users className="h-5 w-5 mb-1" />
                         <span className="text-sm font-black">{cnt} کەس</span>
-                        <span className="text-[10px] opacity-75">{cnt} Players</span>
+                        <span className="text-[10px] opacity-75">{cnt} یاریزان</span>
                       </button>
                     );
                   })}
@@ -471,7 +471,7 @@ export default function JackarooGamePanel({
                     چاوەڕوانی یاریزانەکان ({activeGame.players.length} / {activeGame.maxPlayers})
                   </p>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    خەڵاتی گشتی: <strong className="text-amber-400">{activeGame.totalPot} Coins</strong>
+                    خەڵاتی گشتی: <strong className="text-amber-400">{activeGame.totalPot} کۆین</strong>
                   </p>
                 </div>
                 <div className="flex items-center gap-1 rounded-xl bg-black/40 px-3 py-1.5 text-xs font-bold text-amber-300">

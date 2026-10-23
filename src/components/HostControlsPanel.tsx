@@ -85,14 +85,14 @@ export default function HostControlsPanel({
   const handleKick = async (seat: Seat) => {
     if (!seat.userId) return;
     if (seat.userId === currentUser.uid) {
-      setActionError('You cannot kick yourself from the host seat.');
+      setActionError('ناتوانیت خۆت لە کورسی خاوەن ژوور لابدەیت.');
       return;
     }
     setActionError(null);
     try {
       await kickUserFromSeat(room.id, seat.seatNo, currentUser.username);
     } catch (err: any) {
-      setActionError(err.message || 'Failed to kick user.');
+      setActionError(err.message || 'نەتوانرا ئەندام لاربدرێت.');
     }
   };
 
@@ -101,7 +101,7 @@ export default function HostControlsPanel({
     try {
       await toggleSeatLock(room.id, seat.seatNo, !seat.isLocked);
     } catch (err: any) {
-      setActionError(err.message || 'Failed to toggle seat lock.');
+      setActionError(err.message || 'نەتوانرا دۆخی قفڵی کورسی بگۆڕدرێت.');
     }
   };
 
@@ -110,7 +110,7 @@ export default function HostControlsPanel({
     try {
       await muteSeatByHost(room.id, seat.seatNo, !seat.isMuted);
     } catch (err: any) {
-      setActionError(err.message || 'Failed to toggle mute state.');
+      setActionError(err.message || 'نەتوانرا دۆخی بێدەنگی بگۆڕدرێت.');
     }
   };
 
@@ -131,7 +131,7 @@ export default function HostControlsPanel({
       setAnnouncementSuccess(true);
       setTimeout(() => setAnnouncementSuccess(false), 2000);
     } catch (err: any) {
-      setActionError(err.message || 'Failed to send announcement.');
+      setActionError(err.message || 'نەتوانرا ئاگاداری بڵاوبکرێتەوە.');
     } finally {
       setIsAnnouncing(false);
     }
@@ -154,13 +154,13 @@ export default function HostControlsPanel({
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                  Host Command Center
+                  ناوەندی کۆنترۆڵی خاوەن ژوور
                 </h3>
                 <span className="flex items-center gap-0.5 rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
-                  <Crown className="h-2.5 w-2.5" /> HOST
+                  <Crown className="h-2.5 w-2.5" /> خاوەن
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">{room.roomName} &bull; 8-Seat Stage Moderation</p>
+              <p className="text-[10px] text-slate-400">{room.roomName} &bull; بەڕێوەبردنی ٨ کورسی ژوور</p>
             </div>
           </div>
 
@@ -285,10 +285,10 @@ export default function HostControlsPanel({
 
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-              Seat Moderation (8 Slots)
+              کۆنترۆڵی کورسییەکان (٨ شوێن)
             </span>
             <span className="text-[10px] text-slate-500">
-              {room.seats.filter((s) => s.userId).length}/8 Active Speakers
+              {room.seats.filter((s) => s.userId).length}/٨ قسەکەرانی چالاک
             </span>
           </div>
 
@@ -331,27 +331,27 @@ export default function HostControlsPanel({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-white">
-                          Seat #{seat.seatNo}
+                          کورسی #{seat.seatNo}
                         </span>
                         {isOccupied && (
                           <span className="text-xs text-slate-300 font-medium">
-                            &bull; {isCurrentUser ? 'You (Host)' : seat.username}
+                            &bull; {isCurrentUser ? 'تۆ (خاوەن ژوور)' : seat.username}
                           </span>
                         )}
                         {seat.isLocked && (
                           <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[8px] font-bold text-rose-300 uppercase">
-                            Locked
+                            قفڵکراو
                           </span>
                         )}
                       </div>
                       <p className="text-[10px] text-slate-500">
                         {isOccupied
                           ? seat.isMuted
-                            ? 'Microphone: Muted'
-                            : 'Microphone: Active'
+                            ? 'مایک: بێدەنگکراو'
+                            : 'مایک: چالاک'
                           : seat.isLocked
-                          ? 'Locked by host - members cannot sit'
-                          : 'Vacant - open to all listeners'}
+                          ? 'لەلایەن خاوەن ژوورەوە قفڵکراوە - ناتوانرێت دابنیشیت'
+                          : 'بەتاڵە - کراوەیە بۆ هەموو گوێگران'}
                       </p>
                     </div>
                   </div>
@@ -394,12 +394,12 @@ export default function HostControlsPanel({
                         {seat.isLocked ? (
                           <>
                             <Unlock className="h-3.5 w-3.5" />
-                            <span>Unlock</span>
+                            <span>کردنەوە</span>
                           </>
                         ) : (
                           <>
                             <Lock className="h-3.5 w-3.5" />
-                            <span>Lock Seat</span>
+                            <span>قفڵکردنی کورسی</span>
                           </>
                         )}
                       </button>
@@ -410,18 +410,18 @@ export default function HostControlsPanel({
             })}
           </div>
 
-          {/* Room Announcement Composer */}
+          {/* ئاگاداری ژوور Composer */}
           <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-400">
                 <Megaphone className="h-4 w-4" />
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  Room Announcement
+                  ئاگاداری ژوور
                 </h4>
               </div>
               {announcementSuccess && (
                 <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold">
-                  <Check className="h-3 w-3" /> Broadcasted!
+                  <Check className="h-3 w-3" /> بڵاوکرایەوە!
                 </span>
               )}
             </div>
@@ -432,7 +432,7 @@ export default function HostControlsPanel({
                 maxLength={140}
                 value={announcementText}
                 onChange={(e) => setAnnouncementText(e.target.value)}
-                placeholder="Broadcast a prominent message across room chat..."
+                placeholder="نامەیەکی گرنگ لە چاتی ژووردا بڵاوبکەرەوە..."
                 className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
               />
               <button
@@ -440,7 +440,7 @@ export default function HostControlsPanel({
                 disabled={!announcementText.trim() || isAnnouncing}
                 className="w-full rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-black transition hover:bg-amber-400 disabled:opacity-40"
               >
-                {isAnnouncing ? 'Broadcasting...' : 'Broadcast Announcement'}
+                {isAnnouncing ? 'خەریکی بڵاوکردنەوەیە...' : 'بڵاوکردنەوەی ئاگاداری'}
               </button>
             </form>
           </div>

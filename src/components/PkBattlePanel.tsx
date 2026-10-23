@@ -101,13 +101,13 @@ export default function PkBattlePanel({
             <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500 text-white shadow">
               <Swords className="h-3.5 w-3.5" />
             </div>
-            <span className="tracking-wide">START 4 VS 4 PK BATTLE</span>
+            <span className="tracking-wide">دەستپێکردنی جەنگی ٤ بە ٤ (PK)</span>
             <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-black text-rose-300 uppercase">
-              5 MIN
+              ٥ خولەک
             </span>
           </div>
           <span className="text-[10px] text-amber-300 font-semibold group-hover:underline">
-            Launch Now &rarr;
+            دەستپێکردن ئێستا ←
           </span>
         </button>
       </div>
@@ -124,7 +124,7 @@ export default function PkBattlePanel({
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse" />
             <span className="font-display text-xs font-black text-rose-400 uppercase tracking-wider truncate">
-              RED
+              سوور
             </span>
           </div>
 
@@ -136,14 +136,14 @@ export default function PkBattlePanel({
                 <span className="text-amber-300 font-mono tracking-wider">{formatTime(timeLeft)}</span>
               </>
             ) : (
-              <span className="text-rose-400 uppercase tracking-widest text-[10px]">FINISHED</span>
+              <span className="text-rose-400 uppercase tracking-widest text-[10px]">تەواوبوو</span>
             )}
           </div>
 
           {/* Blue Team Label + Host End */}
           <div className="flex items-center gap-1.5 min-w-0 justify-end">
             <span className="font-display text-xs font-black text-sky-400 uppercase tracking-wider truncate">
-              BLUE
+              شین
             </span>
             <span className="flex h-2.5 w-2.5 rounded-full bg-sky-500 animate-pulse" />
             {isHost && pkBattle.status === 'active' && (
@@ -196,10 +196,10 @@ export default function PkBattlePanel({
               <div className="text-left">
                 <p className="text-xs font-black uppercase text-white">
                   {pkBattle.winner === 'red'
-                    ? '🏆 TEAM RED WINS!'
+                    ? '🏆 تیمی سوور سەرکەوت!'
                     : pkBattle.winner === 'blue'
-                    ? '🏆 TEAM BLUE WINS!'
-                    : '🤝 EPIC DRAW MATCH!'}
+                    ? '🏆 تیمی شین سەرکەوت!'
+                    : '🤝 یەکسانبوون!'}
                 </p>
                 <p className="text-[10px] text-amber-300">
                   Red: {redScore} pts &bull; Blue: {blueScore} pts
@@ -213,7 +213,7 @@ export default function PkBattlePanel({
                   onClick={handleStart5MinBattle}
                   className="rounded-xl bg-gradient-to-r from-rose-500 to-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow"
                 >
-                  Rematch (5 Min)
+                  دووبارەکردنەوە (٥ خولەک)
                 </button>
                 <button
                   onClick={handleReset}

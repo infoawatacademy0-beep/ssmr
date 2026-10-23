@@ -14,12 +14,12 @@ interface ReportModalProps {
 }
 
 const REPORT_REASONS = [
-  'Harassment or Offensive Behavior',
-  'Hate Speech or Discrimination',
-  'Inappropriate Voice / Media Content',
-  'Spam, Scam, or Solicitation',
-  'Impersonation of Another Identity',
-  'Gaming Fraud / Exploitation',
+  'هەراسانکردن یان ڕەفتاری نەشیاو',
+  'وتاری ڕق و جیاکاری',
+  'دەنگ یان ناوەڕۆکی نەشیاو',
+  'سپام، فێڵکردن یان داواکاری نەشیاو',
+  'خۆکردن بە کەسێکی تر',
+  'فێڵکردن لە یارییەکان',
 ];
 
 export default function ReportModal({
@@ -75,10 +75,10 @@ export default function ReportModal({
             </div>
             <div>
               <h3 className="font-display text-sm font-black text-white uppercase tracking-wider">
-                Submit Report
+                ناردنی ڕاپۆرت
               </h3>
               <p className="text-[10px] text-slate-400">
-                Reporting {targetType}: <strong className="text-slate-200">{targetName}</strong>
+                ڕاپۆرت لەسەر {targetType}: <strong className="text-slate-200">{targetName}</strong>
               </p>
             </div>
           </div>
@@ -95,9 +95,9 @@ export default function ReportModal({
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 mb-3 animate-bounce">
               <Check className="h-7 w-7" />
             </div>
-            <h4 className="text-sm font-bold text-white">Report Received</h4>
+            <h4 className="text-sm font-bold text-white">ڕاپۆرتەکەت گەیشت</h4>
             <p className="mt-1 text-xs text-slate-400 max-w-xs">
-              Thank you for keeping the arena safe. Our automated and community moderation team will review this shortly.
+              سوپاس بۆ پاراستنی ژینگەی ژوورەکان. تیمی چاودێری بە زووترین کات پێداچوونەوەی بۆ دەکات.
             </p>
           </div>
         ) : (
@@ -111,7 +111,7 @@ export default function ReportModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">
-                Violation Category
+                جۆری سەرپێچی
               </label>
               <div className="space-y-1.5">
                 {REPORT_REASONS.map((reason) => (
@@ -134,14 +134,14 @@ export default function ReportModal({
 
             <div>
               <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                Additional Details (Optional)
+                زانیاری زیاتر (ئارەزوومەندانە)
               </label>
               <textarea
                 rows={3}
                 maxLength={300}
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
-                placeholder="Describe what occurred, any specific timestamps or context…"
+                placeholder="باس لەوە بکە کە چی ڕوویداوە و زانیاری زیاتر بنووسە…"
                 className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/80 p-3 text-xs text-white placeholder-slate-500 outline-none transition focus:border-rose-400"
               />
             </div>
@@ -153,7 +153,7 @@ export default function ReportModal({
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 py-3 text-xs font-bold text-white shadow-lg shadow-rose-600/25 transition active:scale-95 disabled:opacity-50 hover:bg-rose-500"
               >
                 <ShieldAlert className="h-4 w-4" />
-                <span>{isSubmitting ? 'Submitting Report…' : 'CONFIRM & SUBMIT REPORT'}</span>
+                <span>{isSubmitting ? 'خەریکی ناردنە…' : 'دڵنیاکردنەوە و ناردنی ڕاپۆرت'}</span>
               </button>
             </div>
           </form>

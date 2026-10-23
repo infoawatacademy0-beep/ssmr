@@ -384,7 +384,7 @@ export default function PrivateChat({
             <button
               onClick={handleToggleFollow}
               disabled={isTogglingFollow}
-              title={isFollowing ? 'Following' : 'Follow User'}
+              title={isFollowing ? 'فۆڵۆکراوە' : 'فۆڵۆکردن'}
               className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition ${
                 isFollowing
                   ? 'border border-amber-400/30 bg-amber-400/10 text-amber-300'
@@ -392,7 +392,7 @@ export default function PrivateChat({
               }`}
             >
               {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{isFollowing ? 'Following' : 'Follow'}</span>
+              <span className="hidden sm:inline">{isFollowing ? 'فۆڵۆکراوە' : 'فۆڵۆکردن'}</span>
             </button>
 
             {/* Moderation Report Button */}
@@ -421,9 +421,9 @@ export default function PrivateChat({
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-amber-400 mb-2">
                 <Radio className="h-6 w-6" />
               </div>
-              <h4 className="text-xs font-bold text-white">Private Direct Channel</h4>
+              <h4 className="text-xs font-bold text-white">کەناڵی تایبەتی ڕاستەوخۆ</h4>
               <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
-                Encrypted end-to-end direct communication. Share messages, media links, and recorded voice memos.
+                پەیوەندی تایبەت و پارێزراو. نامە، بەستەری وێنە و تۆماری دەنگی ئاڵوگۆڕ بکە.
               </p>
             </div>
           ) : (
@@ -520,7 +520,7 @@ export default function PrivateChat({
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5">
                               <Volume2 className="h-3.5 w-3.5" />
-                              <span className="text-[11px] font-bold">Voice Memo</span>
+                              <span className="text-[11px] font-bold">دەنگی تۆمارکراو</span>
                             </div>
                             {/* Animated Audio Waveform Mock */}
                             <div className="flex items-center gap-0.5">
@@ -561,7 +561,7 @@ export default function PrivateChat({
             <div className="border-t border-slate-800 bg-slate-900/90 p-3 backdrop-blur-md">
               <div className="flex items-center justify-between pb-2">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Attach Image Link
+                  بەستەری وێنە دابنێ
                 </span>
                 <button
                   onClick={() => setIsImagePickerOpen(false)}
@@ -576,7 +576,7 @@ export default function PrivateChat({
                   type="url"
                   value={imageUrlInput}
                   onChange={(e) => setImageUrlInput(e.target.value)}
-                  placeholder="Paste direct image URL (https://…)"
+                  placeholder="بەستەری وێنە لێرە دابنێ (https://…)"
                   className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                 />
                 <button
@@ -585,7 +585,7 @@ export default function PrivateChat({
                   disabled={!imageUrlInput.trim()}
                   className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-black disabled:opacity-50"
                 >
-                  Attach
+                  هاوپێچکردن
                 </button>
               </div>
             </div>
@@ -598,7 +598,7 @@ export default function PrivateChat({
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
               <span className="text-xs font-bold">
-                Recording Voice Memo: {recordingSeconds}s
+                تۆمارکردنی دەنگ: {recordingSeconds} چرکە
               </span>
             </div>
 
@@ -606,7 +606,7 @@ export default function PrivateChat({
               onClick={handleStopRecordingAndSend}
               className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-bold text-white shadow-md hover:bg-rose-500"
             >
-              Finish & Send
+              تەواوکردن و ناردن
             </button>
           </div>
         )}
@@ -618,7 +618,7 @@ export default function PrivateChat({
             <button
               type="button"
               onClick={() => setIsImagePickerOpen(!isImagePickerOpen)}
-              title="Attach Image"
+              title="هاوپێچکردنی وێنە"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-amber-400/40 hover:text-amber-300"
             >
               <ImagePlus className="h-4 w-4" />
@@ -643,7 +643,7 @@ export default function PrivateChat({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Send private message…"
+              placeholder="نامەی تایبەتی بنووسە…"
               disabled={isRecordingVoice}
               className="flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 disabled:opacity-50"
             />

@@ -257,10 +257,10 @@ export default function DiceGamePanel({
             </div>
             <div>
               <h2 className="font-display text-sm font-bold tracking-wide text-white">
-                DICE BATTLE 1v1
+                جەنگی زاری ١ بە ١
               </h2>
               <p className="text-[10px] font-medium tracking-wider text-amber-400 uppercase">
-                High-Stakes Coin Escrow
+                گرەوی کۆینی پارێزراو
               </p>
             </div>
           </div>
@@ -283,8 +283,8 @@ export default function DiceGamePanel({
         {!activeGame && (
           <div className="mt-5 space-y-4">
             <div className="text-center">
-              <p className="text-xs text-slate-300 font-medium">Select Bet Amount</p>
-              <p className="text-[11px] text-slate-500">Winner takes all + awards 200 XP</p>
+              <p className="text-xs text-slate-300 font-medium">بڕی گرەوی کۆین هەڵبژێرە</p>
+              <p className="text-[11px] text-slate-500">سەرکەوتوو هەموو کۆینەکان دەباتەوە + ٢٠٠ XP</p>
             </div>
 
             {/* Presets Grid */}
@@ -309,7 +309,7 @@ export default function DiceGamePanel({
                     `}
                   >
                     <span className="text-xs font-bold">{amt}</span>
-                    <span className="text-[9px] text-slate-500">Coins</span>
+                    <span className="text-[9px] text-slate-500">کۆین</span>
                   </button>
                 );
               })}
@@ -319,7 +319,7 @@ export default function DiceGamePanel({
             {!isUserSeated && (
               <div className="flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
                 <ShieldAlert className="h-4 w-4 shrink-0" />
-                <span>Take any empty microphone seat to initiate or accept bets.</span>
+                <span>سەرەتا لەسەر کورسییەکی مایک دابنیشە بۆ دەستپێکردن یان بەشداری لە یاری.</span>
               </div>
             )}
 
@@ -332,8 +332,8 @@ export default function DiceGamePanel({
               <Swords className="h-4 w-4" />
               <span>
                 {isSubmitting
-                  ? 'Placing Bet into Escrow…'
-                  : `Launch Challenge (${selectedBet} Coins)`}
+                  ? 'خەریکی دانانی گرەوە…'
+                  : `دەستپێکردنی یاری (${selectedBet} کۆین)`}
               </span>
             </button>
           </div>
@@ -354,15 +354,15 @@ export default function DiceGamePanel({
               </div>
             </div>
 
-            <h3 className="text-sm font-bold text-white">Open Arena Challenge!</h3>
+            <h3 className="text-sm font-bold text-white">ئاڵنگاری نوێ کرایەوە!</h3>
             <p className="mt-1 text-xs text-slate-400">
               <span className="font-semibold text-amber-400">{activeGame.player1.username}</span>{' '}
-              wagered <span className="font-bold text-white">{activeGame.betAmount} Coins</span>
+              گرەوی کرد لەسەر <span className="font-bold text-white">{activeGame.betAmount} کۆین</span>
             </p>
 
             <div className="mt-4 flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs">
-              <span className="text-slate-400">Potential Pot:</span>
-              <span className="font-bold text-amber-300">{activeGame.betAmount * 2} Coins</span>
+              <span className="text-slate-400">خەڵاتی گشتی:</span>
+              <span className="font-bold text-amber-300">{activeGame.betAmount * 2} کۆین</span>
             </div>
 
             {/* Actions */}
@@ -372,7 +372,7 @@ export default function DiceGamePanel({
                   onClick={handleCancelGame}
                   className="w-full rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20 active:scale-95"
                 >
-                  Cancel Challenge & Refund {activeGame.betAmount} Coins
+                  هەڵوەشاندنەوەی یاری و گەڕاندنەوەی {activeGame.betAmount} کۆین
                 </button>
               ) : (
                 <button
@@ -383,8 +383,8 @@ export default function DiceGamePanel({
                   <Flame className="h-4 w-4" />
                   <span>
                     {isSubmitting
-                      ? 'Joining Battle…'
-                      : `Accept Challenge (${activeGame.betAmount} Coins)`}
+                      ? 'خەریکی چوونەژوورەوەیە…'
+                      : `قبوڵکردنی یاری (${activeGame.betAmount} کۆین)`}
                   </span>
                 </button>
               )}
@@ -399,7 +399,7 @@ export default function DiceGamePanel({
             <div className="flex items-center justify-center gap-2 rounded-2xl bg-amber-400/10 border border-amber-400/20 py-2.5 text-center">
               <Trophy className="h-4 w-4 text-amber-400" />
               <span className="text-xs font-semibold text-amber-300">
-                Prize Pot: <strong className="text-white text-sm">{activeGame.potSize} Coins</strong>
+                کۆی خەڵات: <strong className="text-white text-sm">{activeGame.potSize} کۆین</strong>
               </span>
             </div>
 
@@ -429,9 +429,9 @@ export default function DiceGamePanel({
 
                 <span className="text-[11px] font-semibold text-slate-400">
                   {activeGame.player1.rollResult !== null ? (
-                    <span className="text-emerald-400">Rolled: {activeGame.player1.rollResult}</span>
+                    <span className="text-emerald-400">ئەنجامی زار: {activeGame.player1.rollResult}</span>
                   ) : (
-                    'Waiting to roll…'
+                    'چاوەڕوانی هەڵدانی زارە…'
                   )}
                 </span>
               </div>
@@ -460,9 +460,9 @@ export default function DiceGamePanel({
 
                 <span className="text-[11px] font-semibold text-slate-400">
                   {activeGame.player2?.rollResult !== null ? (
-                    <span className="text-emerald-400">Rolled: {activeGame.player2?.rollResult}</span>
+                    <span className="text-emerald-400">ئەنجامی زار: {activeGame.player2?.rollResult}</span>
                   ) : (
-                    'Waiting to roll…'
+                    'چاوەڕوانی هەڵدانی زارە…'
                   )}
                 </span>
               </div>
@@ -476,16 +476,16 @@ export default function DiceGamePanel({
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3.5 text-xs font-bold text-black shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 disabled:opacity-50"
               >
                 <Dices className="h-5 w-5 animate-spin" />
-                <span>{isLocalRolling ? 'Rolling Dice…' : 'ROLL YOUR DIE NOW!'}</span>
+                <span>{isLocalRolling ? 'خەریکی هەڵدانی زارە…' : 'زارەکەت هەڵبدە ئێستا!'}</span>
               </button>
             ) : isParticipant && myRoll !== null ? (
               <div className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-center text-xs text-slate-400">
                 <Dices className="h-4 w-4 text-amber-400" />
-                <span>You rolled a <strong className="text-white">{myRoll}</strong>! Waiting for opponent…</span>
+                <span>ئەنجامی زارەکەت <strong className="text-white">{myRoll}</strong> بوو! چاوەڕوانی یاریزانی بەرامبەر بە…</span>
               </div>
             ) : (
               <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-center text-xs text-slate-400">
-                Spectating live match between {activeGame.player1.username} & {activeGame.player2?.username}…
+                تەماشاکردنی یاری نێوان {activeGame.player1.username} و {activeGame.player2?.username}…
               </div>
             )}
           </div>
@@ -507,13 +507,13 @@ export default function DiceGamePanel({
             <div>
               <h3 className="font-display text-lg font-black text-white">
                 {activeGame.isTie
-                  ? "IT'S A DRAW!"
-                  : `${activeGame.winnerUsername?.toUpperCase()} WINS!`}
+                  ? "یەکسانبوون!"
+                  : `${activeGame.winnerUsername?.toUpperCase()} سەرکەوت!`}
               </h3>
               <p className="mt-1 text-xs text-amber-300 font-semibold">
                 {activeGame.isTie
-                  ? 'Both players rolled equally. Bets have been refunded!'
-                  : `Claimed ${activeGame.potSize} Coins Pot & 200 XP!`}
+                  ? 'هەردوو یاریزان یەکسان بوون. کۆینەکان گەڕێندرانەوە!'
+                  : `بردنەوەی ${activeGame.potSize} کۆین و ٢٠٠ خاڵی XP!`}
               </p>
             </div>
 
@@ -535,14 +535,14 @@ export default function DiceGamePanel({
             {/* Auto-reset pill */}
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
               <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-              <span>Next round ready in {autoResetSeconds ?? 0}s…</span>
+              <span>گەڕی دواتر ئامادەیە لە {autoResetSeconds ?? 0} چرکەدا…</span>
             </div>
 
             <button
               onClick={() => resetGame(roomId)}
               className="w-full rounded-2xl bg-white/[0.08] py-3 text-xs font-semibold text-white hover:bg-white/[0.14] active:scale-95"
             >
-              Play Another Round
+              یارییەکی تر بکە
             </button>
           </div>
         )}

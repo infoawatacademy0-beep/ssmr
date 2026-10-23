@@ -101,9 +101,9 @@ export default function UserSearch({
             </div>
             <div>
               <h2 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                Discover Users
+                دۆزینەوەی ئەندامان
               </h2>
-              <p className="text-[10px] text-slate-400">Search members across Voice Arena</p>
+              <p className="text-[10px] text-slate-400">گەڕان بەدوای ئەندامانی گۆڕەپانی دەنگی</p>
             </div>
           </div>
           <button
@@ -123,7 +123,7 @@ export default function UserSearch({
               autoFocus
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by username or keyword..."
+              placeholder="بەپێی ناوی بەکارهێنەر بگەڕێ..."
               className="w-full rounded-2xl border border-slate-800 bg-slate-950 py-3 pl-10 pr-10 text-xs font-semibold text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
             />
             {searchTerm && (
@@ -142,22 +142,22 @@ export default function UserSearch({
           {loading ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <Loader2 className="h-6 w-6 animate-spin text-amber-400 mb-2" />
-              <p className="text-xs">Searching global registry...</p>
+              <p className="text-xs">خەریکی گەڕانە...</p>
             </div>
           ) : !searchTerm.trim() ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <UserIcon className="h-10 w-10 text-slate-700 mb-3" />
-              <h4 className="text-xs font-bold text-slate-300">Start Typing to Search</h4>
+              <h4 className="text-xs font-bold text-slate-300">ناوێک بنووسە بۆ گەڕان</h4>
               <p className="mt-1 text-[11px] text-slate-500 max-w-xs">
-                Find your friends, match competitors, and top arena streamers by typing their username.
+                هاوڕێکانت و یاریزانان بدۆزەرەوە بە نووسینی ناوی بەکارهێنەرییان.
               </p>
             </div>
           ) : results.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <Search className="h-10 w-10 text-slate-700 mb-3" />
-              <h4 className="text-xs font-bold text-slate-300">No Users Found</h4>
+              <h4 className="text-xs font-bold text-slate-300">هیچ ئەندامێک نەدۆزرایەوە</h4>
               <p className="mt-1 text-[11px] text-slate-500">
-                No active users match &quot;{searchTerm}&quot;. Try a different query.
+                هیچ بەکارهێنەرێک نەدۆزرایەوە بە ناوی &quot;{searchTerm}&quot;. ناوی تر تاقی بکەرەوە.
               </p>
             </div>
           ) : (
@@ -213,11 +213,11 @@ export default function UserSearch({
                         <div className="flex items-center gap-2 text-[10px] text-slate-400">
                           <span className="flex items-center gap-0.5 text-purple-300">
                             <Sparkles className="h-3 w-3" />
-                            Level {targetUser.level || 1}
+                            ئاستی {targetUser.level || 1}
                           </span>
                           <span>&bull;</span>
                           <span className="truncate max-w-[140px] text-slate-500">
-                            {targetUser.bio || 'Exploring Voice Arena'}
+                            {targetUser.bio || 'ئەندامی ژووری دەنگی SSMR'}
                           </span>
                         </div>
                       </div>
@@ -236,12 +236,12 @@ export default function UserSearch({
                         {isFollowing ? (
                           <>
                             <UserCheck className="h-3.5 w-3.5" />
-                            <span>Following</span>
+                            <span>فۆڵۆکراوە</span>
                           </>
                         ) : (
                           <>
                             <UserPlus className="h-3.5 w-3.5" />
-                            <span>Follow</span>
+                            <span>فۆڵۆکردن</span>
                           </>
                         )}
                       </button>
@@ -256,7 +256,7 @@ export default function UserSearch({
                               avatar: targetUser.avatar || (targetUser as any).profileImage,
                             });
                           }}
-                          title="Send Private Message"
+                          title="ناردنی نامەی تایبەتی"
                           className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-2 text-cyan-400 hover:bg-cyan-500/20 transition active:scale-95"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
@@ -268,7 +268,7 @@ export default function UserSearch({
                           onClose();
                           onOpenProfile(targetUser.uid);
                         }}
-                        title="View Full Profile"
+                        title="بینینی تەواوی پڕۆفایل"
                         className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:text-white transition"
                       >
                         <ArrowRight className="h-3.5 w-3.5" />

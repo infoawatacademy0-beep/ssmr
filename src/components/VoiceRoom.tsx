@@ -626,8 +626,8 @@ export default function VoiceRoom() {
         >
           <Radio className="h-7 w-7 text-white" />
         </motion.div>
-        <p className="text-sm font-semibold text-white">Connecting to Voice Arena…</p>
-        <p className="mt-1 text-xs text-slate-500">Initializing LiveKit WebRTC & 8 audio channels</p>
+        <p className="text-sm font-semibold text-white">پەیوەستبوون بە ژووری دەنگی…</p>
+        <p className="mt-1 text-xs text-slate-500">ئامادەکردنی کەناڵەکانی دەنگ و مایکرۆفۆن</p>
       </div>
     );
   }
@@ -638,13 +638,13 @@ export default function VoiceRoom() {
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-500/10 text-rose-400">
           <PhoneOff className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold text-white">Room Unavailable</h2>
-        <p className="mt-2 text-sm text-slate-400 max-w-xs">{error || 'This voice room was closed or could not be found.'}</p>
+        <h2 className="text-xl font-bold text-white">ژوورەکە بەردەست نییە</h2>
+        <p className="mt-2 text-sm text-slate-400 max-w-xs">{error || 'ئەم ژوورە دەنگییە داخراوە یان بوونی نییە.'}</p>
         <button
           onClick={() => navigate('/')}
           className="mt-6 rounded-2xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-transform active:scale-95"
         >
-          Return to Lobby
+          گەڕانەوە بۆ سەرەتا
         </button>
       </div>
     );
@@ -735,7 +735,7 @@ export default function VoiceRoom() {
               {room.roomName}
             </h1>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <span className="truncate max-w-[110px]">Host: <strong className="text-violet-400">{room.hostName}</strong></span>
+              <span className="truncate max-w-[110px]">خاوەن: <strong className="text-violet-400">{room.hostName}</strong></span>
               {(hostIsVerified || vipUsersMap[room.hostId]) && (
                 <span title="Verified VIP Host" className="inline-flex items-center gap-0.5 shrink-0">
                   <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
@@ -754,7 +754,7 @@ export default function VoiceRoom() {
           {/* Live Audience Counter */}
           <div
             className="flex h-8 items-center gap-1 rounded-xl bg-white/[0.04] border border-white/[0.06] px-2 text-xs font-bold text-slate-300"
-            title="Active room listeners"
+            title="گوێگرانی ژوور"
           >
             <Users className="h-3.5 w-3.5 text-emerald-400" />
             <span className="text-[11px] text-white">{audience.length}</span>
@@ -764,10 +764,10 @@ export default function VoiceRoom() {
           <button
             onClick={() => setIsInviteModalOpen(true)}
             className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/20"
-            title="Invite friends"
+            title="بانگهێشتکردنی هاوڕێیان"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Invite</span>
+            <span className="hidden sm:inline">بانگهێشت</span>
           </button>
 
           {/* Host Music Player Toggle Button */}
@@ -818,7 +818,7 @@ export default function VoiceRoom() {
               title="Host Controls"
             >
               <Shield className="h-3.5 w-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Panel</span>
+              <span className="hidden sm:inline">پانێڵ</span>
             </button>
           )}
 
@@ -845,7 +845,7 @@ export default function VoiceRoom() {
           <button
             onClick={handleShareRoom}
             className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-300 transition-colors hover:bg-white/[0.08]"
-            title="Copy room link"
+            title="کۆپیکردنی بەستەری ژوور"
           >
             {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
           </button>
@@ -854,7 +854,7 @@ export default function VoiceRoom() {
           <button
             onClick={() => setIsRoomReportOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-400 transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"
-            title="Report this room"
+            title="ڕاپۆرتکردنی ئەم ژوورە"
           >
             <ShieldAlert className="h-3.5 w-3.5" />
           </button>
@@ -864,10 +864,10 @@ export default function VoiceRoom() {
             onClick={handleLeaveRoom}
             disabled={isLeaving}
             className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/15 px-2.5 text-xs font-bold text-rose-300 transition-colors hover:bg-rose-500/25 active:scale-95 disabled:opacity-50"
-            title="Leave Room"
+            title="دەرچوون لە ژوور"
           >
             <PhoneOff className="h-3.5 w-3.5" />
-            <span>Leave</span>
+            <span>دەرچوون</span>
           </button>
         </div>
       </header>
@@ -931,7 +931,7 @@ export default function VoiceRoom() {
                   })}
               </div>
               <span className="text-[10px] text-slate-500">
-                {room.seats.filter((s) => s.userId).length} / 8 Seated
+                {room.seats.filter((s) => s.userId).length} / ٨ دانیشتوو
               </span>
             </div>
           </div>
@@ -1121,9 +1121,9 @@ export default function VoiceRoom() {
                           ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
                           : 'text-slate-500 font-medium'
                       }`}
-                      title={isOccupied ? seat.username || `Seat ${seat.seatNo}` : `Seat ${seat.seatNo}`}
+                      title={isOccupied ? seat.username || `کورسی ${seat.seatNo}` : `کورسی ${seat.seatNo}`}
                     >
-                      {isOccupied ? (isCurrentUser ? `${seat.username} (You)` : seat.username) : `Seat ${seat.seatNo}`}
+                      {isOccupied ? (isCurrentUser ? `${seat.username} (تۆ)` : seat.username) : `کورسی ${seat.seatNo}`}
                     </span>
                   </div>
                 </div>
@@ -1232,7 +1232,7 @@ export default function VoiceRoom() {
           <div className="flex items-center justify-between pb-2">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-                Live Room Chat
+                چاتی ڕاستەوخۆی ژوور
               </span>
               <button
                 type="button"
@@ -1272,7 +1272,7 @@ export default function VoiceRoom() {
                 </button>
               )}
               <span className="text-[10px] text-slate-500">
-                {room.activeChat.length} messages
+                {room.activeChat.length} نامە
               </span>
             </div>
           </div>
@@ -1284,7 +1284,7 @@ export default function VoiceRoom() {
           >
             {room.activeChat.length === 0 ? (
               <div className="flex h-full items-center justify-center text-slate-500 text-center">
-                <p>No messages yet.<br />Be the first to say hello!</p>
+                <p>هێشتا هیچ نامەیەک نییە.<br />یەکەم کەس بە کە سڵاو بنێرێت!</p>
               </div>
             ) : (
               room.activeChat.map((msg) => {
@@ -1373,7 +1373,7 @@ export default function VoiceRoom() {
                             isSenderVip ? 'text-amber-300' : 'text-slate-400 hover:text-white'
                           }`}
                         >
-                          {isMe ? 'You' : msg.senderName}
+                          {isMe ? 'تۆ' : msg.senderName}
                         </button>
                         {isSenderVip && (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-red-500/25 border border-amber-400/50 px-1.5 py-0.2 text-[8px] font-black text-amber-300">
@@ -1383,7 +1383,7 @@ export default function VoiceRoom() {
                         )}
                         {isHostSender && (
                           <span className="flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.2 text-[8px] font-bold text-amber-300">
-                            <Crown className="h-2 w-2" /> HOST
+                            <Crown className="h-2 w-2" /> خاوەن
                           </span>
                         )}
                       </div>
@@ -1739,7 +1739,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.05] py-3 text-xs font-semibold text-white transition-colors hover:bg-white/[0.1]"
                     >
                       {selectedSeat.isMuted ? <Mic className="h-4 w-4 text-emerald-400" /> : <MicOff className="h-4 w-4 text-rose-400" />}
-                      {selectedSeat.isMuted ? 'Unmute My Mic' : 'Mute My Mic'}
+                      {selectedSeat.isMuted ? 'کردنەوەی مایکەکەم' : 'بێدەنگکردنی مایکەکەم'}
                     </button>
 
                     <button
@@ -1747,7 +1747,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 py-3 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20"
                     >
                       <PhoneOff className="h-4 w-4" />
-                      Leave This Seat
+                      هەستان لەسەر کورسی
                     </button>
                   </>
                 ) : (
@@ -1797,12 +1797,12 @@ export default function VoiceRoom() {
                       </div>
                     )}
 
-                    {/* Host Moderation Controls (Room Host can mute/unmute or kick member) */}
+                    {/* بەڕێوەبردنی خاوەن ژوور Controls (Room Host can mute/unmute or kick member) */}
                     {isHost && (
                       <div className="space-y-2 border-b border-white/[0.08] pb-3 mb-2">
                         <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-400 px-1">
                           <Crown className="h-3 w-3" />
-                          <span>Host Moderation</span>
+                          <span>بەڕێوەبردنی خاوەن ژوور</span>
                         </div>
 
                         {/* Host Mute/Unmute Member Mic */}
@@ -1824,12 +1824,12 @@ export default function VoiceRoom() {
                           {selectedSeat.isMuted ? (
                             <>
                               <Mic className="h-4 w-4 text-emerald-400" />
-                              <span>Unmute Member Mic</span>
+                              <span>کردنەوەی مایکی ئەندام</span>
                             </>
                           ) : (
                             <>
                               <MicOff className="h-4 w-4 text-rose-400" />
-                              <span>Mute Member Mic</span>
+                              <span>بێدەنگکردنی مایکی ئەندام</span>
                             </>
                           )}
                         </button>
@@ -1847,16 +1847,16 @@ export default function VoiceRoom() {
                           className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-xs font-semibold text-slate-300 hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-300 transition-all"
                         >
                           <PhoneOff className="h-3.5 w-3.5 text-rose-400" />
-                          <span>Kick from Seat</span>
+                          <span>لادان لەسەر کورسی</span>
                         </button>
                       </div>
                     )}
 
                     <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2.5 text-center text-xs text-slate-400">
                       <p>
-                        Mic Status:{' '}
+                        دۆخی مایک:{' '}
                         <span className={selectedSeat.isMuted ? 'text-rose-400 font-semibold' : 'text-emerald-400 font-semibold'}>
-                          {selectedSeat.isMuted ? 'Muted' : 'Speaking / Active Mic'}
+                          {selectedSeat.isMuted ? 'بێدەنگکراو' : 'چالاک / قسە دەکات'}
                         </span>
                       </p>
                     </div>
@@ -1905,7 +1905,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 py-3 text-xs font-bold text-black shadow-md shadow-amber-500/20"
                     >
                       <Gift className="h-4 w-4" />
-                      Send Gift to {selectedSeat.username}
+                      ناردنی دیاری بۆ {selectedSeat.username}
                     </button>
                   </>
                 )}

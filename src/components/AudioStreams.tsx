@@ -38,8 +38,8 @@ export default function AudioStreams({
                 <Volume2 className="h-5 w-5 animate-bounce" />
               </div>
               <div className="flex-1">
-                <p className="text-xs font-bold text-white">Audio Paused by Browser</p>
-                <p className="text-[10px] text-amber-300">Tap here to enable incoming voice streams</p>
+                <p className="text-xs font-bold text-white">دەنگ لەلایەن وێبگەڕەوە وەستێنراوە</p>
+                <p className="text-[10px] text-amber-300">لێرە دابگرە بۆ چالاککردنی دەنگی ژوورەکە</p>
               </div>
             </div>
           </motion.div>

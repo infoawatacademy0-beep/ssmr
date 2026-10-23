@@ -40,7 +40,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
     }
 
     if (currentUser.coins < item.price) {
-      setErrorMsg(`Insufficient coins! You need ${item.price.toLocaleString()} coins.`);
+      setErrorMsg(`کۆینی پێویستت نییە! پێویستت بە ${item.price.toLocaleString()} کۆینە.`);
       return;
     }
 
@@ -85,9 +85,9 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                Arena Vault &amp; Armory
+                فرۆشگا و خەزێنەی گۆڕەپان
               </h3>
-              <p className="text-[10px] text-slate-400">Cosmetics, Badges &amp; Gold Reserves</p>
+              <p className="text-[10px] text-slate-400">باجەکان، چوارچێوە و کۆین</p>
             </div>
           </div>
 
@@ -110,11 +110,11 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
         <div className="flex items-center gap-1.5 overflow-x-auto p-3 border-b border-slate-800/80 bg-slate-950/40">
           {(
             [
-              { id: 'all', label: 'All Items' },
-              { id: 'coin_pack', label: 'Coin Packs' },
-              { id: 'avatar_frame', label: 'Avatar Frames' },
-              { id: 'vip_badge', label: 'VIP Badges' },
-              { id: 'entrance_effect', label: 'Entrance VFX' },
+              { id: 'all', label: 'هەموو شتەکان' },
+              { id: 'coin_pack', label: 'کۆمەڵە کۆین' },
+              { id: 'avatar_frame', label: 'چوارچێوەی پڕۆفایل' },
+              { id: 'vip_badge', label: 'باجی VIP' },
+              { id: 'entrance_effect', label: 'کاریگەری هاتنەژوورەوە' },
             ] as const
           ).map((tab) => (
             <button
@@ -141,7 +141,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
         {purchaseSuccess && (
           <div className="m-4 mb-0 flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300">
             <Check className="h-4 w-4 shrink-0 text-emerald-400" />
-            <span>Successfully acquired {purchaseSuccess}! Added to your inventory.</span>
+            <span>بە سەرکەوتوویی بەدەستهات: {purchaseSuccess}! بۆ کەرەستەکانت زیادکرا.</span>
           </div>
         )}
 
@@ -164,7 +164,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
                       </div>
                       {item.isLimited && (
                         <span className="rounded-md bg-rose-500/15 border border-rose-500/20 px-2 py-0.5 text-[9px] font-bold text-rose-400 uppercase">
-                          Limited Edition
+                          دیاریکراو
                         </span>
                       )}
                     </div>
@@ -190,7 +190,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
                     {isOwned ? (
                       <span className="flex items-center gap-1 rounded-xl bg-white/[0.05] border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-300">
                         <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>Owned</span>
+                        <span>کڕدراوە</span>
                       </span>
                     ) : (
                       <button
@@ -198,7 +198,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
                         disabled={isPurchasing}
                         className="rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-bold text-black shadow-md transition hover:bg-amber-400 active:scale-95 disabled:opacity-50"
                       >
-                        {isPurchasing ? 'Processing...' : 'Acquire'}
+                        {isPurchasing ? 'خەریکە...' : 'کڕین'}
                       </button>
                     )}
                   </div>

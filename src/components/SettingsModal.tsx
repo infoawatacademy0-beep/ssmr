@@ -173,8 +173,8 @@ export default function SettingsModal({
               <Settings className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-display text-base font-black text-white">Settings</h2>
-              <p className="text-[11px] text-slate-400">Account, Audio &amp; System Preferences</p>
+              <h2 className="font-display text-base font-black text-white">ڕێکخستنەکان</h2>
+              <p className="text-[11px] text-slate-400">هەژمار، دەنگ و ڕێکخستنەکانی سیستەم</p>
             </div>
           </div>
 
@@ -232,7 +232,7 @@ export default function SettingsModal({
             >
               <div className="flex items-center gap-2">
                 <UserIcon className="h-4 w-4" />
-                <span>Edit Profile Identity &amp; Covers</span>
+                <span>دەستکاریکردنی پڕۆفایل و بەرگ</span>
               </div>
               <ChevronRight className="h-4 w-4 text-slate-500" />
             </button>
@@ -241,7 +241,7 @@ export default function SettingsModal({
           {/* 2. Audio & Live Voice Arena Settings */}
           <div className="space-y-2">
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-              Audio &amp; Voice Engine
+              دەنگ و بزوێنەری پەخش
             </h4>
             <div className="rounded-3xl border border-slate-800/80 bg-slate-900/40 divide-y divide-slate-800/60 overflow-hidden">
               {/* Noise Suppression Toggle */}
@@ -249,10 +249,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Volume2 className="h-4 w-4 text-cyan-400" />
-                    <span>AI Background Noise Suppression</span>
+                    <span>کەمکردنەوەی ژاوەژاوی دەنگ بە ژیری دەستکرد</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Filters fan, keyboard, and echo noise in voice rooms
+                    فلتەرکردنی دەنگی پانکە، دەنگدانەوە و دەنگە زیادەکانی دەوروبەر
                   </p>
                 </div>
                 <button
@@ -275,10 +275,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Sliders className="h-4 w-4 text-purple-400" />
-                    <span>In-App Sound Effects</span>
+                    <span>دەنگە تایبەتەکانی بەرنامە</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Gift sending audio and entrance fanfares
+                    دەنگی ناردنی دیاری و هاتنەژوورەوەی ئەندامان
                   </p>
                 </div>
                 <button
@@ -301,7 +301,7 @@ export default function SettingsModal({
           {/* 3. Privacy & Communication */}
           <div className="space-y-2">
             <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
-              Privacy &amp; Direct Messaging
+              پاراستن و نامەی تایبەتی
             </h4>
             <div className="rounded-3xl border border-slate-800/80 bg-slate-900/40 divide-y divide-slate-800/60 overflow-hidden">
               {/* Direct Messages Toggle */}
@@ -309,10 +309,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Lock className="h-4 w-4 text-emerald-400" />
-                    <span>Allow Direct Messages</span>
+                    <span>ڕێگەدان بە نامەی تایبەتی</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Allow registered citizens to send you private DMs
+                    ڕێگەدان بە ئەندامانی تر تاوەکو نامەی تایبەتیت بۆ بنێرن
                   </p>
                 </div>
                 <button
@@ -335,10 +335,10 @@ export default function SettingsModal({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-white">
                     <Bell className="h-4 w-4 text-yellow-400" />
-                    <span>Activity Notifications</span>
+                    <span>ئاگادارکردنەوەی چالاکییەکان</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Receive room invites and follower updates
+                    وەرگرتنی بانگهێشتی ژوور و ئاگاداری فۆڵۆکەران
                   </p>
                 </div>
                 <button
@@ -362,7 +362,7 @@ export default function SettingsModal({
           <div className="rounded-3xl border border-slate-800/80 bg-slate-900/30 p-3.5 flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 text-slate-500" />
-              <span>SSMR Voice Arena Edition</span>
+              <span>وەشانی گۆڕەپانی دەنگی SSMR</span>
             </div>
             <span className="font-mono text-[10px] text-slate-500">v2.4.0 (Production)</span>
           </div>
@@ -377,7 +377,7 @@ export default function SettingsModal({
                   className="flex w-full items-center justify-center gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20 active:scale-95 shadow-lg shadow-rose-500/10"
                 >
                   <LogOut className="h-4 w-4 text-rose-400" />
-                  <span>Sign Out of Account</span>
+                  <span>چوونەدەرەوە لە هەژمار</span>
                 </button>
               ) : (
                 <motion.div
@@ -388,10 +388,10 @@ export default function SettingsModal({
                 >
                   <div className="flex items-center justify-center gap-2 text-rose-400">
                     <AlertTriangle className="h-5 w-5" />
-                    <span className="text-xs font-bold">Are you sure you want to sign out?</span>
+                    <span className="text-xs font-bold">ئایا دڵنیایت دەتەوێت لە هەژمارەکەت دەربچیت؟</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    You will need your email and password to log back in.
+                    پێویستت بە ئیمەیڵ و وشەی نهێنیت دەبێت بۆ چوونەژوورەوەی دووبارە.
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -399,7 +399,7 @@ export default function SettingsModal({
                       onClick={() => setShowSignoutConfirm(false)}
                       className="flex-1 rounded-xl border border-slate-800 bg-slate-900 py-2 text-xs font-bold text-slate-300 hover:text-white"
                     >
-                      Cancel
+                      پاشگەزبوونەوە
                     </button>
                     <button
                       type="button"
@@ -407,7 +407,7 @@ export default function SettingsModal({
                       onClick={handleConfirmSignOut}
                       className="flex-1 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 py-2 text-xs font-black text-white shadow-md shadow-rose-600/30 hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                     >
-                      {isSigningOut ? 'Signing out...' : 'Yes, Sign Out'}
+                      {isSigningOut ? 'خەریکی دەرچوونە...' : 'بەڵێ، دەرچوون'}
                     </button>
                   </div>
                 </motion.div>

@@ -491,14 +491,14 @@ export default function AdminPanel({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-sm font-black tracking-wider text-white uppercase sm:text-base">
-                  Live Management &amp; Radar Console
+                  کۆنسۆڵی بەڕێوەبردن و ڕاداری ڕاستەوخۆ
                 </h2>
                 <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-black text-rose-300 border border-rose-500/30 uppercase">
-                  Open Admin
+                  بەڕێوەبەر
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-medium">
-                Real-Time User Directory, GPS Telemetry, Moderation &amp; Vaults
+                ڕێبەرنامەی ئەندامان، ڕادار و نەخشە، بەڕێوەبردن و کۆینەکان
               </p>
             </div>
           </div>
@@ -508,10 +508,10 @@ export default function AdminPanel({
               onClick={loadUsersList}
               disabled={isLoadingUsers}
               className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-700 transition"
-              title="Refresh User & Telemetry Cache"
+              title="نوێکردنەوەی داتاکان"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isLoadingUsers ? 'animate-spin text-rose-400' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span className="hidden sm:inline">نوێکردنەوە</span>
             </button>
 
             <button
@@ -530,7 +530,7 @@ export default function AdminPanel({
               <Users className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Registered Users</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase">هەموو ئەندامان</span>
               <p className="font-mono text-base font-black text-white">{totalUsersCount}</p>
             </div>
           </div>
@@ -540,7 +540,7 @@ export default function AdminPanel({
               <MapPin className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Located Members</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase">ئەندامانی نەخشە</span>
               <p className="font-mono text-base font-black text-emerald-300">{usersWithLocation.length}</p>
             </div>
           </div>
@@ -550,7 +550,7 @@ export default function AdminPanel({
               <BadgeCheck className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Verified VIPs</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase">ئەندامانی VIP</span>
               <p className="font-mono text-base font-black text-sky-300">{verifiedCount}</p>
             </div>
           </div>
@@ -560,7 +560,7 @@ export default function AdminPanel({
               <Ban className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Active Bans</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase">باندکراوەکان</span>
               <p className="font-mono text-base font-black text-rose-300">{bannedCount}</p>
             </div>
           </div>
@@ -578,7 +578,7 @@ export default function AdminPanel({
               }`}
             >
               <Users className="h-4 w-4" />
-              <span>User Directory &amp; Assets</span>
+              <span>ئەندامان و سامانەکان</span>
             </button>
 
             <button
@@ -590,7 +590,7 @@ export default function AdminPanel({
               }`}
             >
               <Map className="h-4 w-4 text-emerald-400" />
-              <span>Live Radar &amp; Map ({usersWithLocation.length})</span>
+              <span>ڕادار و نەخشە ({usersWithLocation.length})</span>
             </button>
 
             <button
@@ -602,7 +602,7 @@ export default function AdminPanel({
               }`}
             >
               <AlertTriangle className="h-4 w-4" />
-              <span>Global Reports Feed ({pendingReportsCount})</span>
+              <span>ڕاپۆرتە گشتییەکان ({pendingReportsCount})</span>
             </button>
 
             <button
@@ -650,17 +650,17 @@ export default function AdminPanel({
                   type="text"
                   value={userSearchTerm}
                   onChange={(e) => setUserSearchTerm(e.target.value)}
-                  placeholder="Search by username, email, or UID..."
+                  placeholder="گەڕان بەپێی ناوی بەکارهێنەر، ئیمەیڵ یان UID..."
                   className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder-slate-500 outline-none focus:border-rose-400"
                 />
               </div>
 
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase mr-1">Filter:</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase mr-1">فلتەر:</span>
                 {[
-                  { id: 'all', label: 'All Users' },
-                  { id: 'verified', label: 'Verified VIPs' },
-                  { id: 'banned', label: 'Banned' },
+                  { id: 'all', label: 'هەموو ئەندامان' },
+                  { id: 'verified', label: 'ئەندامانی VIP' },
+                  { id: 'banned', label: 'باندکراوەکان' },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -682,25 +682,25 @@ export default function AdminPanel({
               {isLoadingUsers ? (
                 <div className="flex h-64 items-center justify-center text-xs text-slate-400">
                   <RefreshCw className="h-6 w-6 animate-spin text-rose-400 mr-2" />
-                  Loading accounts &amp; live telemetry...
+                  خەریکی هێنانی زانیاری و بەکارهێنەرانە...
                 </div>
               ) : filteredUsers.length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center text-center text-slate-500">
                   <Users className="h-8 w-8 text-slate-700 mb-2" />
-                  <h4 className="text-xs font-bold text-slate-300">No Users Match Query</h4>
-                  <p className="mt-1 text-[11px] text-slate-500">Try adjusting your search or filter criteria.</p>
+                  <h4 className="text-xs font-bold text-slate-300">هیچ ئەندامێک نەدۆزرایەوە</h4>
+                  <p className="mt-1 text-[11px] text-slate-500">دەستکاری وشەی گەڕان یان فلتەرەکە بکە.</p>
                 </div>
               ) : (
                 <table className="w-full border-collapse text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-800/80 bg-slate-950/80 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      <th className="p-3.5 pl-4">User Identity</th>
-                      <th className="p-3.5">Email &amp; Password</th>
-                      <th className="p-3.5">Real Location</th>
-                      <th className="p-3.5">Account Age</th>
-                      <th className="p-3.5">Vault &amp; Tier</th>
-                      <th className="p-3.5">Status &amp; Verification</th>
-                      <th className="p-3.5 pr-4 text-right">Administrative Execution</th>
+                      <th className="p-3.5 pl-4">ناسنامەی ئەندام</th>
+                      <th className="p-3.5">ئیمەیڵ و وشەی تێپەڕ</th>
+                      <th className="p-3.5">شوێنی ڕاستەقینە</th>
+                      <th className="p-3.5">تەمەنی هەژمار</th>
+                      <th className="p-3.5">کۆین و ئاست</th>
+                      <th className="p-3.5">دۆخ و پشتڕاستکردنەوە</th>
+                      <th className="p-3.5 pr-4 text-right">کرداری بەڕێوەبەر</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -767,19 +767,19 @@ export default function AdminPanel({
                                 className="block font-mono text-[11px] text-slate-200 font-semibold truncate max-w-[170px]"
                                 title={targetUser.email}
                               >
-                                {targetUser.email || 'No email registered'}
+                                {targetUser.email || 'ئیمەیڵ تۆمار نەکراوە'}
                               </span>
                               <div className="flex items-center gap-1.5">
                                 <span className="font-mono text-[10px] text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
                                   {showPasswordMap[targetUser.uid]
-                                    ? targetUser.accountPassword || '(Not captured)'
+                                    ? targetUser.accountPassword || '(تۆمار نەکراوە)'
                                     : '••••••••••'}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => togglePasswordVisibility(targetUser.uid)}
                                   className="text-slate-400 hover:text-white p-0.5 rounded transition"
-                                  title={showPasswordMap[targetUser.uid] ? 'Hide password' : 'Show password'}
+                                  title={showPasswordMap[targetUser.uid] ? 'شاردنەوەی وشەی نهێنی' : 'پیشاندانی وشەی نهێنی'}
                                 >
                                   {showPasswordMap[targetUser.uid] ? <EyeOff size={13} /> : <Eye size={13} />}
                                 </button>
@@ -818,14 +818,14 @@ export default function AdminPanel({
                                     className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300 transition hover:bg-emerald-500/25 active:scale-95"
                                   >
                                     <Map className="h-3 w-3" />
-                                    <span>View on Map</span>
+                                    <span>پیشاندان لەسەر نەخشە</span>
                                   </button>
                                 ) : null}
                               </div>
                             ) : (
                               <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
                                 <Globe className="h-3.5 w-3.5 text-slate-600" />
-                                <span>Location pending</span>
+                                <span>شوێن دیارینەکراوە</span>
                               </div>
                             )}
                           </td>
@@ -854,18 +854,18 @@ export default function AdminPanel({
                               <div className="space-y-0.5">
                                 <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">
                                   <Ban className="h-3 w-3" />
-                                  <span>{banStatus.isPermanent ? 'Permanent Ban' : 'Timed Suspension'}</span>
+                                  <span>{banStatus.isPermanent ? 'باندکردنی هەمیشەیی' : 'ڕاگرتنی کاتی'}</span>
                                 </span>
                                 {!banStatus.isPermanent && banStatus.remainingHours && (
                                   <p className="text-[9px] text-rose-400 font-medium">
-                                    Expires in {banStatus.remainingHours}h
+                                    بەسەردەچێت دوای {banStatus.remainingHours}h
                                   </p>
                                 )}
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
                                 <CheckCircle className="h-3 w-3" />
-                                <span>Active Citizen</span>
+                                <span>چالاک و ئاسایی</span>
                               </span>
                             )}
                           </td>
@@ -937,7 +937,7 @@ export default function AdminPanel({
                                   setBgInput(targetUser.roomBackground || '');
                                   setVipFrameInput(targetUser.vipFrame || 'fire');
                                 }}
-                                title="Assign VIP Frame Colors & Animated Themes"
+                                title="بەخشینی چوارچێوەی VIP و تیمی جوڵاو"
                                 className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:border-purple-500/30 hover:bg-purple-500/10 hover:text-purple-300 transition"
                               >
                                 <Palette className="h-3.5 w-3.5" />
@@ -949,7 +949,7 @@ export default function AdminPanel({
                                   setCoinsTarget(targetUser);
                                   setNewCoinsValue(targetUser.coins || 0);
                                 }}
-                                title="Adjust Coin Reserves"
+                                title="دەستکاریکردنی کۆینەکان"
                                 className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 transition"
                               >
                                 <Coins className="h-3.5 w-3.5" />
@@ -962,7 +962,7 @@ export default function AdminPanel({
                                   className="flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white shadow hover:bg-emerald-500 transition"
                                 >
                                   <Unlock className="h-3.5 w-3.5" />
-                                  <span>Unban</span>
+                                  <span>لادانی باند</span>
                                 </button>
                               ) : (
                                 <>
@@ -971,20 +971,20 @@ export default function AdminPanel({
                                       setTempBanTarget(targetUser);
                                       setTempBanDuration(24);
                                     }}
-                                    title="Timed Temporary Suspension"
+                                    title="ڕاگرتنی کاتی بەکارهێنەر"
                                     className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-bold text-amber-300 hover:bg-amber-500/20 transition"
                                   >
                                     <Clock className="h-3.5 w-3.5" />
-                                    <span>Temp Ban</span>
+                                    <span>ڕاگرتن</span>
                                   </button>
 
                                   <button
                                     onClick={() => handlePermanentBan(targetUser)}
-                                    title="Permanent Lifetime Ban"
+                                    title="باندکردنی هەمیشەیی"
                                     className="flex items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-bold text-rose-400 hover:bg-rose-500/20 transition"
                                   >
                                     <Ban className="h-3.5 w-3.5" />
-                                    <span>Lifetime</span>
+                                    <span>هەمیشەیی</span>
                                   </button>
                                 </>
                               )}
@@ -1022,12 +1022,12 @@ export default function AdminPanel({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                     <LocateFixed className="h-4 w-4 text-emerald-400" />
-                    <span>Located Members ({usersWithLocation.length})</span>
+                    <span>ئەندامانی سەر نەخشە ({usersWithLocation.length})</span>
                   </div>
                   <button
                     onClick={() => loadUsersList()}
                     className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
-                    title="Refresh telemetry"
+                    title="نوێکردنەوەی نەخشە"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                   </button>
@@ -1038,7 +1038,7 @@ export default function AdminPanel({
                     type="text"
                     value={userSearchTerm}
                     onChange={(e) => setUserSearchTerm(e.target.value)}
-                    placeholder="Search located users..."
+                    placeholder="گەڕان لە نێو ئەندامانی نەخشە..."
                     className="w-full rounded-xl border border-slate-800 bg-slate-900 py-1.5 pl-8 pr-3 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-400"
                   />
                 </div>
@@ -1048,7 +1048,7 @@ export default function AdminPanel({
                 {usersWithLocation.length === 0 ? (
                   <div className="py-12 text-center text-xs text-slate-500">
                     <Globe className="h-8 w-8 mx-auto mb-2 opacity-30 text-emerald-400" />
-                    No member locations recorded yet.<br />Locations sync in real time as members enter.
+                    هێشتا هیچ شوێنێک تۆمار نەکراوە.<br />لەگەڵ چوونە ژوورەوەی ئەندامان نوێ دەبێتەوە.
                   </div>
                 ) : (
                   usersWithLocation
@@ -1116,8 +1116,8 @@ export default function AdminPanel({
                   return (
                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500">
                       <Map className="h-12 w-12 text-slate-700 mb-3 animate-pulse" />
-                      <p className="text-sm font-bold text-slate-400">Select a user to display their live map</p>
-                      <p className="text-xs text-slate-600 mt-1">Real-time GPS coordinates and city details will render here.</p>
+                      <p className="text-sm font-bold text-slate-400">ئەندامێک هەڵبژێرە بۆ بینینی شوێنەکەی لەسەر نەخشە</p>
+                      <p className="text-xs text-slate-600 mt-1">شوێنی وردی GPS و شاری بەکارهێنەر لێرەدا دەردەکەوێت.</p>
                     </div>
                   );
                 }
@@ -1144,7 +1144,7 @@ export default function AdminPanel({
                             {loc.isGps ? (
                               <span className="flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-300 border border-emerald-500/30">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                                Exact GPS Sensor {loc.accuracy ? `(±${loc.accuracy}m)` : ''}
+                                هەستەوەری وردی GPS {loc.accuracy ? `(±${loc.accuracy}m)` : ''}
                               </span>
                             ) : (
                               <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[9px] font-bold text-sky-300 border border-sky-500/30">
@@ -1243,15 +1243,15 @@ export default function AdminPanel({
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-rose-400" />
                 <h3 className="font-display text-xs font-bold text-white uppercase tracking-wider">
-                  Active Moderation Reports ({filteredReports.length})
+                  ڕاپۆرتە چالاکەکانی بەڕێوەبردن ({filteredReports.length})
                 </h3>
               </div>
 
               <div className="flex items-center gap-1.5">
                 {[
-                  { id: 'all', label: 'All Incidents' },
-                  { id: 'pending', label: 'Pending Action' },
-                  { id: 'resolved', label: 'Resolved / Dismissed' },
+                  { id: 'all', label: 'هەموو ڕاپۆرتەکان' },
+                  { id: 'pending', label: 'چاوەڕوانی بڕیار' },
+                  { id: 'resolved', label: 'چارەسەرکراو / ڕەتکراوە' },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -1273,8 +1273,8 @@ export default function AdminPanel({
               {filteredReports.length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center text-center text-slate-500">
                   <CheckCircle className="h-8 w-8 text-emerald-500/40 mb-2" />
-                  <h4 className="text-xs font-bold text-slate-300">No Reports Pending</h4>
-                  <p className="mt-1 text-[11px] text-slate-500">All member disputes have been settled.</p>
+                  <h4 className="text-xs font-bold text-slate-300">هیچ ڕاپۆرتێک چاوەڕوان نییە</h4>
+                  <p className="mt-1 text-[11px] text-slate-500">هەموو کێشە و ڕاپۆرتەکان چارەسەر کراون.</p>
                 </div>
               ) : (
                 filteredReports.map((report) => (
@@ -1314,21 +1314,21 @@ export default function AdminPanel({
                             className="flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow hover:bg-emerald-500 transition"
                           >
                             <Check className="h-3.5 w-3.5" />
-                            <span>Resolve</span>
+                            <span>چارەسەرکرا</span>
                           </button>
                           <button
                             onClick={() => handleResolveReport(report.id, 'dismissed')}
                             className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white transition"
                           >
                             <X className="h-3.5 w-3.5" />
-                            <span>Dismiss</span>
+                            <span>ڕەتکردنەوە</span>
                           </button>
                         </>
                       )}
                       <button
                         onClick={() => handleDeleteReport(report.id)}
                         className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 text-rose-400 hover:bg-rose-500/20 transition"
-                        title="Delete Report Permanently"
+                        title="سڕینەوەی یەکجارەکی ڕاپۆرت"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -1508,7 +1508,7 @@ export default function AdminPanel({
                           className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-slate-700 active:scale-95"
                         >
                           <Copy className="h-3.5 w-3.5" />
-                          <span>Copy Coords</span>
+                          <span>کۆپیکردنی خاڵەکان</span>
                         </button>
 
                         <a
@@ -1518,7 +1518,7 @@ export default function AdminPanel({
                           className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:scale-[1.02] active:scale-95"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
-                          <span>Open in Google Maps</span>
+                          <span>کردنەوە لە گووگڵ ماپس</span>
                         </a>
                       </>
                     )}
@@ -1545,7 +1545,7 @@ export default function AdminPanel({
                   </div>
                   <div>
                     <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                      Temporary Suspension
+                      ڕاگرتنی کاتی هەژمار
                     </h3>
                     <p className="text-xs text-slate-400">
                       Restricting access for <strong>{tempBanTarget.username}</strong>
@@ -1556,7 +1556,7 @@ export default function AdminPanel({
                 <div className="space-y-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                      Suspension Duration
+                      ماوەی ڕاگرتن
                     </label>
                     <div className="grid grid-cols-4 gap-2">
                       {[1, 6, 24, 72].map((hours) => (
@@ -1578,7 +1578,7 @@ export default function AdminPanel({
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                      Official Reason
+                      هۆکاری ڕاگرتن
                     </label>
                     <textarea
                       rows={3}
@@ -1594,14 +1594,14 @@ export default function AdminPanel({
                     onClick={() => setTempBanTarget(null)}
                     className="flex-1 rounded-2xl border border-slate-800 py-3 text-xs font-bold text-slate-300 hover:text-white"
                   >
-                    Cancel
+                    پاشگەزبوونەوە
                   </button>
                   <button
                     onClick={handleExecuteTempBan}
                     disabled={isSubmittingBan}
                     className="flex-1 rounded-2xl bg-amber-500 py-3 text-xs font-black text-black shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition"
                   >
-                    {isSubmittingBan ? 'Suspending...' : 'Issue Suspension'}
+                    {isSubmittingBan ? 'خەریکی ڕاگرتنە...' : 'سەپاندنی ڕاگرتن'}
                   </button>
                 </div>
               </motion.div>
@@ -1626,7 +1626,7 @@ export default function AdminPanel({
                     </div>
                     <div>
                       <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                        Assign VIP Frames &amp; Animated Themes
+                        بەخشینی چوارچێوەی جوڵاو و تیمی VIP
                       </h3>
                       <p className="text-xs text-slate-400">
                         بەخشینی چوارچێوەی جوڵاوی پڕۆفایل و تیمی ئاگرین بۆ <strong>{cosmeticsTarget.username}</strong>
@@ -1742,7 +1742,7 @@ export default function AdminPanel({
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                      Custom Profile Cover URL / CSS
+                      لینک یان ڕەنگی بەرگی پڕۆفایل (Cover)
                     </label>
                     <input
                       type="text"
@@ -1766,7 +1766,7 @@ export default function AdminPanel({
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                      Custom Live Room Background Theme URL / CSS
+                      لینک یان ڕەنگی پاشبنەمای ژوور
                     </label>
                     <input
                       type="text"
@@ -1794,14 +1794,14 @@ export default function AdminPanel({
                     onClick={() => setCosmeticsTarget(null)}
                     className="flex-1 rounded-2xl border border-slate-800 py-3 text-xs font-bold text-slate-300 hover:text-white"
                   >
-                    Cancel
+                    پاشگەزبوونەوە
                   </button>
                   <button
                     onClick={handleSaveCosmetics}
                     disabled={isSavingCosmetics}
                     className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 py-3 text-xs font-black text-white shadow-lg shadow-purple-600/30 hover:opacity-95 transition"
                   >
-                    {isSavingCosmetics ? 'Saving...' : 'Save VIP Frame & Themes'}
+                    {isSavingCosmetics ? 'خەریکی پاشەکەوتکردنە...' : 'پاشەکەوتکردنی چوارچێوە و تیم'}
                   </button>
                 </div>
               </motion.div>
@@ -1825,7 +1825,7 @@ export default function AdminPanel({
 
                 <div>
                   <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                    Adjust Coin Vault
+                    دەستکاریکردنی کۆینەکانی بەکارهێنەر
                   </h3>
                   <p className="mt-1 text-xs text-slate-400">
                     Modifying balance for <strong>{coinsTarget.username}</strong>
@@ -1849,14 +1849,14 @@ export default function AdminPanel({
                     onClick={() => setCoinsTarget(null)}
                     className="flex-1 rounded-2xl border border-slate-800 py-3 text-xs font-bold text-slate-300"
                   >
-                    Cancel
+                    پاشگەزبوونەوە
                   </button>
                   <button
                     onClick={handleSaveCoins}
                     disabled={isSavingCoins}
                     className="flex-1 rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20"
                   >
-                    {isSavingCoins ? 'Saving...' : 'Set Balance'}
+                    {isSavingCoins ? 'خەریکی گۆڕینە...' : 'جێگیرکردنی باڵانس'}
                   </button>
                 </div>
               </motion.div>

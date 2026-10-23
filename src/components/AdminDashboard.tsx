@@ -106,13 +106,13 @@ export default function AdminDashboard({ currentUser, onClose }: AdminDashboardP
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                  Admin Command Console
+                  ناوەندی کۆنترۆڵی ئەدمین
                 </h3>
                 <span className="rounded-md bg-rose-500/20 px-1.5 py-0.5 text-[8px] font-bold text-rose-300 uppercase">
-                  Staff
+                  ستاف
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">Moderation, Trust &amp; Safety Panel</p>
+              <p className="text-[10px] text-slate-400">پانێڵی بەڕێوەبردن و چاودێری</p>
             </div>
           </div>
 
@@ -135,7 +135,7 @@ export default function AdminDashboard({ currentUser, onClose }: AdminDashboardP
             }`}
           >
             <AlertTriangle className="h-4 w-4 text-rose-400" />
-            <span>Reports ({pendingReportsCount} Pending)</span>
+            <span>ڕاپۆرتەکان ({pendingReportsCount} چاوەڕوانکراو)</span>
           </button>
 
           <button
@@ -147,7 +147,7 @@ export default function AdminDashboard({ currentUser, onClose }: AdminDashboardP
             }`}
           >
             <Users className="h-4 w-4 text-cyan-400" />
-            <span>User Management</span>
+            <span>بەڕێوەبردنی بەکارهێنەران</span>
           </button>
         </div>
 

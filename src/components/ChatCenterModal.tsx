@@ -23,13 +23,13 @@ interface ChatCenterModalProps {
 function formatInboxTime(timestamp: number): string {
   if (!timestamp) return '';
   const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-  if (diffSec < 60) return 'Just now';
+  if (diffSec < 60) return 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays}d ago`;
+  return `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
 export default function ChatCenterModal({
@@ -96,8 +96,8 @@ export default function ChatCenterModal({
               <MessageSquare className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-display text-base font-black text-white">Direct Messages</h2>
-              <p className="text-[11px] text-slate-400">Real-time encrypted private chat</p>
+              <h2 className="font-display text-base font-black text-white">نامەی تایبەتی</h2>
+              <p className="text-[11px] text-slate-400">چاتی ڕاستەوخۆ و پارێزراو</p>
             </div>
           </div>
 
@@ -124,7 +124,7 @@ export default function ChatCenterModal({
                   setActiveTab('inbox');
                 }
               }}
-              placeholder="Search conversations or find user to chat..."
+              placeholder="گەڕان لە گفتوگۆکان یان دۆزینەوەی ئەندام..."
               className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder-slate-500 outline-none focus:border-cyan-400 transition"
             />
           </div>
@@ -140,7 +140,7 @@ export default function ChatCenterModal({
               }`}
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              <span>Recent Chats ({inboxThreads.length})</span>
+              <span>گفتوگۆکان ({inboxThreads.length})</span>
             </button>
 
             <button
@@ -152,7 +152,7 @@ export default function ChatCenterModal({
               }`}
             >
               <Search className="h-3.5 w-3.5" />
-              <span>Find Users</span>
+              <span>دۆزینەوەی ئەندام</span>
             </button>
           </div>
         </div>
@@ -167,16 +167,16 @@ export default function ChatCenterModal({
                   <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900 border border-slate-800 text-slate-500 mb-3">
                     <MessageSquare className="h-6 w-6" />
                   </div>
-                  <h3 className="font-display text-sm font-bold text-white">No Conversations Yet</h3>
+                  <h3 className="font-display text-sm font-bold text-white">هێشتا هیچ گفتوگۆیەک نییە</h3>
                   <p className="mt-1 text-xs text-slate-400 max-w-xs">
-                    You haven't sent or received any direct messages yet. Search for users to start your first chat!
+                    هێشتا هیچ نامەیەکت نەناردووە. بەدوای ئەنداماندا بگەڕێ بۆ دەستپێکردنی چات!
                   </p>
                   <button
                     onClick={() => setActiveTab('search')}
                     className="mt-4 flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/20 hover:scale-[1.02] transition"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Start New Chat</span>
+                    <span>دەستپێکردنی چاتی نوێ</span>
                   </button>
                 </div>
               ) : (
@@ -215,8 +215,8 @@ export default function ChatCenterModal({
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 truncate mt-0.5">
-                        {item.lastSenderUid === currentUser.uid ? 'You: ' : ''}
-                        {item.lastMessage || 'Sent attachment'}
+                        {item.lastSenderUid === currentUser.uid ? 'تۆ: ' : ''}
+                        {item.lastMessage || 'فایلی نارد'}
                       </p>
                     </div>
 
@@ -231,17 +231,17 @@ export default function ChatCenterModal({
           {activeTab === 'search' && (
             <>
               {isSearching ? (
-                <div className="py-12 text-center text-xs text-slate-400">Searching active citizens...</div>
+                <div className="py-12 text-center text-xs text-slate-400">خەریکی گەڕانە...</div>
               ) : searchResults.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center py-12 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 mb-2">
                     <Search className="h-5 w-5" />
                   </div>
                   <h4 className="text-xs font-bold text-white">
-                    {searchTerm.trim() ? `No users matching "${searchTerm}"` : 'Type a username to start chat'}
+                    {searchTerm.trim() ? `هیچ ئەندامێک نەدۆزرایەوە بە ناوی "${searchTerm}"` : 'ناوی ئەندامێک بنووسە بۆ چاتکردن'}
                   </h4>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Search by username to begin real-time messaging
+                    بەدوای ناودا بگەڕێ بۆ ناردنی نامەی ڕاستەوخۆ
                   </p>
                 </div>
               ) : (
@@ -284,7 +284,7 @@ export default function ChatCenterModal({
                       className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-500/20 hover:scale-105 active:scale-95 transition"
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
-                      <span>Chat</span>
+                      <span>چات</span>
                     </button>
                   </div>
                 ))

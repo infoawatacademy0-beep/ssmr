@@ -30,13 +30,13 @@ interface NotificationCenterProps {
 function formatNotificationTime(timestamp: number): string {
   const diffMs = Date.now() - timestamp;
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return 'Just now';
+  if (diffSec < 60) return 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays}d ago`;
+  return `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
 export default function NotificationCenter({
@@ -120,10 +120,10 @@ export default function NotificationCenter({
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                Notifications
+                ئاگادارکردنەوەکان
               </h3>
               <p className="text-[10px] text-slate-400">
-                {unreadCount > 0 ? `${unreadCount} unread alerts` : 'All caught up'}
+                {unreadCount > 0 ? `${unreadCount} ئاگاداری نەخوێندراوە` : 'هەمووی خوێندراوەتەوە'}
               </p>
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function NotificationCenter({
                 className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/60 px-2.5 py-1.5 text-[11px] font-bold text-slate-300 hover:text-white transition"
               >
                 <CheckCheck className="h-3.5 w-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Read all</span>
+                <span className="hidden sm:inline">خوێندنەوەی هەمووی</span>
               </button>
             )}
 
@@ -149,14 +149,14 @@ export default function NotificationCenter({
           </div>
         </header>
 
-        {/* Notifications List */}
+        {/* ئاگادارکردنەوەکان List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
           {notifications.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-8 text-slate-500">
               <Bell className="h-10 w-10 text-slate-700 mb-3" />
-              <h4 className="text-xs font-bold text-slate-300">No Notifications Yet</h4>
+              <h4 className="text-xs font-bold text-slate-300">هیچ ئاگادارکردنەوەیەک نییە</h4>
               <p className="mt-1 text-[11px] text-slate-500 max-w-xs">
-                You will be notified when someone gifts you, follows your profile, or invites you to an arena battle.
+                کاتێک کەسێک دیاریت بۆ دەنێرێت، فۆڵۆت دەکات یان بانگهێشتت دەکات، لێرەدا دەردەکەوێت.
               </p>
             </div>
           ) : (
@@ -202,7 +202,7 @@ export default function NotificationCenter({
 
                     {(notif.roomId || notif.actionUrl) && (
                       <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-400">
-                        <span>Open Arena</span>
+                        <span>چوونە نێو ژوور</span>
                         <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     )}

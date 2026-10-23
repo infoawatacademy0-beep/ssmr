@@ -129,7 +129,7 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
                 ) : (
                   <>
                     <UserCheck className="h-2.5 w-2.5 text-violet-400" />
-                    <span>هاتە ناو ژوورەوە</span>
+                    <span>هاتە نێو ژوورەوە</span>
                   </>
                 )}
               </p>

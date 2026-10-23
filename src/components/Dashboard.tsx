@@ -76,44 +76,44 @@ import SettingsModal from './SettingsModal';
 import IncomingChatToast from './IncomingChatToast';
 
 const CATEGORIES: { label: string; value: RoomCategory | 'All'; icon: React.ElementType; color: string }[] = [
-  { label: 'All Arenas', value: 'All', icon: Flame, color: 'text-amber-400' },
-  { label: 'Gaming', value: 'Gaming', icon: Gamepad2, color: 'text-emerald-400' },
-  { label: 'Voice Chat', value: 'Voice Chat', icon: MessageSquare, color: 'text-cyan-400' },
-  { label: 'Music & Vibes', value: 'Music', icon: Music, color: 'text-rose-400' },
-  { label: 'Chill Lounge', value: 'Chill', icon: Coffee, color: 'text-violet-400' },
+  { label: 'هەموو ژوورەکان', value: 'All', icon: Flame, color: 'text-amber-400' },
+  { label: 'یارییەکان', value: 'Gaming', icon: Gamepad2, color: 'text-emerald-400' },
+  { label: 'چاتی دەنگی', value: 'Voice Chat', icon: MessageSquare, color: 'text-cyan-400' },
+  { label: 'میوزیک و گۆرانی', value: 'Music', icon: Music, color: 'text-rose-400' },
+  { label: 'هاوڕێیەتی و پشوو', value: 'Chill', icon: Coffee, color: 'text-violet-400' },
 ];
 
 const ROOM_NAME_SUGGESTIONS = [
-  'Grand Masters Arena',
-  'Late Night Chill & Talk',
-  'Arabic Voice Lounge',
-  'High-Stakes Dice Arena',
-  'Lo-Fi Beats & Chat',
+  'دیوەخانی هاوڕێیان',
+  'شەوانی کوردستان و چات',
+  'ژووری دەنگی گەنجان',
+  'گۆڕەپانی جاکۆرۆ و یاری',
+  'ژووری میوزیک و گۆرانی',
 ];
 
 function formatTimeAgo(timestamp: number): string {
   const diffMs = Date.now() - timestamp;
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 45) return 'Just now';
+  if (diffSec < 45) return 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays}d ago`;
+  return `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
 function getAccountAge(createdAt: number): string {
   const diffMs = Date.now() - (createdAt || Date.now());
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return 'Joined today';
-  if (diffDays === 1) return 'Member for 1 day';
-  if (diffDays < 30) return `Member for ${diffDays} days`;
+  if (diffDays <= 0) return 'ئەمڕۆ بەشداربووە';
+  if (diffDays === 1) return 'ئەندامە بۆ ١ ڕۆژ';
+  if (diffDays < 30) return `ئەندامە بۆ ${diffDays} ڕۆژ`;
   const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths === 1) return 'Member for 1 month';
-  if (diffMonths < 12) return `Member for ${diffMonths} months`;
+  if (diffMonths === 1) return 'ئەندامە بۆ ١ مانگ';
+  if (diffMonths < 12) return `ئەندامە بۆ ${diffMonths} مانگ`;
   const diffYears = Math.floor(diffDays / 365);
-  return diffYears === 1 ? 'Member for 1 year' : `Member for ${diffYears} years`;
+  return diffYears === 1 ? 'ئەندامە بۆ ١ ساڵ' : `ئەندامە بۆ ${diffYears} ساڵ`;
 }
 
 export default function Dashboard() {
@@ -246,11 +246,11 @@ export default function Dashboard() {
     e.preventDefault();
     if (!user) return;
     if (!newRoomName.trim()) {
-      setCreateRoomError('Please provide an arena title.');
+      setCreateRoomError('تکایە ناوی ژوور بنووسە.');
       return;
     }
     if (isPrivate && !roomPassword.trim()) {
-      setCreateRoomError('Please enter a password for private arena.');
+      setCreateRoomError('تکایە وشەی نهێنی بۆ ژوورە تایبەتەکە دابنێ.');
       return;
     }
 
@@ -276,7 +276,7 @@ export default function Dashboard() {
       setIsPrivate(false);
       navigate(`/room/${roomId}`);
     } catch (err: any) {
-      setCreateRoomError(err.message || 'Failed to create room.');
+      setCreateRoomError(err.message || 'نەتوانرا ژوور دروست بکرێت.');
     } finally {
       setIsCreatingRoom(false);
     }
@@ -322,7 +322,7 @@ export default function Dashboard() {
       });
       setNewPostContent('');
     } catch (err: any) {
-      setPublishPostError(err.message || 'Failed to broadcast post.');
+      setPublishPostError(err.message || 'نەتوانرا پۆست بڵاوبکرێتەوە.');
     } finally {
       setIsPublishingPost(false);
     }
@@ -339,11 +339,11 @@ export default function Dashboard() {
 
   const handleDeletePost = async (postId: string) => {
     if (!user) return;
-    if (!window.confirm('Delete this post permanently?')) return;
+    if (!window.confirm('ئایا دڵنیایت لە سڕینەوەی ئەم پۆستە؟')) return;
     try {
       await deletePost(postId, user.uid);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete post.');
+      alert(err.message || 'نەتوانرا پۆست بسڕدرێتەوە.');
     }
   };
 
@@ -381,13 +381,13 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-display text-base font-black tracking-wider text-white">
-                  SSMR ARENA
+                  گۆڕەپانی SSMR
                 </span>
                 <span className="rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[8px] font-black tracking-widest text-amber-400 uppercase border border-amber-400/20">
-                  LIVE
+                  ڕاستەوخۆ
                 </span>
               </div>
-              <p className="text-[10px] font-medium text-slate-500">Real-Time Social Core</p>
+              <p className="text-[10px] font-medium text-slate-500">تۆڕی کۆمەڵایەتی ڕاستەوخۆ</p>
             </div>
           </div>
 
@@ -402,7 +402,7 @@ export default function Dashboard() {
               }`}
             >
               <LayoutDashboard className="h-4 w-4" />
-              <span>Dashboard</span>
+              <span>سەرەکی</span>
             </button>
 
             <button
@@ -417,7 +417,7 @@ export default function Dashboard() {
               }`}
             >
               <Compass className="h-4 w-4" />
-              <span>Explore Arenas</span>
+              <span>گەڕان لە ژوورەکان</span>
             </button>
 
             <button
@@ -425,7 +425,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <Search className="h-4 w-4" />
-              <span>Discover Users</span>
+              <span>دۆزینەوەی ئەندامان</span>
             </button>
 
             <button
@@ -433,7 +433,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <Trophy className="h-4 w-4 text-amber-400" />
-              <span>Hall of Fame</span>
+              <span>ڕیزبەندی پاڵەوانان</span>
             </button>
 
             <button
@@ -441,7 +441,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <ShoppingBag className="h-4 w-4 text-purple-400" />
-              <span>Armory &amp; Vault</span>
+              <span>فرۆشگا و خەزێنە</span>
             </button>
 
             <button
@@ -450,7 +450,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-3">
                 <Bell className="h-4 w-4" />
-                <span>Notifications</span>
+                <span>ئاگادارکردنەوەکان</span>
               </div>
               {unreadNotifsCount > 0 && (
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
@@ -465,7 +465,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-3">
                 <MessageSquare className="h-4 w-4 text-cyan-400" />
-                <span>Direct Chat</span>
+                <span>نامەی تایبەتی</span>
               </div>
               {inboxThreadsCount > 0 && (
                 <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold border border-cyan-500/30">
@@ -480,7 +480,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-3">
                 <Wallet className="h-4 w-4" />
-                <span>Wallet</span>
+                <span>جزدان</span>
               </div>
               <span className="font-mono text-[11px] font-bold text-amber-300">
                 {formatCoinsK(user.coins)}
@@ -492,7 +492,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <Settings className="h-4 w-4" />
-              <span>Settings</span>
+              <span>ڕێکخستنەکان</span>
             </button>
           </nav>
         </div>
@@ -504,7 +504,7 @@ export default function Dashboard() {
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 py-3 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95"
           >
             <Plus className="h-4 w-4" />
-            <span>HOST ARENA</span>
+            <span>کردنەوەی ژوور</span>
           </button>
         </div>
       </aside>
@@ -520,8 +520,8 @@ export default function Dashboard() {
               <Radio className="h-4 w-4" />
             </div>
             <div>
-              <h1 className="font-display text-sm font-black text-white">VOICE ARENA</h1>
-              <span className="text-[9px] text-slate-400 uppercase font-bold">Live Stream</span>
+              <h1 className="font-display text-sm font-black text-white">ژووری دەنگی</h1>
+              <span className="text-[9px] text-slate-400 uppercase font-bold">پەخشی ڕاستەوخۆ</span>
             </div>
           </div>
 
@@ -621,7 +621,7 @@ export default function Dashboard() {
             className="hidden sm:flex shrink-0 items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black shadow-lg shadow-amber-500/20 transition hover:bg-amber-400"
           >
             <Plus className="h-4 w-4" />
-            <span>Launch Stage</span>
+            <span>کردنەوەی ژوور</span>
           </button>
         </div>
 
@@ -631,7 +631,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <Flame className="h-4 w-4 text-amber-400" />
               <h2 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
-                Active Arenas (Strict 4 Directory)
+                ژوورە چالاکەکان
               </h2>
             </div>
             <span className="text-[10px] font-semibold text-slate-500"></span>
@@ -640,15 +640,15 @@ export default function Dashboard() {
           {displayRooms.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 py-12 text-center">
               <Headphones className="h-8 w-8 text-slate-600 mb-2" />
-              <h3 className="text-xs font-bold text-white">No Live Rooms Found</h3>
+              <h3 className="text-xs font-bold text-white">هیچ ژوورێکی ڕاستەوخۆ نییە</h3>
               <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
-                Be the pioneer host to launch an 8-seat stage arena with integrated games and voice streaming!
+                یەکەم کەس بە کە ژوورێکی دەنگی بکاتەوە بە یاری و پەخشی دەنگ!
               </p>
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="mt-3.5 rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black"
               >
-                Host First Arena
+                یەکەم ژوور بکەرەوە
               </button>
             </div>
           ) : (
@@ -720,7 +720,7 @@ export default function Dashboard() {
                       </div>
 
                       <div className="flex items-center gap-1 text-amber-400 text-[10px] font-bold group-hover:translate-x-1 transition-transform">
-                        <span>JOIN</span>
+                        <span>چوونەژوورەوە</span>
                         <ArrowRight className="h-3 w-3" />
                       </div>
                     </div>
@@ -767,7 +767,7 @@ export default function Dashboard() {
                     maxLength={400}
                     value={newPostContent}
                     onChange={(e) => setNewPostContent(e.target.value)}
-                    placeholder="Broadcast an update, match challenge, or thought across the arena…"
+                    placeholder="پۆستێک، بیرۆکەیەک یان بانگهێشتێکی یاری بڵاوبکەرەوە…"
                     className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/60 p-3 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
                   />
 
@@ -789,7 +789,7 @@ export default function Dashboard() {
                       className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-4 py-2 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95 disabled:opacity-40"
                     >
                       <Send className="h-3.5 w-3.5" />
-                      <span>{isPublishingPost ? 'Broadcasting…' : 'POST'}</span>
+                      <span>{isPublishingPost ? 'خەریکی بڵاوکردنەوەیە…' : 'بڵاوکردنەوە'}</span>
                     </button>
                   </div>
                 </form>
@@ -803,18 +803,18 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-amber-400" />
                 <h3 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
-                  Global Stream ({posts.length})
+                  پۆستە گشتییەکان ({posts.length})
                 </h3>
               </div>
-              <span className="text-[10px] font-semibold text-slate-500">Social Post</span>
+              <span className="text-[10px] font-semibold text-slate-500">پۆست</span>
             </div>
 
             {posts.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 py-12 text-center">
                 <MessageSquare className="h-7 w-7 text-slate-600 mb-2" />
-                <p className="text-xs font-bold text-white">No Posts Broadcasted Yet</p>
+                <p className="text-xs font-bold text-white">هێشتا هیچ پۆستێک بڵاونەکراوەتەوە</p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  Be the first user to publish a message on the global board!
+                  یەکەم کەس بە کە پۆستێک لەسەر شاشەی گشتی بڵاوبکاتەوە!
                 </p>
               </div>
             ) : (
@@ -879,7 +879,7 @@ export default function Dashboard() {
                               )}
                               {isAuthor && (
                                 <span className="rounded-md bg-white/[0.06] px-1.5 py-0.2 text-[9px] font-semibold text-slate-400">
-                                  You
+                                  تۆ
                                 </span>
                               )}
                             </div>
@@ -932,12 +932,12 @@ export default function Dashboard() {
                           {copiedPostId === post.id ? (
                             <>
                               <Check className="h-3.5 w-3.5 text-emerald-400" />
-                              <span className="text-emerald-400 text-[11px]">Link Copied</span>
+                              <span className="text-emerald-400 text-[11px]">لینک کۆپی کرا</span>
                             </>
                           ) : (
                             <>
                               <Share2 className="h-3.5 w-3.5" />
-                              <span className="text-[11px]">Share</span>
+                              <span className="text-[11px]">هاوبەشکردن</span>
                             </>
                           )}
                         </button>
@@ -1045,7 +1045,7 @@ export default function Dashboard() {
                   <ShieldCheck className="h-4 w-4 text-cyan-400" />
                 </div>
                 <p className="text-[11px] text-slate-400 italic line-clamp-2">
-                  "{user.bio || 'Exploring the Live Voice Arena.'}"
+                  "{user.bio || 'ئەندامی ژووری دەنگی SSMR.'}"
                 </p>
               </div>
             </div>
@@ -1061,7 +1061,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between text-xs font-bold">
               <div className="flex items-center gap-1.5 text-purple-300">
                 <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                <span>Level {user.level || 1} Tier</span>
+                <span>ئاستی {user.level || 1}</span>
               </div>
               <span className="font-mono text-amber-300 text-[11px]">{xpProgressPercentage}%</span>
             </div>
@@ -1076,7 +1076,7 @@ export default function Dashboard() {
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>{xpInCurrentLevel} XP</span>
-              <span>1000 XP next tier</span>
+              <span>١٠٠٠ XP بۆ ئاستی دواتر</span>
             </div>
           </div>
 
@@ -1084,7 +1084,7 @@ export default function Dashboard() {
           <div className="mt-3 flex items-center justify-between rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3">
             <div className="flex items-center gap-2">
               <Coins className="h-4 w-4 text-amber-400" />
-              <span className="text-xs font-bold text-slate-300">Wallet Balance</span>
+              <span className="text-xs font-bold text-slate-300">باڵانسی جزدان</span>
             </div>
             <span className="font-mono text-sm font-black text-amber-300">
               {formatCoinsK(user.coins)}
@@ -1096,7 +1096,7 @@ export default function Dashboard() {
             className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 py-2.5 text-xs font-bold text-slate-200 transition hover:border-amber-400/40 hover:text-amber-300"
           >
             <UserIcon className="h-3.5 w-3.5" />
-            <span>Edit Profile Identity</span>
+            <span>دەستکاریکردنی پڕۆفایل</span>
           </button>
         </div>
       </div>
@@ -1107,15 +1107,15 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 text-slate-300">
               <Eye className="h-4 w-4 text-amber-400" />
               <h4 className="font-display text-xs font-bold uppercase tracking-wider">
-                Profile Visitors ({visitors.length})
+                سەردانیکەرانی پڕۆفایل ({visitors.length})
               </h4>
             </div>
-            <span className="text-[9px] text-slate-500">Live Telemetry</span>
+            <span className="text-[9px] text-slate-500">ڕاستەوخۆ</span>
           </div>
 
           {visitors.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-800 py-6 text-center text-xs text-slate-500">
-              No recent visitors logged yet.
+              هێشتا هیچ سەردانیکەرێک تۆمار نەکراوە.
             </div>
           ) : (
             <div className="space-y-2">
@@ -1159,7 +1159,7 @@ export default function Dashboard() {
           }`}
         >
           <LayoutDashboard className="h-5 w-5" />
-          <span>Arena</span>
+          <span>گۆڕەپان</span>
         </button>
 
         <button
@@ -1172,7 +1172,7 @@ export default function Dashboard() {
           }`}
         >
           <Compass className="h-5 w-5" />
-          <span>Explore</span>
+          <span>گەڕان</span>
         </button>
 
         <button
@@ -1189,7 +1189,7 @@ export default function Dashboard() {
           }`}
         >
           <Wallet className="h-5 w-5" />
-          <span>Wallet</span>
+          <span>جزدان</span>
         </button>
 
         <button
@@ -1197,7 +1197,7 @@ export default function Dashboard() {
           className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500"
         >
           <Settings className="h-5 w-5" />
-          <span>Settings</span>
+          <span>ڕێکخستنەکان</span>
         </button>
       </nav>
 
@@ -1218,10 +1218,10 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h2 className="font-display text-sm font-bold text-white tracking-wide">
-                      LAUNCH VOICE ARENA
+                      دروستکردنی ژووری دەنگی
                     </h2>
                     <p className="text-[10px] font-medium text-amber-400 uppercase">
-                      Instant 8-Seat Synchronized Room
+                      ژووری دەنگی ٨ کورسی
                     </p>
                   </div>
                 </div>
@@ -1242,7 +1242,7 @@ export default function Dashboard() {
               <form onSubmit={handleCreateRoom} className="mt-5 space-y-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                    Arena Title
+                    ناوی ژوور
                   </label>
                   <input
                     type="text"
@@ -1250,7 +1250,7 @@ export default function Dashboard() {
                     maxLength={40}
                     value={newRoomName}
                     onChange={(e) => setNewRoomName(e.target.value)}
-                    placeholder="e.g. Arabic Voice Lounge"
+                    placeholder="بۆ نموونە: دیوەخانی هاوڕێیان"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-xs font-semibold text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
                   />
 
@@ -1270,14 +1270,14 @@ export default function Dashboard() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">
-                    Select Category
+                    بەش هەڵبژێرە
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { cat: 'Gaming' as RoomCategory, label: 'Gaming', icon: Gamepad2 },
-                      { cat: 'Voice Chat' as RoomCategory, label: 'Voice Chat', icon: MessageSquare },
-                      { cat: 'Music' as RoomCategory, label: 'Music & DJ', icon: Music },
-                      { cat: 'Chill' as RoomCategory, label: 'Chill Lounge', icon: Coffee },
+                      { cat: 'Gaming' as RoomCategory, label: 'یارییەکان', icon: Gamepad2 },
+                      { cat: 'Voice Chat' as RoomCategory, label: 'چاتی دەنگی', icon: MessageSquare },
+                      { cat: 'Music' as RoomCategory, label: 'میوزیک و گۆرانی', icon: Music },
+                      { cat: 'Chill' as RoomCategory, label: 'هاوڕێیەتی و پشوو', icon: Coffee },
                     ].map(({ cat, label, icon: IconComp }) => {
                       const isSelected = newRoomCategory === cat;
                       return (
@@ -1304,7 +1304,7 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Lock className="h-4 w-4 text-amber-400" />
-                      <span className="text-xs font-bold text-white">Private Arena</span>
+                      <span className="text-xs font-bold text-white">ژووری تایبەت</span>
                     </div>
                     <button
                       type="button"
@@ -1326,7 +1326,7 @@ export default function Dashboard() {
                       type="password"
                       value={roomPassword}
                       onChange={(e) => setRoomPassword(e.target.value)}
-                      placeholder="Enter room password"
+                      placeholder="وشەی نهێنی ژوور بنووسە"
                       className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                     />
                   )}
@@ -1339,7 +1339,7 @@ export default function Dashboard() {
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 py-3.5 text-xs font-bold text-black shadow-lg shadow-amber-500/25 transition-transform active:scale-95 disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" />
-                    <span>{isCreatingRoom ? 'Launching Arena…' : 'LAUNCH LIVE ARENA'}</span>
+                    <span>{isCreatingRoom ? 'خەریکی دروستکردنە…' : 'دەستپێکردنی پەخشی ڕاستەوخۆ'}</span>
                   </button>
                 </div>
               </form>
@@ -1362,7 +1362,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-amber-400" />
                   <h3 className="font-display text-xs font-bold text-white uppercase">
-                    Locked Arena
+                    ژووری قفڵکراو
                   </h3>
                 </div>
                 <button
@@ -1375,7 +1375,7 @@ export default function Dashboard() {
 
               <form onSubmit={handleUnlockRoom} className="mt-4 space-y-3">
                 <p className="text-xs text-slate-400">
-                  Enter password to enter <strong>{lockedRoomTarget.roomName}</strong>:
+                  وشەی نهێنی بنووسە بۆ چوونەژوورەوە بۆ <strong>{lockedRoomTarget.roomName}</strong>:
                 </p>
 
                 <input
@@ -1385,19 +1385,19 @@ export default function Dashboard() {
                     setEnteredPassword(e.target.value);
                     setPasswordError(false);
                   }}
-                  placeholder="Arena Password"
+                  placeholder="وشەی نهێنی ژوور"
                   className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                 />
 
                 {passwordError && (
-                  <p className="text-[11px] text-rose-400 font-medium">Incorrect password. Please try again.</p>
+                  <p className="text-[11px] text-rose-400 font-medium">وشەی نهێنی هەڵەیە. تکایە دووبارە هەوڵبدەرەوە.</p>
                 )}
 
                 <button
                   type="submit"
                   className="w-full rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20"
                 >
-                  Unlock & Join
+                  کردنەوە و چوونەژوورەوە
                 </button>
               </form>
             </motion.div>
@@ -1454,20 +1454,20 @@ export default function Dashboard() {
               </div>
 
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                Arena Vault Balance
+                باڵانسی خەزێنەی جزدان
               </h3>
               <div className="mt-2 font-mono text-3xl font-black text-amber-300">
                 {formatCoinsK(user.coins)}
               </div>
               <p className="mt-1 text-xs text-slate-400">
-                Gold coins can be used in 1v1 Dice Battles, 4-Player Board Battles, and Luxury Animated Stage Gifts.
+                کۆین دەتوانیت لە یارییەکانی زار و جاکۆرۆ و ناردنی دیارییە شاهانەکان بەکاریبهێنیت.
               </p>
 
               <button
                 onClick={() => setIsWalletModalOpen(false)}
                 className="mt-6 w-full rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20"
               >
-                Close Vault
+                داخستنی جزدان
               </button>
             </motion.div>
           </div>
@@ -1542,7 +1542,7 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* ── LIVE INCOMING CHAT & ACTIVITY NOTIFICATION BANNER ── */}
+      {/* ── ڕاستەوخۆ INCOMING CHAT & ACTIVITY NOTIFICATION BANNER ── */}
       <IncomingChatToast
         currentUser={user}
         activeChatRecipientUid={activeChatRecipient?.uid || null}

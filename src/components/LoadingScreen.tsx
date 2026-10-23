@@ -30,7 +30,7 @@ export default function LoadingScreen() {
       {/* Brand */}
       <div className="text-center">
         <h1 className="font-display text-2xl font-bold tracking-widest text-white">SSMR</h1>
-        <p className="mt-1 text-xs tracking-widest text-violet-400/60 uppercase">Loading…</p>
+        <p className="mt-1 text-xs tracking-widest text-violet-400/60 uppercase">چاوەڕوانبە…</p>
       </div>
 
       {/* Progress bar */}
