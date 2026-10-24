@@ -343,7 +343,11 @@ export async function uploadSongFile(
   try {
     const date = new Date().toUTCString();
     const canonicalResource = `/${itemIdentifier}/${fileName}`;
-    const stringToSign = `PUT\n\n\n${date}\n${canonicalResource}`;
+    // Use x-amz-date because mobile & desktop browsers forbid setting raw 'Date' header via XHR.
+    // In S3 V2, when x-amz-date is used, the Date field in StringToSign is empty,
+    // and x-amz-auto-make-bucket + x-amz-date are sorted alphabetically in canonical headers.
+    const canonicalHeaders = `x-amz-auto-make-bucket:1\nx-amz-date:${date}\n`;
+    const stringToSign = `PUT\n\n\n\n${canonicalHeaders}${canonicalResource}`;
 
     const signature = await computeArchiveS3Signature(stringToSign, ARCHIVE_S3_SECRET_KEY);
     const authHeader = `AWS ${ARCHIVE_S3_ACCESS_KEY}:${signature}`;
@@ -354,8 +358,8 @@ export async function uploadSongFile(
       xhr.open('PUT', uploadUrl, true);
 
       xhr.setRequestHeader('Authorization', authHeader);
-      xhr.setRequestHeader('Date', date);
-      xhr.setRequestHeader('x-archive-auto-make-bucket', '1');
+      xhr.setRequestHeader('x-amz-date', date);
+      xhr.setRequestHeader('x-amz-auto-make-bucket', '1');
       xhr.setRequestHeader('x-archive-meta-mediatype', 'audio');
 
       if (xhr.upload && onProgress) {
