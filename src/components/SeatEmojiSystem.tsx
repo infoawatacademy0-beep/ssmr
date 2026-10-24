@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Crown, Smile } from 'lucide-react';
 import { useLanguage } from '../contexts';
+import { MOBILE_EMOJI_CATEGORIES } from '../constants/mobileEmojis';
 
 export interface SeatEmojiEvent {
   id: string;
@@ -563,14 +564,36 @@ export function SeatEmojiPickerModal({
   isOpen,
   onClose,
   onSelectEmoji,
+  onSelectMobileEmoji,
   isVip = false,
+  initialTab = 'mobile',
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSelectEmoji: (emojiId: string) => void;
+  onSelectEmoji?: (emojiId: string) => void;
+  onSelectMobileEmoji?: (emoji: string) => void;
   isVip?: boolean;
+  initialTab?: 'mobile' | 'animated';
 }) {
   const { tr } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'mobile' | 'animated'>(initialTab);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('smileys');
+  const [recentEmojis, setRecentEmojis] = useState<string[]>([
+    '😂', '❤️', '🔥', '👑', '😍', '👏', '🌹', '✨', '🦁', '💯', '🥳', '🥰', '🙏', '💎', '🚀', '🤍'
+  ]);
+
+  const currentCategory =
+    MOBILE_EMOJI_CATEGORIES.find((c) => c.id === selectedCategoryId) ||
+    MOBILE_EMOJI_CATEGORIES[0];
+
+  const handlePickMobileEmoji = (emoji: string) => {
+    setRecentEmojis((prev) => [emoji, ...prev.filter((e) => e !== emoji)].slice(0, 16));
+    if (onSelectMobileEmoji) {
+      onSelectMobileEmoji(emoji);
+    } else if (onSelectEmoji) {
+      onSelectEmoji(emoji);
+    }
+  };
   return (
     <AnimatePresence>
       {isOpen && (
@@ -586,54 +609,140 @@ export function SeatEmojiPickerModal({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md rounded-t-3xl border-t border-white/10 bg-[#14141f] pb-6 shadow-[0_-15px_40px_rgba(0,0,0,0.85)]"
           >
-            {/* Top Category Bar matching Screenshot 2 */}
-            <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-3">
+            {/* Top Category & Tab Selector */}
+            <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-white transition"
                 >
                   <X className="h-4 w-4" />
                 </button>
-                <span className="text-xs font-bold text-slate-300">
-                  {tr("ئیمۆجی جوڵاو", "Animated Emojis")}
-                </span>
+
+                {/* Primary Mode Switcher */}
+                <div className="flex rounded-xl bg-black/40 p-0.5 border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('mobile')}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                      activeTab === 'mobile'
+                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>😀</span>
+                    <span>{tr('ئیمۆجی مۆبایل', 'Mobile Emojis')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('animated')}
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                      activeTab === 'animated'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>✨</span>
+                    <span>{tr('٣D جوڵاو', '3D Animated')}</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] text-amber-400">
+              {isVip && (
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/10 text-amber-400 border border-amber-400/20">
                   <Crown className="h-4 w-4 fill-amber-400" />
                 </div>
-                <div className="flex h-9 w-11 items-center justify-center rounded-xl bg-[#27273a] border border-amber-400/30 shadow-inner">
-                  <Smile className="h-5 w-5 text-amber-400" />
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* 4x4 Grid of Large 3D Animated Emojis */}
-            <div className="grid grid-cols-4 gap-3 px-5 pt-4 max-h-[52vh] overflow-y-auto">
-              {SEAT_EMOJI_CATALOG.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    if (item.vip && !isVip) return;
-                    onSelectEmoji(item.id);
-                    onClose();
-                  }}
-                  className={`group relative flex flex-col items-center justify-center rounded-2xl p-2 transition hover:bg-white/[0.06] active:scale-90 ${item.vip ? "bg-amber-400/[0.06] ring-1 ring-amber-400/30" : ""} ${item.vip && !isVip ? "opacity-50" : ""}`}
-                  title={item.label}
-                >
-                  <AnimatedEmojiGraphic emojiId={item.id} size={64} />
-                  {item.vip && (
-                    <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-orange-500">
-                      <Crown className="h-2.5 w-2.5 fill-black text-black" />
+            {/* ── TAB 1: ALL MOBILE EMOJIS (Categorized) ── */}
+            {activeTab === 'mobile' && (
+              <div className="pt-2">
+                {/* Horizontal Category Tabs Bar */}
+                <div className="flex items-center gap-1.5 overflow-x-auto px-4 pb-2 scrollbar-none">
+                  {MOBILE_EMOJI_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategoryId(cat.id)}
+                      className={`flex shrink-0 items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-bold transition ${
+                        selectedCategoryId === cat.id
+                          ? 'border border-violet-500/50 bg-violet-600/30 text-violet-200 shadow-sm'
+                          : 'border border-white/5 bg-white/[0.03] text-slate-400 hover:bg-white/[0.08] hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="text-sm">{cat.icon}</span>
+                      <span className="text-[11px]">{tr(cat.nameKu, cat.nameEn)}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Quick / Recent Emojis Bar */}
+                <div className="flex items-center gap-2 border-y border-white/[0.05] bg-black/20 px-4 py-1.5">
+                  <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                    {tr('خێرا:', 'Quick:')}
+                  </span>
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5">
+                    {recentEmojis.map((emoji, idx) => (
+                      <button
+                        key={`rec-${idx}-${emoji}`}
+                        type="button"
+                        onClick={() => handlePickMobileEmoji(emoji)}
+                        className="text-lg hover:scale-125 active:scale-90 transition-transform shrink-0"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mobile Emojis Grid */}
+                <div className="grid grid-cols-8 sm:grid-cols-9 gap-1.5 px-4 pt-3 max-h-[46vh] overflow-y-auto">
+                  {currentCategory.emojis.map((emoji, index) => (
+                    <button
+                      key={`emoji-${index}-${emoji}`}
+                      type="button"
+                      onClick={() => handlePickMobileEmoji(emoji)}
+                      className="flex h-10 w-10 items-center justify-center rounded-xl text-2xl hover:bg-white/10 active:scale-80 hover:scale-115 transition-all"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB 2: 3D ANIMATED SEAT EMOJIS ── */}
+            {activeTab === 'animated' && (
+              <div className="grid grid-cols-4 gap-3 px-5 pt-4 max-h-[50vh] overflow-y-auto">
+                {SEAT_EMOJI_CATALOG.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      if (item.vip && !isVip) return;
+                      if (onSelectEmoji) onSelectEmoji(item.id);
+                      onClose();
+                    }}
+                    className={`group relative flex flex-col items-center justify-center rounded-2xl p-2 transition hover:bg-white/[0.06] active:scale-90 ${
+                      item.vip ? 'bg-amber-400/[0.06] ring-1 ring-amber-400/30' : ''
+                    } ${item.vip && !isVip ? 'opacity-50' : ''}`}
+                    title={item.label}
+                  >
+                    <AnimatedEmojiGraphic emojiId={item.id} size={64} />
+                    {item.vip && (
+                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 shadow">
+                        <Crown className="h-2.5 w-2.5 fill-black text-black" />
+                      </span>
+                    )}
+                    <span className="mt-1 text-[10px] text-slate-400 group-hover:text-white truncate max-w-full">
+                      {item.label}
                     </span>
-                  )}
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
         </div>
       )}

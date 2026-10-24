@@ -19,6 +19,7 @@ import {
   Radio,
   Sparkles,
   Crown,
+  Smile,
 } from 'lucide-react';
 import type { User, DirectMessage, DirectMessageType } from '../types';
 import { useLanguage } from '../contexts';
@@ -33,6 +34,7 @@ import {
 } from '../services';
 
 import ReportModal from './ReportModal';
+import { SeatEmojiPickerModal } from './SeatEmojiSystem';
 
 interface PrivateChatProps {
   currentUser: User;
@@ -56,6 +58,7 @@ export default function PrivateChat({
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
   // Presence State
   const [presence, setPresence] = useState<{ isOnline: boolean; lastSeen: number; statusText: string }>({
@@ -435,6 +438,11 @@ export default function PrivateChat({
                 ? currentUser.avatar || currentUser.profileImage || msg.senderAvatar || null
                 : recipientLiveAvatar || recipientUser.avatar || msg.senderAvatar || null;
               const isSenderVip = isMine ? Boolean(currentUser.isVerified) : recipientIsVip;
+              const isEmojiOnly = Boolean(
+                msg.text &&
+                msg.text.trim().length <= 20 &&
+                /^[\p{Extended_Pictographic}\uFE0F\u200D\s]+$/u.test(msg.text.trim())
+              );
               const senderInitial = (isMine ? currentUser.username : recipientUser.username)
                 .charAt(0)
                 .toUpperCase();
@@ -479,8 +487,13 @@ export default function PrivateChat({
                       }`}
                     >
                       {/* Variant 1: Text message */}
-                      {msg.type === 'text' && (
-                        <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                      {isEmojiOnly && msg.type === 'text' && (
+                        <div className="text-3xl sm:text-4xl py-1 inline-block tracking-wider select-none drop-shadow">
+                          {msg.text}
+                        </div>
+                      )}
+                      {!isEmojiOnly && msg.type === 'text' && (
+                        <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans break-words">
                           {msg.text}
                         </p>
                       )}
@@ -640,6 +653,20 @@ export default function PrivateChat({
               <Mic className="h-4 w-4" />
             </button>
 
+            {/* Mobile Emoji Button */}
+            <button
+              type="button"
+              onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+              title={tr("ئیمۆجی", "Emojis")}
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
+                isEmojiPickerOpen
+                  ? 'border-amber-400 bg-amber-400/20 text-amber-300 shadow-md shadow-amber-400/20'
+                  : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-amber-400/40 hover:text-amber-300'
+              }`}
+            >
+              <Smile className="h-4 w-4" />
+            </button>
+
             {/* Text Input */}
             <input
               type="text"
@@ -661,6 +688,17 @@ export default function PrivateChat({
           </form>
         </footer>
       </motion.div>
+
+      {/* Mobile Emoji Picker Drawer Modal */}
+      <SeatEmojiPickerModal
+        isOpen={isEmojiPickerOpen}
+        onClose={() => setIsEmojiPickerOpen(false)}
+        onSelectMobileEmoji={(emoji) => {
+          setInputText((prev) => prev + emoji);
+        }}
+        isVip={Boolean(currentUser.isVerified || currentUser.isAdmin)}
+        initialTab="mobile"
+      />
 
       {/* ── MODERATION REPORT MODAL ── */}
       <AnimatePresence>

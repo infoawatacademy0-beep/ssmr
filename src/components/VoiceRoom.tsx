@@ -1336,6 +1336,11 @@ export default function VoiceRoom() {
                 );
 
                 const emojiMatch = msg.text.match(/^\[EMOJI:([a-z0-9-]+)\]$/);
+                const isEmojiOnly = Boolean(
+                  msg.text &&
+                  msg.text.trim().length <= 20 &&
+                  /^[\p{Extended_Pictographic}\uFE0F\u200D\s]+$/u.test(msg.text.trim())
+                );
 
                 return (
                   <div
@@ -1402,7 +1407,11 @@ export default function VoiceRoom() {
                           </span>
                         )}
                       </div>
-                      {emojiMatch ? (
+                      {isEmojiOnly ? (
+                        <div className="py-1 text-3xl sm:text-4xl tracking-wider select-none drop-shadow">
+                          {msg.text}
+                        </div>
+                      ) : emojiMatch ? (
                         <div className="py-1">
                           <AnimatedEmojiGraphic emojiId={emojiMatch[1]} size={56} />
                         </div>
@@ -2194,6 +2203,9 @@ export default function VoiceRoom() {
         isOpen={isEmojiPickerOpen}
         onClose={() => setIsEmojiPickerOpen(false)}
         onSelectEmoji={handleSelectEmoji}
+        onSelectMobileEmoji={(emoji) => {
+          setChatInput((prev) => prev + emoji);
+        }}
         isVip={Boolean(user.isVerified || user.isAdmin)}
       />
 
