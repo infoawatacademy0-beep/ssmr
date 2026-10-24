@@ -886,6 +886,18 @@ export default function VoiceRoom() {
             isHost={isHost}
             seats={room.seats}
             pkBattle={pkBattle}
+            onOpenGiftStore={(targetUserId, targetUsername) => {
+              if (targetUserId) {
+                const targetSeat = room.seats.find((s) => s.userId === targetUserId);
+                setGiftRecipient({
+                  uid: targetUserId,
+                  username: targetUsername || targetSeat?.username || 'User',
+                });
+              } else {
+                setGiftRecipient(null);
+              }
+              setIsGiftModalOpen(true);
+            }}
           />
 
           <div className="flex items-center justify-between pb-2 px-1">
@@ -949,7 +961,9 @@ export default function VoiceRoom() {
                     (isCurrentUser && user?.isVerified)),
               );
               const isPkActive = pkBattle?.status === 'active';
-              const isTeamRed = [1, 2, 5, 6].includes(seat.seatNo);
+              const isTeamRed = pkBattle?.redSeats ? pkBattle.redSeats.includes(seat.seatNo) : [1, 2, 5, 6].includes(seat.seatNo);
+              const isTeamBlue = pkBattle?.blueSeats ? pkBattle.blueSeats.includes(seat.seatNo) : [3, 4, 7, 8].includes(seat.seatNo);
+              const isInPkTeam = isPkActive && (isTeamRed || isTeamBlue);
               // True WebRTC speaking indicator powered by LiveKit Voice Activity Detection
               const isSpeaking =
                 isOccupied &&
@@ -967,7 +981,7 @@ export default function VoiceRoom() {
                   );
                 } else if (isSpeaking) {
                   avatarBorderClass = 'border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)]';
-                } else if (isPkActive) {
+                } else if (isInPkTeam) {
                   avatarBorderClass = isTeamRed
                     ? 'border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
                     : 'border-2 border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.6)]';
@@ -994,7 +1008,7 @@ export default function VoiceRoom() {
                     )}
 
                     {/* PK Battle Team Pill Indicator on Seat */}
-                    {isPkActive && (
+                    {isInPkTeam && (
                       <div
                         className={`absolute -top-2 left-1/2 -translate-x-1/2 rounded px-1.5 py-0.2 text-[7px] font-black uppercase text-white shadow-md z-20 ${
                           isTeamRed ? 'bg-rose-600 border border-rose-400/80' : 'bg-sky-600 border border-sky-400/80'

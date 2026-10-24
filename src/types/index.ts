@@ -47,5 +47,5 @@ export type { NotificationType, AppNotification } from './notification';
 export type { StoryMediaType, Story, StoryGroup } from './story';
 export type { RoomInvite } from './invite';
 export type { ShopItemType, ShopItem, PurchaseRecord } from './shop';
-export type { PkTeam, PkBattleState } from './pkBattle';
+export type { PkTeam, PkBattleState, PkMode, PkContributor, StartPkBattleOptions } from './pkBattle';
 

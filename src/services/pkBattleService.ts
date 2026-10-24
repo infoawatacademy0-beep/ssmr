@@ -1,35 +1,71 @@
-import { ref, set, update, runTransaction, onValue, type Unsubscribe } from 'firebase/database';
+import { ref, set, runTransaction, onValue, type Unsubscribe } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { PkBattleState, PkTeam } from '../types/pkBattle';
+import type { PkBattleState, PkTeam, StartPkBattleOptions } from '../types/pkBattle';
 import { sendRoomMessage } from './roomService';
 
 /* ─────────────────────────────────────────────────────────────
-   4 VS 4 Team PK Battle Service (5 Minutes Duration)
-   Team Red (Seats 1-4) VS Team Blue (Seats 5-8)
-   Real-Time Score Tug-of-War & Gift Integration
+   Advanced PK Battle Service
+   Modes: 1v1, 2v2, 3v3, 4v4, Custom
+   Durations: 1m (60s), 3m (180s), 5m (300s), 10m (600s)
+   Top Contributors (MVP gifters), Live Score & Optional Penalty
    ───────────────────────────────────────────────────────────── */
 
 /**
- * Starts a 4 VS 4 PK Battle for 5 minutes (300 seconds).
+ * Starts a PK Battle with customized mode, duration, seats, and penalty.
  */
 export async function startPkBattle(
   roomId: string,
   hostUsername: string,
-  durationSeconds = 300,
+  optionsOrDuration: StartPkBattleOptions | number = 300,
 ): Promise<void> {
+  let options: StartPkBattleOptions = {};
+  if (typeof optionsOrDuration === 'number') {
+    options = { durationSeconds: optionsOrDuration };
+  } else {
+    options = optionsOrDuration || {};
+  }
+
+  const mode = options.mode || '4v4';
+  const durationSeconds = options.durationSeconds || 300;
+
+  let redSeats = options.redSeats;
+  let blueSeats = options.blueSeats;
+
+  if (!redSeats || !blueSeats || redSeats.length === 0 || blueSeats.length === 0) {
+    if (mode === '1v1') {
+      redSeats = [1];
+      blueSeats = [2];
+    } else if (mode === '2v2') {
+      redSeats = [1, 2];
+      blueSeats = [3, 4];
+    } else if (mode === '3v3') {
+      redSeats = [1, 2, 5];
+      blueSeats = [3, 4, 7];
+    } else {
+      // 4v4 default
+      redSeats = [1, 2, 5, 6];
+      blueSeats = [3, 4, 7, 8];
+    }
+  }
+
+  const penalty = options.penalty?.trim() || null;
   const battleRef = ref(database, `rooms/${roomId}/pkBattle`);
   const now = Date.now();
 
   const battleState: PkBattleState = {
     id: `pk_${now}`,
     status: 'active',
+    mode,
     startTime: now,
     durationSeconds,
     endTime: now + durationSeconds * 1000,
     redScore: 0,
     blueScore: 0,
-    redSeats: [1, 2, 3, 4],
-    blueSeats: [5, 6, 7, 8],
+    redSeats,
+    blueSeats,
+    redContributors: {},
+    blueContributors: {},
+    penalty,
     winner: null,
     lastUpdated: now,
   };
@@ -38,21 +74,24 @@ export async function startPkBattle(
   // Reset per-seat PK points so only points received during this PK battle are shown
   await set(ref(database, `rooms/${roomId}/seatGiftCoins`), null);
 
+  const durationMin = Math.max(1, Math.round(durationSeconds / 60));
+  const penaltyNotice = penalty ? ` | ⚠️ سزای دۆڕاو: ${penalty}` : '';
   await sendRoomMessage(
     roomId,
     'system',
     'System',
-    `⚔️ 4 VS 4 PK Battle has begun (5 Minutes)! Team Red (Seats 1-4) vs Team Blue (Seats 5-8). Send gifts & tap to boost!`,
+    `⚔️ جەنگی PK (${mode.toUpperCase()}) دەستی پێکرد بۆ ماوەی (${durationMin} خولەک)! سوور (کورسی ${redSeats.join('، ')}) دژی شین (کورسی ${blueSeats.join('، ')})${penaltyNotice}. دیاری بنێرن بۆ سەرخستنی تیمی خۆتان!`,
   );
 }
 
 /**
- * Adds points to a team during an active PK battle.
+ * Adds points to a team during an active PK battle and tracks the sender's MVP contributions.
  */
 export async function addPkBattlePoints(
   roomId: string,
   team: PkTeam,
   points: number,
+  sender?: { uid: string; username: string; avatar?: string | null },
 ): Promise<void> {
   const battleRef = ref(database, `rooms/${roomId}/pkBattle`);
 
@@ -74,8 +113,38 @@ export async function addPkBattlePoints(
 
     if (team === 'red') {
       currentBattle.redScore = (currentBattle.redScore || 0) + points;
+      if (sender && sender.uid) {
+        if (!currentBattle.redContributors) currentBattle.redContributors = {};
+        const prev = currentBattle.redContributors[sender.uid] || {
+          uid: sender.uid,
+          username: sender.username,
+          avatar: sender.avatar || null,
+          points: 0,
+        };
+        currentBattle.redContributors[sender.uid] = {
+          ...prev,
+          username: sender.username,
+          avatar: sender.avatar || prev.avatar || null,
+          points: prev.points + points,
+        };
+      }
     } else {
       currentBattle.blueScore = (currentBattle.blueScore || 0) + points;
+      if (sender && sender.uid) {
+        if (!currentBattle.blueContributors) currentBattle.blueContributors = {};
+        const prev = currentBattle.blueContributors[sender.uid] || {
+          uid: sender.uid,
+          username: sender.username,
+          avatar: sender.avatar || null,
+          points: 0,
+        };
+        currentBattle.blueContributors[sender.uid] = {
+          ...prev,
+          username: sender.username,
+          avatar: sender.avatar || prev.avatar || null,
+          points: prev.points + points,
+        };
+      }
     }
 
     currentBattle.lastUpdated = Date.now();
@@ -84,7 +153,7 @@ export async function addPkBattlePoints(
 }
 
 /**
- * Manually ends or resets the PK battle.
+ * Manually ends or settles the PK battle.
  */
 export async function endPkBattle(roomId: string): Promise<void> {
   const battleRef = ref(database, `rooms/${roomId}/pkBattle`);

@@ -66,25 +66,37 @@ export async function sendGift(
   });
 
   // 3. Track per-seat gift coins for room trophy ranking & award PK battle points if active
-  // Seats 1, 2, 5, 6 are Team Red; Seats 3, 4, 7, 8 are Team Blue
   try {
     const seatCoinsRef = ref(database, `rooms/${roomId}/seatGiftCoins/${recipient.uid}`);
     await runTransaction(seatCoinsRef, (current) => (current || 0) + gift.cost);
 
     const pkSnapshot = await get(ref(database, `rooms/${roomId}/pkBattle`));
-    const isPkActive = pkSnapshot.exists() && pkSnapshot.val()?.status === 'active';
+    const pkData = pkSnapshot.exists() ? pkSnapshot.val() : null;
+    const isPkActive = pkData?.status === 'active';
 
     if (isPkActive) {
-
       const seatsSnapshot = await get(ref(database, `rooms/${roomId}/seats`));
       if (seatsSnapshot.exists()) {
         const seats = seatsSnapshot.val();
         const seatList = Array.isArray(seats) ? seats : Object.values(seats);
         const recipientSeat = seatList.find((s: any) => s?.userId === recipient.uid);
         if (recipientSeat && typeof recipientSeat.seatNo === 'number') {
-          const isRed = [1, 2, 5, 6].includes(recipientSeat.seatNo);
-          const team: PkTeam = isRed ? 'red' : 'blue';
-          await addPkBattlePoints(roomId, team, gift.cost);
+          const redSeats: number[] = pkData.redSeats || [1, 2, 5, 6];
+          const blueSeats: number[] = pkData.blueSeats || [3, 4, 7, 8];
+
+          if (redSeats.includes(recipientSeat.seatNo)) {
+            await addPkBattlePoints(roomId, 'red', gift.cost, {
+              uid: sender.uid,
+              username: sender.username,
+              avatar: sender.avatar || null,
+            });
+          } else if (blueSeats.includes(recipientSeat.seatNo)) {
+            await addPkBattlePoints(roomId, 'blue', gift.cost, {
+              uid: sender.uid,
+              username: sender.username,
+              avatar: sender.avatar || null,
+            });
+          }
         }
       }
     }
