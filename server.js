@@ -122,19 +122,23 @@ app.post('/api/upload-song', upload.single('songFile'), async (req, res) => {
     const fileName = `song-${uniqueSuffix}.${fileExtension}`;
     const itemIdentifier = `web-songs-${uniqueSuffix}`;
 
-    const params = {
+    const request = archiveS3.putObject({
       Bucket: itemIdentifier,
       Key: fileName,
       Body: req.file.buffer,
       ContentType: contentType,
       ACL: 'public-read',
-      Metadata: {
-        'x-archive-meta-mediatype': 'audio',
-        'x-archive-auto-make-bucket': '1',
-      },
-    };
+    });
 
-    await archiveS3.upload(params).promise();
+    request.on('build', () => {
+      request.httpRequest.headers['x-archive-auto-make-bucket'] = '1';
+      request.httpRequest.headers['x-archive-meta-mediatype'] = 'audio';
+      if (req.file.originalname) {
+        request.httpRequest.headers['x-archive-meta-title'] = req.file.originalname.replace(/\.[^/.]+$/, '');
+      }
+    });
+
+    await request.promise();
 
     const directLink = `https://archive.org/download/${itemIdentifier}/${fileName}`;
     return res.json({
