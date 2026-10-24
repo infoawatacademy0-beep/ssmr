@@ -188,6 +188,22 @@ export async function removeTrackFromQueue(
 }
 
 /**
+ * Removes ALL custom songs from the room music queue.
+ */
+export async function clearAllTracksFromQueue(roomId: string): Promise<void> {
+  const queueRef = ref(database, `rooms/${roomId}/musicQueue`);
+  await remove(queueRef);
+
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  await update(playerRef, {
+    currentTrackId: null,
+    isPlaying: false,
+    playbackPosition: 0,
+    lastSyncTimestamp: Date.now(),
+  });
+}
+
+/**
  * Ends Music Mode on the room screen and stops playback,
  * while keeping the entire song list (musicQueue) 100% preserved!
  */

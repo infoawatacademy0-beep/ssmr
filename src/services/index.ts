@@ -88,6 +88,7 @@ export {
   setMusicPlayback,
   skipToNextTrack,
   removeTrackFromQueue,
+  clearAllTracksFromQueue,
   cancelAndClearMusic,
   setMusicModeActive,
   changeCurrentTrack,

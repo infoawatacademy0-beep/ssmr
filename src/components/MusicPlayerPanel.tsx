@@ -32,6 +32,8 @@ import {
   restartCurrentTrack,
   setMusicVolume,
   uploadSongFile,
+  removeTrackFromQueue,
+  clearAllTracksFromQueue,
 } from '../services';
 
 interface MusicPlayerPanelProps {
@@ -70,6 +72,7 @@ export default function MusicPlayerPanel({
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [showManualForm, setShowManualForm] = useState(false);
+  const [dismissedSampleIds, setDismissedSampleIds] = useState<string[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -103,16 +106,18 @@ export default function MusicPlayerPanel({
     ...musicState.queue,
     ...SAMPLE_MUSIC_TRACKS.filter(
       (sample) => !musicState.queue.some((q) => q.url === sample.url),
-    ).map((sample, idx) => ({
-      id: `sample_${idx}`,
-      title: sample.title,
-      artist: sample.artist,
-      duration: sample.duration,
-      url: sample.url,
-      addedBy: 'system',
-      addedByName: 'System',
-      addedAt: 0,
-    })),
+    )
+      .map((sample, idx) => ({
+        id: `sample_${idx}`,
+        title: sample.title,
+        artist: sample.artist,
+        duration: sample.duration,
+        url: sample.url,
+        addedBy: 'system',
+        addedByName: 'System',
+        addedAt: 0,
+      }))
+      .filter((s) => !dismissedSampleIds.includes(s.id)),
   ];
 
   // Sync volume from Firebase room state
@@ -307,6 +312,45 @@ export default function MusicPlayerPanel({
       closeModal();
     } catch (err: any) {
       alert(err.message || 'نەتوانرا گۆرانییەکە پێبکرێت.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Allows ALL members to delete any individual song from the playlist.
+   */
+  const handleDeleteSong = async (e: React.MouseEvent, songId: string) => {
+    e.stopPropagation();
+    if (isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+      if (songId.startsWith('sample_')) {
+        setDismissedSampleIds((prev) => [...prev, songId]);
+      } else {
+        await removeTrackFromQueue(roomId, songId);
+      }
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا گۆرانییەکە بسڕدرێتەوە');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Allows members to clear all custom songs from the room queue.
+   */
+  const handleClearAllSongs = async () => {
+    if (isSubmitting) return;
+    if (!window.confirm(tr('دڵنیایت لە سڕینەوەی هەموو گۆرانییەکان؟', 'Are you sure you want to clear all songs?'))) {
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      await clearAllTracksFromQueue(roomId);
+    } catch (err: any) {
+      alert(err.message || 'نەتوانرا گۆرانییەکان بسڕدرێنەوە');
     } finally {
       setIsSubmitting(false);
     }
@@ -757,36 +801,52 @@ export default function MusicPlayerPanel({
                   <p className="text-xs font-bold text-slate-300">
                     {tr('لیستی گۆرانییەکان', 'Room Playlist')} ({allSavedSongs.length}):
                   </p>
-                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" />
-                    <span>{tr('ئەندامان دەتوانن لێیبدەن', 'Members can play')}</span>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {musicState.queue.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllSongs}
+                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 bg-rose-500/10 border border-rose-500/25 px-2 py-0.5 rounded-lg active:scale-95 transition"
+                        title={tr('سڕینەوەی هەموو گۆرانییەکانی ژوور', 'Clear all custom songs')}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>{tr('سڕینەوەی هەموو', 'Clear all')}</span>
+                      </button>
+                    )}
+                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>{tr('ئەندامان دەتوانن لێیبدەن و بسڕنەوە', 'Members can play & delete')}</span>
+                    </span>
+                  </div>
                 </div>
 
                 <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
                   {allSavedSongs.map((song) => {
                     const isCurrent = Boolean(currentTrack && currentTrack.url === song.url);
                     return (
-                      <button
+                      <div
                         key={song.id || song.url}
-                        type="button"
-                        disabled={isSubmitting || isUploading}
-                        onClick={() =>
-                          handleSelectSong({
-                            id: song.id,
-                            title: song.title,
-                            artist: song.artist,
-                            duration: song.duration || 180,
-                            url: song.url,
-                          })
-                        }
-                        className={`flex w-full items-center justify-between rounded-2xl border p-2.5 text-left text-xs transition-all ${
+                        className={`group flex w-full items-center justify-between rounded-2xl border p-2.5 text-left text-xs transition-all ${
                           isCurrent
                             ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                            : 'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.08] text-white active:scale-98'
+                            : 'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.08] text-white'
                         }`}
                       >
-                        <div className="min-w-0 pr-2">
+                        {/* Song Title and Artist (Tap to Play) */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            handleSelectSong({
+                              id: song.id,
+                              title: song.title,
+                              artist: song.artist,
+                              duration: song.duration || 180,
+                              url: song.url,
+                            })
+                          }
+                          className="min-w-0 flex-1 pr-2 cursor-pointer select-none"
+                        >
                           <p className="font-bold truncate">{song.title}</p>
                           <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
                             <span>{song.artist}</span>
@@ -797,16 +857,42 @@ export default function MusicPlayerPanel({
                             )}
                           </p>
                         </div>
-                        <span
-                          className={`shrink-0 rounded-xl px-2.5 py-1 text-[10px] font-black ${
-                            isCurrent
-                              ? 'bg-emerald-500 text-black'
-                              : 'bg-violet-500/20 text-violet-300 group-hover:bg-violet-500 group-hover:text-white'
-                          }`}
-                        >
-                          {isCurrent ? tr('🎵 لێدەدرێت', '🎵 Playing') : tr('▶ پێکردن', '▶ Play')}
-                        </span>
-                      </button>
+
+                        {/* Action buttons: Play + Delete */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            disabled={isSubmitting || isUploading}
+                            onClick={() =>
+                              handleSelectSong({
+                                id: song.id,
+                                title: song.title,
+                                artist: song.artist,
+                                duration: song.duration || 180,
+                                url: song.url,
+                              })
+                            }
+                            className={`rounded-xl px-2.5 py-1 text-[10px] font-black transition active:scale-95 ${
+                              isCurrent
+                                ? 'bg-emerald-500 text-black font-extrabold shadow-sm'
+                                : 'bg-violet-500/20 text-violet-300 hover:bg-violet-500 hover:text-white'
+                            }`}
+                          >
+                            {isCurrent ? tr('🎵 لێدەدرێت', '🎵 Playing') : tr('▶ پێکردن', '▶ Play')}
+                          </button>
+
+                          {/* Delete Button for Members & Hosts */}
+                          <button
+                            type="button"
+                            disabled={isSubmitting || isUploading}
+                            onClick={(e) => handleDeleteSong(e, song.id)}
+                            title={tr('سڕینەوەی ئەم گۆرانییە لە لایەن هەمووان', 'Delete this song')}
+                            className="flex h-6 w-6 items-center justify-center rounded-lg border border-rose-500/25 bg-rose-500/10 text-rose-400 hover:bg-rose-500/30 hover:text-rose-200 active:scale-90 transition"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
