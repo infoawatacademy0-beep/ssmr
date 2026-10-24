@@ -15,6 +15,9 @@ import {
   Loader2,
   UploadCloud,
   CheckCircle2,
+  Smartphone,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { RoomMusicState, User, Seat } from '../types';
 import { useLanguage } from '../contexts';
@@ -64,7 +67,9 @@ export default function MusicPlayerPanel({
 
   // Uploading to Internet Archive S3 state
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [showManualForm, setShowManualForm] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -308,9 +313,9 @@ export default function MusicPlayerPanel({
   };
 
   /**
-   * Uploads ANY audio / song file format to Internet Archive via backend S3 API,
-   * receives the direct permanent streaming link, saves to Firebase,
-   * and immediately starts playing it across the room (interrupting any prior song).
+   * Uploads ANY audio / song file format directly to Internet Archive,
+   * automatically extracts the title and artist from the phone's file name,
+   * saves to Firebase, and immediately plays it across the room.
    */
   const handleLocalAudioFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -319,10 +324,31 @@ export default function MusicPlayerPanel({
     // Detect format and clean name
     const extMatch = file.name.match(/\.([0-9a-z]+)$/i);
     const fileExt = extMatch ? extMatch[1].toUpperCase() : 'AUDIO';
-    const cleanTitle = file.name.replace(/\.[^/.]+$/, '').trim() || 'گۆرانی نوێ';
+
+    // Parse mobile file name automatically:
+    // e.g. "Hasan Zirak - Aman Doctor.mp3" -> Artist: "Hasan Zirak", Title: "Aman Doctor"
+    // e.g. "Zakaria_Bochi.mp3" -> Title: "Zakaria Bochi"
+    const rawBaseName = file.name.replace(/\.[^/.]+$/, '').trim().replace(/[_]+/g, ' ');
+    let finalTitle = rawBaseName || 'گۆرانی نوێ';
+    let finalArtist = currentUser.username;
+
+    if (rawBaseName.includes(' - ')) {
+      const parts = rawBaseName.split(' - ');
+      if (parts[0]?.trim() && parts[1]?.trim()) {
+        finalArtist = parts[0].trim();
+        finalTitle = parts.slice(1).join(' - ').trim();
+      }
+    } else if (rawBaseName.includes(' — ')) {
+      const parts = rawBaseName.split(' — ');
+      if (parts[0]?.trim() && parts[1]?.trim()) {
+        finalArtist = parts[0].trim();
+        finalTitle = parts.slice(1).join(' — ').trim();
+      }
+    }
 
     setIsUploading(true);
-    setUploadStatus(tr(`خەریکی بارکردنی فایلی (${fileExt}) بۆ ئەرشیف...`, `Uploading (${fileExt}) audio file to archive...`));
+    setUploadProgress(0);
+    setUploadStatus(tr(`خەریکی بارکردنی (${finalTitle})...`, `Uploading (${finalTitle})...`));
 
     // Probe duration using client Audio metadata
     let detectedDuration = 210;
@@ -352,16 +378,19 @@ export default function MusicPlayerPanel({
     }
 
     try {
-      // 1. Upload to Internet Archive via backend endpoint (supports all formats)
-      const uploadResult = await uploadSongFile(file);
+      // 1. Upload to Internet Archive with live progress
+      const uploadResult = await uploadSongFile(file, (percent) => {
+        setUploadProgress(percent);
+        setUploadStatus(tr(`خەریکی بارکردنی (${finalTitle})... %${percent}`, `Uploading (${finalTitle})... ${percent}%`));
+      });
       const directLink = uploadResult.directLink;
 
       setUploadStatus(tr('دەستپێکردنی پەخش بۆ هەموو ژوورەکە...', 'Broadcasting playback to room...'));
 
-      // 2. Immediately save direct link and start playing in room
+      // 2. Immediately save direct link and start playing in room with the auto-detected mobile song name
       await changeCurrentTrack(roomId, {
-        title: cleanTitle,
-        artist: currentUser.username,
+        title: finalTitle,
+        artist: finalArtist,
         duration: detectedDuration,
         url: directLink,
         addedBy: currentUser.uid,
@@ -374,6 +403,7 @@ export default function MusicPlayerPanel({
       alert(err.message || 'هەڵەیەک ڕوویدا لە کاتی بارکردنی گۆرانییەکە');
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
       setUploadStatus('');
       e.target.value = '';
     }
@@ -511,11 +541,19 @@ export default function MusicPlayerPanel({
 
               {/* Uploading Status Overlay (If uploading file to Archive S3) */}
               {isUploading && (
-                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 text-center space-y-2">
-                  <Loader2 className="h-6 w-6 text-amber-400 animate-spin mx-auto" />
-                  <p className="text-xs font-bold text-amber-300">{uploadStatus}</p>
+                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-center space-y-2">
+                  <Loader2 className="h-6 w-6 text-emerald-400 animate-spin mx-auto" />
+                  <p className="text-xs font-bold text-emerald-300">{uploadStatus}</p>
+                  {uploadProgress > 0 && (
+                    <div className="w-full bg-slate-700/60 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 transition-all duration-200"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
                   <p className="text-[10px] text-slate-400">
-                    {tr('فایل باردەکرێت بۆ ئەرشیف بۆ لینکی ڕاستەوخۆ...', 'Uploading to Internet Archive S3...')}
+                    {tr('فایل ڕاستەوخۆ باردەکرێت بۆ ئەرشیف بۆ لینکی هەمیشەیی...', 'Directly uploading to Internet Archive S3...')}
                   </p>
                 </div>
               )}
@@ -620,70 +658,97 @@ export default function MusicPlayerPanel({
 
               {/* 3. ADD / UPLOAD SONG SECTION (Available to Members & Host!) */}
               <div className="space-y-3 rounded-2xl border border-violet-500/25 bg-surface-900/70 p-3">
-                <p className="text-xs font-black text-violet-300 flex items-center gap-1.5">
-                  <Plus className="h-4 w-4" />
-                  <span>{tr('زیادکردن و بارکردنی گۆرانی', 'Add & Upload Song')}</span>
-                </p>
-
-                {/* Option A: Pick Audio File from Device (Uploads via Internet Archive S3 API) */}
-                <button
-                  type="button"
-                  disabled={isUploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 py-2.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/25 active:scale-95 disabled:opacity-50 transition"
-                >
-                  {isUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <UploadCloud className="h-4 w-4" />
-                  )}
-                  <span>
-                    {isUploading
-                      ? tr('خەریکی بارکردنە...', 'Uploading...')
-                      : tr('بارکردنی هەموو جۆرە فایلی دەنگ (MP3, M4A, WAV, OGG, FLAC...)', 'Upload any audio format (MP3, M4A, WAV, OGG, FLAC...)')}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-black text-violet-300 flex items-center gap-1.5">
+                    <Smartphone className="h-4 w-4 text-emerald-400" />
+                    <span>{tr('بارکردنی گۆرانی لە ناو مۆبایل', 'Upload Song from Phone')}</span>
+                  </p>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                    {tr('خۆکار', 'Auto')}
                   </span>
-                </button>
+                </div>
 
-                {/* Option B: Add by Title & Audio Link */}
-                <form onSubmit={handleCustomSongSubmit} className="space-y-2 border-t border-white/[0.06] pt-2.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={trackTitle}
-                      onChange={(e) => setTrackTitle(e.target.value)}
-                      placeholder={tr('ناوی گۆرانی...', 'Track title...')}
-                      required
-                      className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
-                    />
-                    <input
-                      type="text"
-                      value={trackArtist}
-                      onChange={(e) => setTrackArtist(e.target.value)}
-                      placeholder={tr('ناوی هونەرمەند...', 'Artist name...')}
-                      className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
-                    />
-                  </div>
-                  <input
-                    type="url"
-                    value={trackUrl}
-                    onChange={(e) => setTrackUrl(e.target.value)}
-                    placeholder={tr('لینکی ڕاستەوخۆ (https://...mp3)', 'Direct MP3 link...')}
-                    required
-                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
-                  />
+                {/* Primary Action: Pick Audio File from Device */}
+                <div className="rounded-xl border border-dashed border-emerald-500/40 bg-emerald-500/5 p-3 text-center space-y-2">
                   <button
-                    type="submit"
-                    disabled={isSubmitting || isUploading || !trackTitle.trim() || !trackUrl.trim()}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
+                    type="button"
+                    disabled={isUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 py-3 text-xs font-black text-white shadow-lg shadow-emerald-950/40 hover:brightness-110 active:scale-95 disabled:opacity-50 transition"
                   >
-                    <Plus className="h-4 w-4" />
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <UploadCloud className="h-4 w-4" />
+                    )}
                     <span>
-                      {isSubmitting
-                        ? tr('خەریکە...', 'Adding...')
-                        : tr('پێکردن و زیادکردن بۆ ژوور', 'Play & Add to Room')}
+                      {isUploading
+                        ? tr(`خەریکی بارکردنە... %${uploadProgress}`, `Uploading... ${uploadProgress}%`)
+                        : tr('🎵 دەست بنێ لێرە و فایلی گۆرانی هەڵبژێرە', '🎵 Tap here to pick song from mobile')}
                     </span>
                   </button>
-                </form>
+
+                  <p className="text-[11px] font-medium text-slate-300 leading-relaxed">
+                    {tr(
+                      '⚡ ناوی گۆرانییەکە خۆکارانە لە ناوی فایلەکەی ناو مۆبایلت وەردەگیرێت و پێویست ناکات هیچ بنووسیت!',
+                      '⚡ The song name is automatically read from your phone file — no typing needed!'
+                    )}
+                  </p>
+                </div>
+
+                {/* Optional Collapsible: Manual URL / Link */}
+                <div className="border-t border-white/[0.06] pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowManualForm(!showManualForm)}
+                    className="flex w-full items-center justify-between text-[11px] text-slate-400 hover:text-slate-200 transition py-1"
+                  >
+                    <span>{tr('یان دانانی لینکی گۆرانی بە دەست (Manual Link)', 'Or enter song URL manually')}</span>
+                    {showManualForm ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </button>
+
+                  {showManualForm && (
+                    <form onSubmit={handleCustomSongSubmit} className="space-y-2 pt-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={trackTitle}
+                          onChange={(e) => setTrackTitle(e.target.value)}
+                          placeholder={tr('ناوی گۆرانی...', 'Track title...')}
+                          required
+                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
+                        />
+                        <input
+                          type="text"
+                          value={trackArtist}
+                          onChange={(e) => setTrackArtist(e.target.value)}
+                          placeholder={tr('ناوی هونەرمەند...', 'Artist name...')}
+                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
+                        />
+                      </div>
+                      <input
+                        type="url"
+                        value={trackUrl}
+                        onChange={(e) => setTrackUrl(e.target.value)}
+                        placeholder={tr('لینکی ڕاستەوخۆ (https://...mp3)', 'Direct MP3 link...')}
+                        required
+                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || isUploading || !trackTitle.trim() || !trackUrl.trim()}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-2.5 text-xs font-black text-white shadow-md active:scale-95 disabled:opacity-50"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>
+                          {isSubmitting
+                            ? tr('خەریکە...', 'Adding...')
+                            : tr('پێکردن و زیادکردن بۆ ژوور', 'Play & Add to Room')}
+                        </span>
+                      </button>
+                    </form>
+                  )}
+                </div>
               </div>
 
               {/* 4. PRESERVED SONGS LIST (Click any song to immediately play & cut off other songs!) */}

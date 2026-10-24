@@ -284,28 +284,118 @@ export async function changeCurrentTrack(
   );
 }
 
+const ARCHIVE_S3_ACCESS_KEY = '8rf2XcHvDimQ65dX';
+const ARCHIVE_S3_SECRET_KEY = 'zHvX8RH0QTna93bN';
+
 /**
- * Uploads an audio file directly to the backend Archive.org S3 endpoint
- * and returns the direct public MP3 streaming link.
+ * Calculates S3 V2 HMAC-SHA1 signature using standard Web Crypto API.
+ * Works natively in all modern browsers (iOS/Android mobile and desktop).
+ */
+async function computeArchiveS3Signature(stringToSign: string, secretKey: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secretKey),
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+  const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(stringToSign));
+  const bytes = new Uint8Array(sigBuf);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Uploads an audio file directly to Internet Archive S3 with automatic container creation.
+ * Works seamlessly on Vercel without serverless size limits.
+ * Falls back to local /api/upload-song if direct request is blocked.
  */
 export async function uploadSongFile(
   file: File,
+  onProgress?: (percent: number) => void,
 ): Promise<{ directLink: string; fileName: string; originalName: string }> {
-  const formData = new FormData();
-  formData.append('songFile', file);
+  const extMatch = file.name.match(/\.([0-9a-z]+)$/i);
+  const fileExtension = extMatch ? extMatch[1].toLowerCase() : 'mp3';
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+  const itemIdentifier = `web-songs-${uniqueSuffix}`;
+  const fileName = `song-${uniqueSuffix}.${fileExtension}`;
 
-  const response = await fetch('/api/upload-song', {
-    method: 'POST',
-    body: formData,
-  });
+  try {
+    const date = new Date().toUTCString();
+    const canonicalResource = `/${itemIdentifier}/${fileName}`;
+    const stringToSign = `PUT\n\n\n${date}\n${canonicalResource}`;
 
-  const data = await response.json().catch(() => ({}));
+    const signature = await computeArchiveS3Signature(stringToSign, ARCHIVE_S3_SECRET_KEY);
+    const authHeader = `AWS ${ARCHIVE_S3_ACCESS_KEY}:${signature}`;
+    const uploadUrl = `https://s3.us.archive.org/${itemIdentifier}/${fileName}`;
 
-  if (!response.ok || !data.success || !data.directLink) {
-    throw new Error(data.error || 'هەڵەیەک ڕوویدا لە بارکردنی گۆرانییەکە بۆ ئەرشیف');
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUrl, true);
+
+      xhr.setRequestHeader('Authorization', authHeader);
+      xhr.setRequestHeader('Date', date);
+      xhr.setRequestHeader('x-archive-auto-make-bucket', '1');
+      xhr.setRequestHeader('x-archive-meta-mediatype', 'audio');
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (evt) => {
+          if (evt.lengthComputable && evt.total > 0) {
+            const pct = Math.round((evt.loaded / evt.total) * 100);
+            onProgress(pct);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error(`Archive.org upload failed with status ${xhr.status}: ${xhr.statusText}`));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network error uploading to Archive.org'));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error('Upload to Archive.org timed out'));
+      };
+
+      xhr.send(file);
+    });
+
+    const directLink = `https://archive.org/download/${itemIdentifier}/${fileName}`;
+    return {
+      directLink,
+      fileName,
+      originalName: file.name,
+    };
+  } catch (directErr) {
+    console.warn('Direct Archive S3 upload failed, trying backend fallback...', directErr);
+
+    // Fallback to local server API if running local server.js
+    const formData = new FormData();
+    formData.append('songFile', file);
+
+    const response = await fetch('/api/upload-song', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.success || !data.directLink) {
+      throw new Error(data.error || 'هەڵەیەک ڕوویدا لە بارکردنی گۆرانییەکە بۆ ئەرشیف');
+    }
+
+    return data;
   }
-
-  return data;
 }
 
 /**
