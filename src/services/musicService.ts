@@ -272,22 +272,60 @@ export async function changeCurrentTrack(
     isMusicModeActive: true,
     playbackPosition: 0,
     lastSyncTimestamp: Date.now(),
+    playedBy: trackData.addedBy,
+    playedByName: trackData.addedByName,
   });
+
+  await sendRoomMessage(
+    roomId,
+    'system',
+    'System',
+    `🎵 ${trackData.addedByName} گۆرانی "${trackData.title}"ی لێدا`,
+  );
 }
 
 /**
- * Immediately switches playback to a specific track already in the queue.
+ * Uploads an audio file directly to the backend Archive.org S3 endpoint
+ * and returns the direct public MP3 streaming link.
+ */
+export async function uploadSongFile(
+  file: File,
+): Promise<{ directLink: string; fileName: string; originalName: string }> {
+  const formData = new FormData();
+  formData.append('songFile', file);
+
+  const response = await fetch('/api/upload-song', {
+    method: 'POST',
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.success || !data.directLink) {
+    throw new Error(data.error || 'هەڵەیەک ڕوویدا لە بارکردنی گۆرانییەکە بۆ ئەرشیف');
+  }
+
+  return data;
+}
+
+/**
+ * Immediately switches playback to a specific track already in the queue,
+ * stopping any other currently playing song.
  */
 export async function selectTrackFromQueue(
   roomId: string,
   trackId: string,
+  user?: { uid: string; username: string },
 ): Promise<void> {
   const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
   await update(playerRef, {
     currentTrackId: trackId,
     isPlaying: true,
+    isMusicModeActive: true,
     playbackPosition: 0,
     lastSyncTimestamp: Date.now(),
+    playedBy: user?.uid,
+    playedByName: user?.username,
   });
 }
 
@@ -369,6 +407,8 @@ export function subscribeToMusicState(
       volume: typeof player.volume === 'number' ? Math.max(0, Math.min(1, player.volume)) : 0.7,
       playbackPosition: Number(player.playbackPosition) || 0,
       lastSyncTimestamp: Number(player.lastSyncTimestamp) || Date.now(),
+      playedBy: player.playedBy || undefined,
+      playedByName: player.playedByName || undefined,
       queue,
     });
   });

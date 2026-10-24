@@ -95,6 +95,7 @@ export {
   toggleMusicRepeat,
   restartCurrentTrack,
   setMusicVolume,
+  uploadSongFile,
   subscribeToMusicState,
 } from './musicService';
 

@@ -17,6 +17,8 @@ export interface RoomMusicState {
   volume?: number; // 0.0 to 1.0 (default 0.7)
   playbackPosition: number; // in seconds
   lastSyncTimestamp: number;
+  playedBy?: string; // uid of user who initiated current playback
+  playedByName?: string; // username
   queue: MusicTrack[];
 }
 

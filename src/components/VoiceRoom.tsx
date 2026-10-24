@@ -771,8 +771,8 @@ export default function VoiceRoom() {
             <span className="hidden sm:inline">بانگهێشت</span>
           </button>
 
-          {/* Host Music Player Toggle Button */}
-          {(isHost || user.isAdmin) && (
+          {/* Music Player Button (For Host & Members) */}
+          {(true) && (
             <button
               onClick={async () => {
                 if (!musicState.isMusicModeActive && !musicState.isPlaying) {
@@ -1616,6 +1616,13 @@ export default function VoiceRoom() {
                     label: 'گۆڕینی دەنگ',
                     show: Boolean(mySeat),
                     onClick: () => setIsVoiceChangerOpen(true),
+                  },
+                  {
+                    key: 'music',
+                    emoji: '🎵',
+                    label: tr('گۆرانییەکان', 'Music & Songs'),
+                    show: true,
+                    onClick: () => setIsMusicPanelVisible(true),
                   },
                   {
                     key: 'jackaroo',
