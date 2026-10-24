@@ -75,17 +75,50 @@ app.all('/api/livekit/token', async (req, res) => {
 
 /**
  * POST /api/upload-song
- * Uploads an MP3 or audio file to Internet Archive via S3 API,
- * returning a permanent direct MP3 streaming link.
+ * Uploads ANY audio/song file format to Internet Archive via S3 API,
+ * ensuring correct streaming MIME-types and permanent direct streaming links.
  */
 app.post('/api/upload-song', upload.single('songFile'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, error: 'تکایە فایلێکی دەنگی (MP3) هەڵبژێرە' });
+      return res.status(400).json({ success: false, error: 'تکایە فایلێکی دەنگی هەڵبژێرە' });
     }
 
+    // Clean and detect file extension from original name
+    let fileExtension = 'mp3';
+    if (req.file.originalname && req.file.originalname.includes('.')) {
+      const parts = req.file.originalname.split('.');
+      const rawExt = parts[parts.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (rawExt) fileExtension = rawExt;
+    }
+
+    // Comprehensive audio MIME types mapping for all mobile & desktop audio formats
+    const audioMimeMap = {
+      mp3: 'audio/mpeg',
+      m4a: 'audio/mp4',
+      aac: 'audio/aac',
+      wav: 'audio/wav',
+      wave: 'audio/wav',
+      ogg: 'audio/ogg',
+      oga: 'audio/ogg',
+      opus: 'audio/opus',
+      flac: 'audio/flac',
+      webm: 'audio/webm',
+      weba: 'audio/webm',
+      wma: 'audio/x-ms-wma',
+      mp4: 'audio/mp4',
+      m4p: 'audio/mp4',
+      '3gp': 'audio/3gpp',
+      amr: 'audio/amr',
+      aif: 'audio/x-aiff',
+      aiff: 'audio/x-aiff',
+      mid: 'audio/midi',
+      midi: 'audio/midi',
+    };
+
+    const contentType = audioMimeMap[fileExtension] || req.file.mimetype || 'audio/mpeg';
+
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const fileExtension = req.file.originalname.split('.').pop() || 'mp3';
     const fileName = `song-${uniqueSuffix}.${fileExtension}`;
     const itemIdentifier = `web-songs-${uniqueSuffix}`;
 
@@ -93,8 +126,12 @@ app.post('/api/upload-song', upload.single('songFile'), async (req, res) => {
       Bucket: itemIdentifier,
       Key: fileName,
       Body: req.file.buffer,
-      ContentType: req.file.mimetype || 'audio/mpeg',
+      ContentType: contentType,
       ACL: 'public-read',
+      Metadata: {
+        'x-archive-meta-mediatype': 'audio',
+        'x-archive-auto-make-bucket': '1',
+      },
     };
 
     await archiveS3.upload(params).promise();
@@ -104,6 +141,8 @@ app.post('/api/upload-song', upload.single('songFile'), async (req, res) => {
       success: true,
       directLink,
       fileName,
+      format: fileExtension,
+      contentType,
       originalName: req.file.originalname,
       size: req.file.size,
     });

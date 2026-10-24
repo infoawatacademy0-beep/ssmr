@@ -308,7 +308,7 @@ export default function MusicPlayerPanel({
   };
 
   /**
-   * Uploads an MP3 / Audio file to the Internet Archive via backend S3 API,
+   * Uploads ANY audio / song file format to Internet Archive via backend S3 API,
    * receives the direct permanent streaming link, saves to Firebase,
    * and immediately starts playing it across the room (interrupting any prior song).
    */
@@ -316,12 +316,43 @@ export default function MusicPlayerPanel({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
+    // Detect format and clean name
+    const extMatch = file.name.match(/\.([0-9a-z]+)$/i);
+    const fileExt = extMatch ? extMatch[1].toUpperCase() : 'AUDIO';
+    const cleanTitle = file.name.replace(/\.[^/.]+$/, '').trim() || 'گۆرانی نوێ';
+
     setIsUploading(true);
-    setUploadStatus(tr('خەریکی بارکردنی گۆرانییە بۆ ئەرشیف...', 'Uploading song to Internet Archive S3...'));
+    setUploadStatus(tr(`خەریکی بارکردنی فایلی (${fileExt}) بۆ ئەرشیف...`, `Uploading (${fileExt}) audio file to archive...`));
+
+    // Probe duration using client Audio metadata
+    let detectedDuration = 210;
+    try {
+      const tempAudio = new Audio();
+      const tempUrl = URL.createObjectURL(file);
+      tempAudio.src = tempUrl;
+      await new Promise<void>((resolve) => {
+        tempAudio.onloadedmetadata = () => {
+          if (tempAudio.duration && isFinite(tempAudio.duration) && tempAudio.duration > 0) {
+            detectedDuration = Math.round(tempAudio.duration);
+          }
+          URL.revokeObjectURL(tempUrl);
+          resolve();
+        };
+        tempAudio.onerror = () => {
+          URL.revokeObjectURL(tempUrl);
+          resolve();
+        };
+        setTimeout(() => {
+          URL.revokeObjectURL(tempUrl);
+          resolve();
+        }, 1200);
+      });
+    } catch {
+      // fallback
+    }
 
     try {
-      // 1. Upload to Internet Archive via our backend endpoint
+      // 1. Upload to Internet Archive via backend endpoint (supports all formats)
       const uploadResult = await uploadSongFile(file);
       const directLink = uploadResult.directLink;
 
@@ -331,7 +362,7 @@ export default function MusicPlayerPanel({
       await changeCurrentTrack(roomId, {
         title: cleanTitle,
         artist: currentUser.username,
-        duration: 240,
+        duration: detectedDuration,
         url: directLink,
         addedBy: currentUser.uid,
         addedByName: currentUser.username,
@@ -352,14 +383,22 @@ export default function MusicPlayerPanel({
 
   return (
     <>
-      {/* Hidden Synchronized HTML5 Audio Element */}
-      <audio ref={audioRef} onEnded={handleAudioEnded} preload="auto" />
+      {/* Hidden Synchronized HTML5 Audio Element with universal format support */}
+      <audio
+        ref={audioRef}
+        onEnded={handleAudioEnded}
+        onError={(err) => {
+          console.warn('Audio playback format warning:', err);
+        }}
+        preload="auto"
+        playsInline
+      />
 
-      {/* Hidden File Input for Device Songs (Uploads directly to Archive S3) */}
+      {/* Hidden Universal File Input for ALL Device Audio / Media Formats */}
       <input
         ref={fileInputRef}
         type="file"
-        accept="audio/*"
+        accept="audio/*,video/mp4,video/webm,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.wma,.webm,.mp4,.3gp,.amr,*/*"
         onChange={handleLocalAudioFileSelect}
         className="hidden"
       />
@@ -601,7 +640,7 @@ export default function MusicPlayerPanel({
                   <span>
                     {isUploading
                       ? tr('خەریکی بارکردنە...', 'Uploading...')
-                      : tr('بارکردنی گۆرانی لە مۆبایل / ئامێر (MP3)', 'Upload MP3 from device')}
+                      : tr('بارکردنی هەموو جۆرە فایلی دەنگ (MP3, M4A, WAV, OGG, FLAC...)', 'Upload any audio format (MP3, M4A, WAV, OGG, FLAC...)')}
                   </span>
                 </button>
 
