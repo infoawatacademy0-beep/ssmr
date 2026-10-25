@@ -138,15 +138,39 @@ export function useVoiceRoom({
     setIsConnecting(true);
     setConnectionError(null);
 
-    // Create a hidden container for remote audio elements if not present
+    // Create a container for remote audio elements if not present.
+    // NOTE: Must NOT use display: none because mobile browsers (iOS Safari & Android Chrome)
+    // suspend media elements that are not in the layout render tree when HTML5 <video> plays!
     let container = document.getElementById('livekit-audio-container') as HTMLDivElement;
     if (!container) {
       container = document.createElement('div');
       container.id = 'livekit-audio-container';
-      container.style.display = 'none';
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.width = '1px';
+      container.style.height = '1px';
+      container.style.opacity = '0';
+      container.style.pointerEvents = 'none';
       document.body.appendChild(container);
+    } else {
+      container.style.display = '';
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.width = '1px';
+      container.style.height = '1px';
+      container.style.opacity = '0';
+      container.style.pointerEvents = 'none';
     }
     audioContainerRef.current = container;
+
+    // Configure iOS / Android audioSession to play-and-record so duplex VoIP audio is never interrupted by video playback
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'play-and-record';
+      } catch {}
+    }
 
     // Create persistent background keep-alive <audio> element so iOS/Android
     // treats the browser tab as an active VoIP call even when Snapchat or another app is opened
@@ -395,16 +419,25 @@ export function useVoiceRoom({
 
     syncMicrophoneAndVoiceEffect();
 
-    // Background Watchdog: keeps mic & room audio alive when user switches to Snapchat or other apps
+    // Watchdog: ensures remote participant voices and local microphone stay alive and are not muted by video playback
     const ensureBackgroundAudioAndMicAlive = async () => {
       const currentRoom = roomRef.current;
       if (!currentRoom || currentRoom.state !== ConnectionState.Connected) return;
 
-      // Always keep remote room audio elements playing in background
+      // Keep iOS / Android audio session in play-and-record duplex mode
+      if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+          if ((navigator as any).audioSession.type !== 'play-and-record') {
+            (navigator as any).audioSession.type = 'play-and-record';
+          }
+        } catch {}
+      }
+
+      // Always keep remote room audio elements playing so cinema video does not pause incoming voices
       if (audioContainerRef.current) {
         const audioEls = audioContainerRef.current.querySelectorAll('audio');
         audioEls.forEach((el) => {
-          if (el.paused) {
+          if (el.id !== 'ssmr-voip-keepalive' && el.paused) {
             el.play().catch(() => {});
           }
         });
@@ -422,7 +455,7 @@ export function useVoiceRoom({
       const localAudioTrack = pub?.audioTrack as LocalAudioTrack | undefined;
       const rawTrack = rawMicTrackRef.current;
 
-      // If another app briefly interrupted the mic or ended the track, automatically re-acquire it
+      // If another app or video briefly interrupted the mic or ended the track, automatically re-acquire it
       if (!pub || pub.isMuted || !localAudioTrack || !rawTrack || rawTrack.readyState === 'ended') {
         try {
           await currentRoom.localParticipant.setMicrophoneEnabled(true);
@@ -439,7 +472,7 @@ export function useVoiceRoom({
         rawTrack.enabled = true;
       }
 
-      // When backgrounded, ensure sender uses native rawMicTrackRef directly so AudioContext suspension never silences user
+      // When backgrounded or normal voice, ensure sender uses native rawMicTrackRef directly
       const sender = (localAudioTrack as unknown as { sender?: RTCRtpSender } | undefined)?.sender;
       if (sender && typeof sender.replaceTrack === 'function' && rawMicTrackRef.current) {
         const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
@@ -457,9 +490,8 @@ export function useVoiceRoom({
       }
     };
 
-    const watchdogTimer = isMicOpen
-      ? window.setInterval(ensureBackgroundAudioAndMicAlive, 1500)
-      : undefined;
+    // Watchdog runs continuously every 1500ms so both listeners and speakers have persistent uninterrupted voice audio
+    const watchdogTimer = window.setInterval(ensureBackgroundAudioAndMicAlive, 1500);
 
     const handleVisibilityOrFocusChange = () => {
       ensureBackgroundAudioAndMicAlive();
@@ -523,7 +555,19 @@ export function useVoiceRoom({
   /* ─────────────────────────────────────────────────────────────
      4. Helper: User Gesture to Resume Blocked Audio
      ───────────────────────────────────────────────────────────── */
-  const unlockAudioAutoplay = useCallback(() => {
+  const unlockAudioAutoplay = useCallback(async () => {
+    try {
+      if (roomRef.current && typeof (roomRef.current as any).startAudio === 'function') {
+        await (roomRef.current as any).startAudio();
+      }
+    } catch {}
+
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'play-and-record';
+      } catch {}
+    }
+
     if (audioContainerRef.current) {
       const audioElements = audioContainerRef.current.querySelectorAll('audio');
       audioElements.forEach((el) => {

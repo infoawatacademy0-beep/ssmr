@@ -16,7 +16,6 @@ import {
   Gamepad2,
   Music,
   Film,
-  Users,
 } from 'lucide-react';
 import type { Room, Seat, User, JackarooGame } from '../types';
 import { useLanguage } from '../contexts';
@@ -28,7 +27,6 @@ import {
   clearRoomChat,
   closeJackarooGame,
   updateRoomPassword,
-  updateRoomSeatCount,
 } from '../services';
 
 interface HostControlsPanelProps {
@@ -58,19 +56,6 @@ export default function HostControlsPanel({
   const [passwordInput, setPasswordInput] = useState(room.password || '');
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordSavedMsg, setPasswordSavedMsg] = useState<string | null>(null);
-  const [isUpdatingSeats, setIsUpdatingSeats] = useState(false);
-
-  const handleSetRoomSeatCount = async (newCount: number) => {
-    setIsUpdatingSeats(true);
-    setActionError(null);
-    try {
-      await updateRoomSeatCount(room.id, newCount, currentUser.username);
-    } catch (err: any) {
-      setActionError(err.message || tr('نەتوانرا ژمارەی کورسییەکان نوێ بکرێتەوە', 'Failed to update seat count'));
-    } finally {
-      setIsUpdatingSeats(false);
-    }
-  };
 
   const handleRemovePassword = async () => {
     setIsSavingPassword(true);
@@ -323,75 +308,12 @@ export default function HostControlsPanel({
             </form>
           </div>
 
-          {/* Custom Room Seats Controller */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
-                  <Users className="h-4 w-4" />
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-white block">
-                    {tr('ژمارەی کورسییەکانی ژوور (Custom Seats)', 'Room Seats Count')}
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    {tr('زیادکردن یان کەمکردنی شوێنی دانیشتن لە ژوور', 'Increase or decrease active seats in room')}
-                  </span>
-                </div>
-              </div>
-              <span className="text-xs font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg">
-                {room.seats.length} {tr('کورسی', 'Seats')}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <div className="flex items-center rounded-xl border border-slate-800 bg-slate-900 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => handleSetRoomSeatCount(room.seats.length - 1)}
-                  disabled={isUpdatingSeats || room.seats.length <= 2}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white hover:bg-rose-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
-                >
-                  -
-                </button>
-                <span className="px-3 text-xs font-black text-amber-300">{room.seats.length}</span>
-                <button
-                  type="button"
-                  onClick={() => handleSetRoomSeatCount(room.seats.length + 1)}
-                  disabled={isUpdatingSeats || room.seats.length >= 16}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-white hover:bg-emerald-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Presets */}
-              <div className="flex flex-wrap items-center gap-1 flex-1">
-                {[4, 6, 8, 10, 12, 16].map((num) => (
-                  <button
-                    key={num}
-                    type="button"
-                    onClick={() => handleSetRoomSeatCount(num)}
-                    disabled={isUpdatingSeats}
-                    className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${
-                      room.seats.length === num
-                        ? 'bg-amber-400 text-black shadow-md shadow-amber-400/20'
-                        : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800'
-                    }`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-              {tr(`کۆنترۆڵی کورسییەکان (${room.seats.length} شوێن)`, `Seat Controls (${room.seats.length} Seats)`)}
+              {tr("کۆنترۆڵی کورسییەکان (٨ شوێن)", "Seat Controls (8 Seats)")}
             </span>
             <span className="text-[10px] text-slate-500">
-              {room.seats.filter((s) => s.userId).length}/{room.seats.length} {tr('قسەکەرانی چالاک', 'Active Speakers')}
+              {room.seats.filter((s) => s.userId).length}/8 ' + tr('قسەکەرانی چالاک', 'Active Speakers')
             </span>
           </div>
 

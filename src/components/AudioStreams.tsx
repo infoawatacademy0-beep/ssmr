@@ -33,7 +33,7 @@ export default function AudioStreams({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             onClick={onUnlockAudio}
-            className="fixed top-16 left-4 right-4 z-50 mx-auto max-w-sm cursor-pointer rounded-2xl border border-amber-500/40 bg-surface-800/95 p-3.5 shadow-2xl backdrop-blur-md"
+            className="fixed top-16 left-4 right-4 z-[10002] mx-auto max-w-sm cursor-pointer rounded-2xl border border-amber-500/40 bg-surface-800/95 p-3.5 shadow-2xl backdrop-blur-md"
           >
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-black">

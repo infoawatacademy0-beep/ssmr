@@ -138,6 +138,7 @@ export function subscribeToRoomCinema(
       lastUpdated: Number(val.lastUpdated) || Date.now(),
       updatedByUid: String(val.updatedByUid || ''),
       updatedByName: String(val.updatedByName || ''),
+      seatCount: val.seatCount ? Number(val.seatCount) : 5,
     });
   });
 }

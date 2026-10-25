@@ -65,6 +65,14 @@ export default function CinemaConfigModal({
   const [previewTest, setPreviewTest] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
 
+  useEffect(() => {
+    if (cinemaState) {
+      setVideoUrl(cinemaState.videoUrl || '');
+      setMovieTitle(cinemaState.title || '');
+      setSeatCount(cinemaState.seatCount || 5);
+    }
+  }, [cinemaState, isOpen]);
+
   if (!isOpen) return null;
 
   const handleApplyPreset = (preset: MoviePreset) => {
@@ -129,7 +137,7 @@ export default function CinemaConfigModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl animate-fade-in">
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl animate-fade-in">
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}

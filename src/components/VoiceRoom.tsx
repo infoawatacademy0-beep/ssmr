@@ -232,6 +232,11 @@ export default function VoiceRoom() {
         el.muted = isSpeakerMuted;
       });
     }
+    if (isSpeakerMuted) {
+      document.body.setAttribute('data-speaker-muted', 'true');
+    } else {
+      document.body.removeAttribute('data-speaker-muted');
+    }
   }, [isSpeakerMuted]);
   const [activeSeatEmojis, setActiveSeatEmojis] = useState<
     Record<number, { id: string; emojiId: string; timestamp: number }>
@@ -929,6 +934,13 @@ export default function VoiceRoom() {
               vipFramesMap={vipFramesMap}
               usersAvatarMap={usersAvatarMap}
               audience={audience}
+              mySeat={mySeat}
+              onToggleMyMute={handleToggleMyMute}
+              onLeaveMySeat={handleLeaveMySeat}
+              audioAutoplayBlocked={audioAutoplayBlocked}
+              onUnlockAudio={unlockAudioAutoplay}
+              isSpeakerMuted={isSpeakerMuted}
+              onToggleSpeakerMute={() => setIsSpeakerMuted((v) => !v)}
               onSeatClick={handleSeatClick}
               onOpenConfigModal={() => setIsCinemaConfigModalOpen(true)}
               onOpenGiftStore={(targetUserId, targetUsername) => {
@@ -1012,24 +1024,12 @@ export default function VoiceRoom() {
                   })}
               </div>
               <span className="text-[10px] text-slate-500">
-                {room.seats.filter((s) => s.userId).length} / {room.seats.length} {tr('دانیشتوو', 'Seated')}
+                {room.seats.filter((s) => s.userId).length} / {tr('٨ دانیشتوو', '8 Seated')}
               </span>
             </div>
           </div>
 
-          <div
-            className={`grid gap-3 sm:gap-4 ${
-              room.seats.length <= 4
-                ? 'grid-cols-4'
-                : room.seats.length === 6
-                ? 'grid-cols-3 sm:grid-cols-6'
-                : room.seats.length <= 8
-                ? 'grid-cols-4'
-                : room.seats.length === 10
-                ? 'grid-cols-5'
-                : 'grid-cols-4 sm:grid-cols-6'
-            }`}
-          >
+          <div className="grid grid-cols-4 gap-3 sm:gap-4">
             {room.seats.map((seat) => {
               const isOccupied = Boolean(seat.userId);
               const isCurrentUser = seat.userId === user?.uid;
@@ -1678,7 +1678,7 @@ export default function VoiceRoom() {
       <AnimatePresence>
         {isRoomMenuOpen && (
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/60 backdrop-blur-sm"
             onClick={() => setIsRoomMenuOpen(false)}
           >
             <motion.div
@@ -1773,7 +1773,7 @@ export default function VoiceRoom() {
          ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isActionSheetOpen && selectedSeat && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm">
             <motion.div
               initial={{ y: '100%', opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -2049,7 +2049,7 @@ export default function VoiceRoom() {
       <AnimatePresence>
         {isVoiceChangerOpen && mySeat && (
           <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center bg-black/75 p-4 backdrop-blur-md"
             onClick={() => setIsVoiceChangerOpen(false)}
           >
             <motion.div

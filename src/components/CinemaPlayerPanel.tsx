@@ -19,6 +19,7 @@ import {
   RotateCw,
   Smartphone,
   ArrowLeft,
+  LogOut,
 } from 'lucide-react';
 import type { RoomCinemaState, Seat, User, AudienceMember } from '../types';
 import { getVipAvatarClass } from '../types';
@@ -37,6 +38,13 @@ interface CinemaPlayerPanelProps {
   vipFramesMap: Record<string, string>;
   usersAvatarMap: Record<string, string>;
   audience: AudienceMember[];
+  mySeat: Seat | null;
+  onToggleMyMute: () => void;
+  onLeaveMySeat?: (seatNo?: number) => void;
+  audioAutoplayBlocked?: boolean;
+  onUnlockAudio?: () => void;
+  isSpeakerMuted?: boolean;
+  onToggleSpeakerMute?: () => void;
   onSeatClick: (seat: Seat) => void;
   onOpenConfigModal: () => void;
   onOpenGiftStore?: (targetUserId?: string, targetUsername?: string) => void;
@@ -70,6 +78,13 @@ export default function CinemaPlayerPanel({
   vipFramesMap,
   usersAvatarMap,
   audience,
+  mySeat,
+  onToggleMyMute,
+  onLeaveMySeat,
+  audioAutoplayBlocked,
+  onUnlockAudio,
+  isSpeakerMuted,
+  onToggleSpeakerMute,
   onSeatClick,
   onOpenConfigModal,
   onOpenProfile,
@@ -89,7 +104,15 @@ export default function CinemaPlayerPanel({
   const autoEnteredRef = useRef(false);
 
   // Custom seat count configured by Host in cinemaState (default 5, ranges from 1 to 12)
-  const targetSeatCount = Math.max(1, Math.min(12, cinemaState.seatCount || 5));
+  const [localSeatCount, setLocalSeatCount] = useState<number>(cinemaState.seatCount || 5);
+
+  useEffect(() => {
+    if (cinemaState.seatCount && cinemaState.seatCount !== localSeatCount) {
+      setLocalSeatCount(cinemaState.seatCount);
+    }
+  }, [cinemaState.seatCount]);
+
+  const targetSeatCount = Math.max(1, Math.min(12, localSeatCount || cinemaState.seatCount || 5));
   const cinemaSeats: Seat[] = Array.from({ length: targetSeatCount }, (_, i) => {
     if (seats[i]) return seats[i];
     return {
@@ -108,13 +131,16 @@ export default function CinemaPlayerPanel({
     e?.stopPropagation();
     if (!isHost) return;
     if (targetSeatCount >= 12) return;
+    const nextCount = targetSeatCount + 1;
+    setLocalSeatCount(nextCount);
     try {
-      await updateCinemaSeatCount(roomId, targetSeatCount + 1, {
+      await updateCinemaSeatCount(roomId, nextCount, {
         uid: currentUser.uid,
         username: currentUser.username,
       });
     } catch (err) {
       console.error('Failed to increase cinema seats:', err);
+      setLocalSeatCount(targetSeatCount);
     }
   };
 
@@ -122,13 +148,60 @@ export default function CinemaPlayerPanel({
     e?.stopPropagation();
     if (!isHost) return;
     if (targetSeatCount <= 1) return;
+    const nextCount = targetSeatCount - 1;
+    setLocalSeatCount(nextCount);
     try {
-      await updateCinemaSeatCount(roomId, targetSeatCount - 1, {
+      await updateCinemaSeatCount(roomId, nextCount, {
         uid: currentUser.uid,
         username: currentUser.username,
       });
     } catch (err) {
       console.error('Failed to decrease cinema seats:', err);
+      setLocalSeatCount(targetSeatCount);
+    }
+  };
+
+  // Ensure iOS / Android WebRTC audio session doesn't get interrupted by video player
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'play-and-record';
+      } catch {}
+    }
+    if (videoRef.current) {
+      videoRef.current.setAttribute('playsinline', 'true');
+      videoRef.current.setAttribute('webkit-playsinline', 'true');
+      videoRef.current.setAttribute('x5-playsinline', 'true');
+      videoRef.current.setAttribute('x5-video-player-type', 'h5-page');
+    }
+  }, []);
+
+  const handleUserGestureAudioUnlock = () => {
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+      try {
+        (navigator as any).audioSession.type = 'play-and-record';
+      } catch {}
+    }
+    onUnlockAudio?.();
+  };
+
+  const handleSeatItemClick = (seat: Seat) => {
+    handleUserGestureAudioUnlock();
+    if (seat.userId === currentUser.uid) {
+      // 1-tap direct mic toggle for the user's own seat!
+      onToggleMyMute();
+    } else {
+      onSeatClick(seat);
+    }
+  };
+
+  const handleQuickTakeSeat = () => {
+    handleUserGestureAudioUnlock();
+    const emptySeat = cinemaSeats.find((s) => !s.userId) || seats.find((s) => !s.userId);
+    if (emptySeat) {
+      onSeatClick(emptySeat);
+    } else {
+      alert(tr('هیچ کورسیەکی بەتاڵ بەردەست نییە!', 'No empty seat available!'));
     }
   };
 
@@ -148,6 +221,7 @@ export default function CinemaPlayerPanel({
 
     // Check play / pause
     if (cinemaState.isPlaying && video.paused) {
+      handleUserGestureAudioUnlock();
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
@@ -178,6 +252,7 @@ export default function CinemaPlayerPanel({
 
   // Handle master play / pause toggle (Only Host can push state to Firebase)
   const handleTogglePlayPause = async () => {
+    handleUserGestureAudioUnlock();
     if (!isHost) return;
     const video = videoRef.current;
     const nextPlaying = !cinemaState.isPlaying;
@@ -195,6 +270,7 @@ export default function CinemaPlayerPanel({
 
   // Handle personal volume change (does not affect other users)
   const handleVolumeChange = (newVol: number) => {
+    handleUserGestureAudioUnlock();
     setVolume(newVol);
     setIsMuted(newVol === 0);
     if (videoRef.current) {
@@ -204,6 +280,7 @@ export default function CinemaPlayerPanel({
   };
 
   const handleToggleMute = () => {
+    handleUserGestureAudioUnlock();
     if (isMuted) {
       setIsMuted(false);
       setAudioBlockedNotice(false);
@@ -455,17 +532,18 @@ export default function CinemaPlayerPanel({
         </video>
 
         {/* Browser Audio Autoplay Unblock Banner */}
-        {audioBlockedNotice && (
+        {(audioBlockedNotice || audioAutoplayBlocked) && (
           <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleToggleMute();
+                if (audioBlockedNotice) handleToggleMute();
+                handleUserGestureAudioUnlock();
               }}
-              className="flex items-center gap-2 rounded-full bg-amber-500 text-black px-4 py-1.5 text-xs font-black shadow-xl animate-bounce hover:scale-105 active:scale-95 transition"
+              className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500 text-black px-4 py-1.5 text-xs font-black shadow-xl animate-bounce hover:scale-105 active:scale-95 transition"
             >
               <Volume2 className="h-4 w-4" />
-              <span>{tr('کلیک بکە بۆ کردنەوەی دەنگی فیلمەکە 🔊', 'Tap to unmute movie sound 🔊')}</span>
+              <span>{tr('دەنگ چالاک بکە (دەنگی فیلم و قسەکردن) 🔊', 'Enable Sound (Movie & Voice Chat) 🔊')}</span>
             </button>
           </div>
         )}
@@ -480,24 +558,101 @@ export default function CinemaPlayerPanel({
               onClick={(e) => e.stopPropagation()}
               className="absolute top-3 inset-x-4 z-40 flex items-center justify-between pointer-events-auto"
             >
-              <button
-                onClick={exitLandscapeFullscreen}
-                className="flex items-center gap-1.5 rounded-full bg-black/75 border border-white/20 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur shadow-lg hover:bg-rose-600 transition"
-              >
-                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
-                <span>{tr('گەڕانەوە بۆ ژوور', 'Back to Room')}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exitLandscapeFullscreen}
+                  className="flex items-center gap-1.5 rounded-full bg-black/75 border border-white/20 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur shadow-lg hover:bg-rose-600 transition"
+                >
+                  <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+                  <span>{tr('گەڕانەوە بۆ ژوور', 'Back to Room')}</span>
+                </button>
 
-              <div className="hidden sm:flex items-center gap-2 bg-black/60 px-3 py-1 rounded-full border border-white/10 backdrop-blur">
-                <span className="rounded bg-rose-600 px-1.5 py-0.5 text-[8px] font-black uppercase text-white shadow">
-                  CINEMA
-                </span>
-                <span className="font-display text-xs font-black text-white truncate max-w-xs">
-                  {cinemaState.title || roomName}
-                </span>
+                <div className="hidden sm:flex items-center gap-2 bg-black/60 px-3 py-1 rounded-full border border-white/10 backdrop-blur">
+                  <span className="rounded bg-rose-600 px-1.5 py-0.5 text-[8px] font-black uppercase text-white shadow">
+                    CINEMA
+                  </span>
+                  <span className="font-display text-xs font-black text-white truncate max-w-xs">
+                    {cinemaState.title || roomName}
+                  </span>
+                </div>
               </div>
 
+              {/* Right Action Icons: Microphone + Rotations + Movie Sound + Exit */}
               <div className="flex items-center gap-2">
+                {/* 1-Tap Microphone Pill & Status in Fullscreen */}
+                {mySeat ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserGestureAudioUnlock();
+                        onToggleMyMute();
+                      }}
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black shadow-lg transition active:scale-95 ${
+                        !mySeat.isMuted
+                          ? 'bg-emerald-500 text-black border border-emerald-300 shadow-emerald-500/40 animate-pulse'
+                          : 'bg-rose-600/90 text-white border border-rose-400 hover:bg-rose-500'
+                      }`}
+                      title={!mySeat.isMuted ? tr('بێدەنگکردنی مایک', 'Mute Mic') : tr('کردنەوەی مایک', 'Unmute Mic')}
+                    >
+                      {!mySeat.isMuted ? (
+                        <>
+                          <Mic className="h-3.5 w-3.5 stroke-[3]" />
+                          <span className="hidden xs:inline">{tr('مایک: کراوە', 'Mic: ON')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <MicOff className="h-3.5 w-3.5 stroke-[2.5]" />
+                          <span className="hidden xs:inline">{tr('مایک: داخراو', 'Mic: OFF')}</span>
+                        </>
+                      )}
+                    </button>
+                    {onLeaveMySeat && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLeaveMySeat(mySeat.seatNo);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/70 border border-white/20 text-rose-300 hover:bg-rose-600 hover:text-white transition shadow"
+                        title={tr('جێهێشتنی کورسی', 'Leave Seat')}
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQuickTakeSeat();
+                    }}
+                    className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 px-3 py-1.5 text-xs font-black text-black shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition"
+                    title={tr('وەرگرتنی مایک بۆ قسەکردن', 'Take Mic to Speak')}
+                  >
+                    <Mic className="h-3.5 w-3.5 stroke-[3]" />
+                    <span>{tr('وەرگرتنی مایک', 'Take Mic')}</span>
+                  </button>
+                )}
+
+                {/* Room Voice (Speaker) Toggle */}
+                {onToggleSpeakerMute && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUserGestureAudioUnlock();
+                      onToggleSpeakerMute();
+                    }}
+                    className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow ${
+                      isSpeakerMuted
+                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-400'
+                        : 'bg-black/70 border-white/20 text-slate-300 hover:text-white'
+                    }`}
+                    title={isSpeakerMuted ? tr('کردنەوەی دەنگی هاوڕێیان', 'Unmute Room Voices') : tr('بێدەنگکردنی دەنگی هاوڕێیان', 'Mute Room Voices')}
+                  >
+                    {isSpeakerMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  </button>
+                )}
+
                 <button
                   onClick={() => setIsRotatedLandscape((prev) => !prev)}
                   title={tr('سوڕاندنی ٩٠ پلە', 'Rotate 90°')}
@@ -524,6 +679,7 @@ export default function CinemaPlayerPanel({
 
                 <button
                   onClick={handleToggleMute}
+                  title={isMuted ? tr('کردنەوەی دەنگی فیلمەکە', 'Unmute Movie Sound') : tr('بێدەنگکردنی دەنگی فیلمەکە', 'Mute Movie Sound')}
                   className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/70 border border-white/20 text-white hover:bg-white/20 transition shadow"
                 >
                   {isMuted ? <VolumeX className="h-4 w-4 text-rose-400" /> : <Volume2 className="h-4 w-4" />}
@@ -587,7 +743,12 @@ export default function CinemaPlayerPanel({
                   return (
                     <div
                       key={`fs-seat-${seat.seatNo}`}
-                      onClick={() => onSeatClick(seat)}
+                      onClick={() => handleSeatItemClick(seat)}
+                      title={
+                        isCurrentUser
+                          ? (!seat.isMuted ? tr('بێدەنگکردنی مایکم', 'Mute My Mic') : tr('کردنەوەی مایکم', 'Unmute My Mic'))
+                          : seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
+                      }
                       className="group relative flex flex-col items-center cursor-pointer"
                     >
                       <div
@@ -816,36 +977,112 @@ export default function CinemaPlayerPanel({
       {!isFullscreen && (
         <>
           <div className="relative mt-2.5 w-full">
-            {/* Couch Top Header with Custom Seats Stepper */}
-            <div className="flex items-center justify-between px-1 mb-1.5">
+            {/* Couch Top Header with Custom Seats Stepper and Quick Mic Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-1.5 px-1 mb-1.5">
               <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
                 <span>🛋️</span>
                 <span>{tr('قەنەفەی شاهانەیی سینەما', 'VIP Theater Couch')}</span>
                 <span className="text-[10px] text-rose-300/80">({targetSeatCount} {tr('کورسی', 'Seats')})</span>
               </span>
 
-              {isHost && (
-                <div className="flex items-center gap-1 bg-black/60 border border-white/10 rounded-xl px-2 py-0.5 shadow">
-                  <span className="text-[9px] text-slate-400 font-bold mr-1">{tr('ژمارەی کورسی:', 'Seats:')}</span>
+              {/* Quick User Microphone & Speaker Control Strip */}
+              <div className="flex items-center gap-1.5">
+                {mySeat ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserGestureAudioUnlock();
+                        onToggleMyMute();
+                      }}
+                      className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-black shadow-md transition active:scale-95 ${
+                        !mySeat.isMuted
+                          ? 'bg-emerald-500 text-black border border-emerald-300 shadow-emerald-500/30 animate-pulse'
+                          : 'bg-rose-600/90 text-white border border-rose-400 hover:bg-rose-500'
+                      }`}
+                      title={!mySeat.isMuted ? tr('بێدەنگکردنی مایکی خۆم', 'Mute My Mic') : tr('کردنەوەی مایکی خۆم', 'Unmute My Mic')}
+                    >
+                      {!mySeat.isMuted ? (
+                        <>
+                          <Mic className="h-3.5 w-3.5 stroke-[3]" />
+                          <span>{tr('مایک: کراوە', 'Mic: ON')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <MicOff className="h-3.5 w-3.5 stroke-[2.5]" />
+                          <span>{tr('مایک: داخراو', 'Mic: OFF')}</span>
+                        </>
+                      )}
+                    </button>
+                    {onLeaveMySeat && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLeaveMySeat(mySeat.seatNo);
+                        }}
+                        className="flex h-7 w-7 items-center justify-center rounded-xl bg-black/60 border border-white/10 text-rose-300 hover:bg-rose-600 hover:text-white transition shadow"
+                        title={tr('هەستان لە کورسی', 'Leave Seat')}
+                      >
+                        <LogOut className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
                   <button
-                    onClick={handleDecreaseCinemaSeats}
-                    disabled={targetSeatCount <= 1}
-                    title={tr('کەمکردنی کورسی', 'Remove Seat')}
-                    className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-rose-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQuickTakeSeat();
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 px-2.5 py-1 text-xs font-black text-black shadow-md hover:scale-105 active:scale-95 transition"
+                    title={tr('دانیشتن لەسەر مایک بۆ قسەکردن', 'Take Seat to Speak')}
                   >
-                    -
+                    <Mic className="h-3.5 w-3.5 stroke-[3]" />
+                    <span>{tr('وەرگرتنی مایک', 'Take Mic')}</span>
                   </button>
-                  <span className="px-1.5 text-xs font-black text-amber-400">{targetSeatCount}</span>
+                )}
+
+                {/* Room Voice (Speaker) Mute Toggle */}
+                {onToggleSpeakerMute && (
                   <button
-                    onClick={handleIncreaseCinemaSeats}
-                    disabled={targetSeatCount >= 12}
-                    title={tr('زیادکردنی کورسی', 'Add Seat')}
-                    className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-emerald-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUserGestureAudioUnlock();
+                      onToggleSpeakerMute();
+                    }}
+                    className={`flex h-7 w-7 items-center justify-center rounded-xl border transition shadow ${
+                      isSpeakerMuted
+                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-400'
+                        : 'bg-black/60 border-white/10 text-slate-300 hover:text-white'
+                    }`}
+                    title={isSpeakerMuted ? tr('کردنەوەی دەنگی هاوڕێیان', 'Unmute Room Voices') : tr('بێدەنگکردنی دەنگی هاوڕێیان', 'Mute Room Voices')}
                   >
-                    +
+                    {isSpeakerMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
                   </button>
-                </div>
-              )}
+                )}
+
+                {isHost && (
+                  <div className="flex items-center gap-1 bg-black/60 border border-white/10 rounded-xl px-2 py-0.5 shadow">
+                    <span className="text-[9px] text-slate-400 font-bold mr-1">{tr('ژمارەی کورسی:', 'Seats:')}</span>
+                    <button
+                      onClick={handleDecreaseCinemaSeats}
+                      disabled={targetSeatCount <= 1}
+                      title={tr('کەمکردنی کورسی', 'Remove Seat')}
+                      className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-rose-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
+                    >
+                      -
+                    </button>
+                    <span className="px-1.5 text-xs font-black text-amber-400">{targetSeatCount}</span>
+                    <button
+                      onClick={handleIncreaseCinemaSeats}
+                      disabled={targetSeatCount >= 12}
+                      title={tr('زیادکردنی کورسی', 'Add Seat')}
+                      className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-emerald-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Luxury Theater Couch Frame */}
@@ -913,7 +1150,12 @@ export default function CinemaPlayerPanel({
                   return (
                     <div
                       key={`cinema-seat-${seat.seatNo}`}
-                      onClick={() => onSeatClick(seat)}
+                      onClick={() => handleSeatItemClick(seat)}
+                      title={
+                        isCurrentUser
+                          ? (!seat.isMuted ? tr('بێدەنگکردنی مایکم', 'Mute My Mic') : tr('کردنەوەی مایکم', 'Unmute My Mic'))
+                          : seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
+                      }
                       className="group relative flex cursor-pointer flex-col items-center"
                     >
                       {/* Velvet Sofa Armchair Indentation Backing */}
