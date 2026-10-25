@@ -45,6 +45,7 @@ const SEAT_NAME_COLORS = [
   'text-cyan-400',
   'text-pink-400',
   'text-amber-400',
+  'text-violet-400',
 ];
 
 export default function CinemaPlayerPanel({
@@ -74,8 +75,17 @@ export default function CinemaPlayerPanel({
   const [videoError, setVideoError] = useState(false);
   const [audioBlockedNotice, setAudioBlockedNotice] = useState(false);
 
-  // We only use the first 4 seats for the cinema theater sofa (seats 1, 2, 3, 4)
-  const cinemaSeats = seats.slice(0, 4);
+  // We use the first 5 seats for the cinema theater sofa (seats 1, 2, 3, 4, 5)
+  const cinemaSeats = seats.slice(0, 5);
+
+  // Reset error when videoUrl changes and reload media
+  useEffect(() => {
+    setVideoError(false);
+    setAudioBlockedNotice(false);
+    if (videoRef.current) {
+      videoRef.current.load();
+    }
+  }, [cinemaState.videoUrl]);
 
   // Synchronize video playback with Firebase Realtime Database
   useEffect(() => {
@@ -84,10 +94,19 @@ export default function CinemaPlayerPanel({
 
     // Check play / pause
     if (cinemaState.isPlaying && video.paused) {
-      video.play().catch(() => {
-        // Autoplay with audio was blocked by browser
-        setAudioBlockedNotice(true);
-      });
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // If browser autoplay policy blocks unmuted playback, play muted and show unmute pill
+          video.muted = true;
+          setIsMuted(true);
+          video.play().then(() => {
+            setAudioBlockedNotice(true);
+          }).catch(() => {
+            setAudioBlockedNotice(true);
+          });
+        });
+      }
     } else if (!cinemaState.isPlaying && !video.paused) {
       video.pause();
     }
@@ -177,19 +196,30 @@ export default function CinemaPlayerPanel({
 
         {/* Video Element */}
         <video
+          key={cinemaState.videoUrl}
           ref={videoRef}
           src={cinemaState.videoUrl}
           playsInline
           webkit-playsinline="true"
-          crossOrigin="anonymous"
-          onError={() => setVideoError(true)}
+          preload="auto"
+          onError={(e) => {
+            const vid = videoRef.current;
+            console.warn('Cinema video error:', vid?.error, e);
+            setVideoError(true);
+          }}
+          onLoadedData={() => setVideoError(false)}
+          onCanPlay={() => setVideoError(false)}
+          onLoadedMetadata={() => setVideoError(false)}
           onEnded={() => {
             if (isHost) {
               updateCinemaPlayback(roomId, false, 0);
             }
           }}
           className="h-full w-full object-contain bg-black"
-        />
+        >
+          <source src={cinemaState.videoUrl} type="video/mp4" />
+          <source src={cinemaState.videoUrl} />
+        </video>
 
         {/* Browser Audio Autoplay Unblock Banner */}
         {audioBlockedNotice && (
@@ -301,31 +331,45 @@ export default function CinemaPlayerPanel({
               {tr('نەتوانرا ڤیدیۆکە لێبدرێت', 'Cannot play this video')}
             </p>
             <p className="text-[10px] text-slate-400 max-w-xs mt-1">
-              {tr('تکایە دڵنیابەرەوە لە دروستی بەستەری فیلمەکە لە فایەربەیس.', 'Check the Firebase storage URL format or permissions.')}
+              {tr('تکایە دڵنیابەرەوە لە کارکردنی بەستەری فیلمەکە (MP4) لە فایەربەیس، serv00، یان هەر سێرڤەرێکی تر.', 'Make sure the MP4 video URL is accessible from Firebase, serv00, or any host.')}
             </p>
-            {isHost && (
+            <div className="mt-3 flex items-center gap-2">
               <button
-                onClick={onOpenConfigModal}
-                className="mt-2.5 rounded-xl bg-amber-400 text-black px-3 py-1 text-xs font-bold"
+                onClick={() => {
+                  setVideoError(false);
+                  if (videoRef.current) {
+                    videoRef.current.load();
+                    videoRef.current.play().catch(() => {});
+                  }
+                }}
+                className="rounded-xl bg-white/10 hover:bg-white/20 text-white px-3 py-1 text-xs font-bold transition"
               >
-                {tr('گۆڕینی بەستەر', 'Change URL')}
+                {tr('دووبارە هەوڵبدەرەوە', 'Retry')}
               </button>
-            )}
+              {isHost && (
+                <button
+                  onClick={onOpenConfigModal}
+                  className="rounded-xl bg-amber-400 text-black px-3 py-1 text-xs font-bold hover:bg-amber-300 transition"
+                >
+                  {tr('گۆڕینی بەستەر', 'Change URL')}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. THE 4-SEAT THEATER VELVET COUCH ("har wako wenaka")
+          2. THE 5-SEAT THEATER VELVET COUCH ("har wako wenaka")
           ───────────────────────────────────────────────────────────── */}
       <div className="relative mt-2.5 w-full">
         {/* Luxury Theater Couch Frame */}
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-rose-900/60 bg-gradient-to-b from-[#3a0a14] via-[#2a070e] to-[#1a0408] p-2.5 sm:p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.8),inset_0_2px_15px_rgba(244,63,94,0.15)]">
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-rose-900/60 bg-gradient-to-b from-[#3a0a14] via-[#2a070e] to-[#1a0408] p-2 sm:p-3 shadow-[0_12px_30px_rgba(0,0,0,0.8),inset_0_2px_15px_rgba(244,63,94,0.15)]">
           {/* Gold Trim Decorative Accent */}
           <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
 
-          {/* 4 Connected Plush Cushions Grid */}
-          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          {/* 5 Connected Plush Cushions Grid */}
+          <div className="grid grid-cols-5 gap-1 sm:gap-2">
             {cinemaSeats.map((seat, index) => {
               const isOccupied = Boolean(seat.userId);
               const isCurrentUser = seat.userId === currentUser.uid;
@@ -374,7 +418,7 @@ export default function CinemaPlayerPanel({
                   className="group relative flex cursor-pointer flex-col items-center"
                 >
                   {/* Velvet Sofa Armchair Indentation Backing */}
-                  <div className="relative flex flex-col items-center justify-center w-full py-2 rounded-xl bg-gradient-to-b from-[#4d0d1a] to-[#22040a] border border-rose-500/20 shadow-inner group-hover:border-rose-400/50 transition">
+                  <div className="relative flex flex-col items-center justify-center w-full py-1.5 sm:py-2 rounded-xl bg-gradient-to-b from-[#4d0d1a] to-[#22040a] border border-rose-500/20 shadow-inner group-hover:border-rose-400/50 transition">
                     {/* Speaking Animated Wave Ring */}
                     {isSpeaking && (
                       <motion.div
@@ -386,7 +430,7 @@ export default function CinemaPlayerPanel({
 
                     {/* Avatar / Empty Seat Button */}
                     <div
-                      className={`relative flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full transition-all duration-300 ${avatarBorderClass}`}
+                      className={`relative flex h-10 w-10 xs:h-11 xs:w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full transition-all duration-300 ${avatarBorderClass}`}
                     >
                       {isOccupied ? (
                         <>
@@ -435,9 +479,9 @@ export default function CinemaPlayerPanel({
                     </div>
 
                     {/* Seat Footer / Username / Level Badge */}
-                    <div className="mt-1 flex flex-col items-center max-w-full px-1">
+                    <div className="mt-1 flex flex-col items-center max-w-full px-0.5">
                       <span
-                        className={`truncate text-center text-[10px] sm:text-[11px] leading-tight max-w-[62px] ${
+                        className={`truncate text-center text-[9px] sm:text-[11px] leading-tight max-w-[48px] sm:max-w-[60px] ${
                           isOccupied
                             ? `font-black ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
                             : 'text-rose-300/60 font-semibold'

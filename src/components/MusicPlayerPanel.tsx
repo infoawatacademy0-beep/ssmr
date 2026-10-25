@@ -76,6 +76,8 @@ export default function MusicPlayerPanel({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const loadedTrackIdRef = useRef<string | null>(null);
+  const loadedTrackUrlRef = useRef<string | null>(null);
 
   // Sync modal state with parent
   useEffect(() => {
@@ -136,6 +138,8 @@ export default function MusicPlayerPanel({
 
   /* ─────────────────────────────────────────────────────────────
      Synchronized Audio Playback with Firebase
+     Uses strict track ID and URL reference locking to NEVER
+     reload or restart audio when seats, entrances, or room state changes!
      ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const audio = audioRef.current;
@@ -147,18 +151,24 @@ export default function MusicPlayerPanel({
         audio.removeAttribute('src');
         audio.load();
       }
+      loadedTrackIdRef.current = null;
+      loadedTrackUrlRef.current = null;
       return;
     }
 
-    if (audio.src !== currentTrack.url) {
+    const isTrackChanged =
+      loadedTrackIdRef.current !== currentTrack.id ||
+      loadedTrackUrlRef.current !== currentTrack.url;
+
+    if (isTrackChanged) {
+      // Actually changing to a different song
+      loadedTrackIdRef.current = currentTrack.id;
+      loadedTrackUrlRef.current = currentTrack.url;
       audio.src = currentTrack.url;
+      audio.loop = Boolean(musicState.isRepeat);
+      audio.volume = Math.max(0, Math.min(1, localVolume));
       audio.load();
-    }
 
-    audio.loop = Boolean(musicState.isRepeat);
-    audio.volume = Math.max(0, Math.min(1, localVolume));
-
-    if (musicState.isPlaying) {
       const elapsedSinceSync = Math.max(0, (Date.now() - musicState.lastSyncTimestamp) / 1000);
       const duration = currentTrack.duration || 180;
       const rawTarget = musicState.playbackPosition + elapsedSinceSync;
@@ -166,24 +176,63 @@ export default function MusicPlayerPanel({
         ? rawTarget % duration
         : Math.min(duration, rawTarget);
 
-      if (Math.abs(audio.currentTime - targetTime) > 1.5) {
+      const onReady = () => {
         try {
-          audio.currentTime = targetTime;
+          if (targetTime > 0.5 && targetTime < (audio.duration || Infinity)) {
+            audio.currentTime = targetTime;
+          }
         } catch {
-          // Ignore seek errors before metadata loads
+          // Ignore initial seek error
         }
-      }
+        if (musicState.isPlaying) {
+          audio.play().catch((err) => {
+            console.warn('Playback paused due to autoplay restriction:', err);
+          });
+        }
+      };
 
-      audio.play().catch((err) => {
-        console.warn('Playback paused due to autoplay restriction:', err);
-      });
+      audio.addEventListener('loadedmetadata', onReady, { once: true });
     } else {
-      audio.pause();
-      if (typeof musicState.playbackPosition === 'number') {
-        try {
-          audio.currentTime = musicState.playbackPosition;
-        } catch {
-          // Ignore seek errors
+      // SAME TRACK: Never reload media or reset buffer!
+      audio.loop = Boolean(musicState.isRepeat);
+      audio.volume = Math.max(0, Math.min(1, localVolume));
+
+      if (musicState.isPlaying) {
+        if (audio.paused) {
+          audio.play().catch((err) => {
+            console.warn('Playback paused due to autoplay restriction:', err);
+          });
+        }
+
+        // Only correct drift if significant (> 4.5 seconds) to avoid any audio stutter
+        const elapsedSinceSync = Math.max(0, (Date.now() - musicState.lastSyncTimestamp) / 1000);
+        const duration = currentTrack.duration || 180;
+        const rawTarget = musicState.playbackPosition + elapsedSinceSync;
+        const targetTime = musicState.isRepeat
+          ? rawTarget % duration
+          : Math.min(duration, rawTarget);
+
+        const drift = Math.abs(audio.currentTime - targetTime);
+        if (drift > 4.5 && !audio.seeking && audio.readyState >= 2) {
+          try {
+            audio.currentTime = targetTime;
+          } catch {
+            // Ignore drift seek error
+          }
+        }
+      } else {
+        if (!audio.paused) {
+          audio.pause();
+        }
+        if (
+          typeof musicState.playbackPosition === 'number' &&
+          Math.abs(audio.currentTime - musicState.playbackPosition) > 2
+        ) {
+          try {
+            audio.currentTime = musicState.playbackPosition;
+          } catch {
+            // Ignore seek error
+          }
         }
       }
     }
@@ -191,9 +240,11 @@ export default function MusicPlayerPanel({
     musicState.isPlaying,
     musicState.isRepeat,
     musicState.currentTrackId,
+    currentTrack?.id,
+    currentTrack?.url,
     musicState.lastSyncTimestamp,
     musicState.playbackPosition,
-    currentTrack,
+    localVolume,
   ]);
 
   const handleAudioEnded = () => {

@@ -74,7 +74,7 @@ export default function CinemaConfigModal({
 
   const handleStartOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanUrl = videoUrl.trim();
+    const cleanUrl = videoUrl.trim().replace(/^['"<]+|['">]+$/g, '');
     if (!cleanUrl) {
       setErrorMsg(tr('تکایە بەستەری فیلمەکە دابنێ.', 'Please provide a video URL.'));
       return;
@@ -142,13 +142,13 @@ export default function CinemaConfigModal({
                   {tr('مۆدی سینەما و سەیرکردنی فیلم', 'Cinema & Movie Mode')}
                 </h3>
                 <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.2 text-[8px] font-black text-rose-300 uppercase tracking-widest">
-                  VIP 4-SEAT
+                  VIP 5-SEAT
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 mt-0.5">
                 {tr(
-                  'بەستەری فیلم لە فایەربەیس دابنێ بۆ پەخشکردنی هاوکات لەگەڵ ٤ هاوڕێ لەسەر مایک',
-                  'Set movie URL from Firebase for synced playback with 4 friends on mic',
+                  'بەستەری فیلم لە فایەربەیس دابنێ بۆ پەخشکردنی هاوکات لەگەڵ ٥ هاوڕێ لەسەر مایک',
+                  'Set movie URL from Firebase for synced playback with 5 friends on mic',
                 )}
               </p>
             </div>
@@ -168,7 +168,7 @@ export default function CinemaConfigModal({
           <div>
             <label className="flex items-center gap-1.5 text-xs font-bold text-slate-300 mb-1.5">
               <Link2 className="h-3.5 w-3.5 text-amber-400" />
-              <span>{tr('بەستەری فیلم (Firebase Storage URL / MP4)', 'Video URL (Firebase Storage / MP4)')}</span>
+              <span>{tr('بەستەری فیلم (هەر بەستەرێکی MP4 لە هەر سێرڤەرێک یان فایەربەیس)', 'Video URL (Any MP4 from any server, hosting, or Firebase)')}</span>
             </label>
             <input
               type="url"
@@ -178,13 +178,13 @@ export default function CinemaConfigModal({
                 setVideoUrl(e.target.value);
                 setPreviewTest(true);
               }}
-              placeholder="https://firebasestorage.googleapis.com/.../movie.mp4"
+              placeholder="https://teamteam.serv00.net/.../video.mp4"
               className="w-full rounded-2xl border border-white/[0.09] bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 font-mono"
             />
             <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
               {tr(
-                '💡 دەتوانیت بەستەری ڕاستەوخۆی هەر فیلمێک لە Firebase Storage یان هەر بەستەرێکی تری MP4/WebM لێرە دابنێیت.',
-                '💡 Paste your Firebase Storage video link or any direct MP4/WebM video link here.',
+                '💡 دەتوانیت بەستەری ڕاستەوخۆی هەر فیلمێکی MP4 لە هەر سێرڤەرێک (وەک serv00, cPanel, Firebase Storage) لێرە دابنێیت.',
+                '💡 You can paste any direct MP4 video link from any server (such as serv00, cPanel, Firebase Storage, etc.) here.',
               )}
             </p>
           </div>
@@ -243,11 +243,15 @@ export default function CinemaConfigModal({
               <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950">
                 <video
                   ref={previewVideoRef}
+                  key={videoUrl}
                   src={videoUrl}
                   controls
                   playsInline
+                  preload="metadata"
                   className="h-full w-full object-contain"
-                />
+                >
+                  <source src={videoUrl} type="video/mp4" />
+                </video>
               </div>
             </div>
           )}

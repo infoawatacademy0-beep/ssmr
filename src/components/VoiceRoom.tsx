@@ -226,15 +226,12 @@ export default function VoiceRoom() {
   const [isRoomMenuOpen, setIsRoomMenuOpen] = useState(false);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
   useEffect(() => {
-    const apply = () => {
-      document.querySelectorAll('audio').forEach((el) => {
+    const container = document.getElementById('livekit-audio-container');
+    if (container) {
+      container.querySelectorAll('audio').forEach((el) => {
         el.muted = isSpeakerMuted;
       });
-    };
-    apply();
-    const observer = new MutationObserver(apply);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    }
   }, [isSpeakerMuted]);
   const [activeSeatEmojis, setActiveSeatEmojis] = useState<
     Record<number, { id: string; emojiId: string; timestamp: number }>
@@ -917,7 +914,7 @@ export default function VoiceRoom() {
          MAIN CONTENT AREA: 8-Seat Stage + Music + Audience + Chat
          ───────────────────────────────────────────────────────── */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        {/* ── THE STAGE AREA: CINEMA MODE (4-SEAT COUCH + SCREEN) OR 8-SEAT AUDIO GRID ── */}
+        {/* ── THE STAGE AREA: CINEMA MODE (5-SEAT COUCH + SCREEN) OR 8-SEAT AUDIO GRID ── */}
         <section className={isChatExpanded ? 'hidden' : 'shrink-0 p-4 pb-1'}>
           {cinemaState?.isActive ? (
             <CinemaPlayerPanel

@@ -480,31 +480,23 @@ export async function setMusicVolume(
 
 /**
  * Subscribes to the synchronized music state (queue + player controls).
+ * Specifically listens to `musicPlayer` and `musicQueue` sub-nodes only,
+ * preventing any room-level updates (such as seats, entrances, or chats)
+ * from interrupting or restarting audio playback!
  */
 export function subscribeToMusicState(
   roomId: string,
   onUpdate: (state: RoomMusicState) => void,
 ): Unsubscribe {
-  const musicRef = ref(database, `rooms/${roomId}`);
+  const playerRef = ref(database, `rooms/${roomId}/musicPlayer`);
+  const queueRef = ref(database, `rooms/${roomId}/musicQueue`);
 
-  return onValue(musicRef, (snapshot) => {
-    if (!snapshot.exists()) {
-      onUpdate({
-        currentTrackId: null,
-        isPlaying: false,
-        isMusicModeActive: false,
-        isRepeat: false,
-        volume: 0.7,
-        playbackPosition: 0,
-        lastSyncTimestamp: Date.now(),
-        queue: [],
-      });
-      return;
-    }
+  let currentPlayerData: any = null;
+  let currentQueueData: MusicTrack[] = [];
 
-    const val = snapshot.val();
-    const queue = normalizeMusicQueue(val.musicQueue);
-    const player = val.musicPlayer || {};
+  const emit = () => {
+    const queue = currentQueueData;
+    const player = currentPlayerData || {};
 
     onUpdate({
       currentTrackId: player.currentTrackId ?? null,
@@ -521,5 +513,20 @@ export function subscribeToMusicState(
       playedByName: player.playedByName || undefined,
       queue,
     });
+  };
+
+  const unsubPlayer = onValue(playerRef, (snapshot) => {
+    currentPlayerData = snapshot.val();
+    emit();
   });
+
+  const unsubQueue = onValue(queueRef, (snapshot) => {
+    currentQueueData = normalizeMusicQueue(snapshot.val());
+    emit();
+  });
+
+  return () => {
+    unsubPlayer();
+    unsubQueue();
+  };
 }
