@@ -31,6 +31,7 @@ export async function startCinemaMode(
     lastUpdated: Date.now(),
     updatedByUid: payload.hostUid,
     updatedByName: payload.hostName,
+    seatCount: Math.max(1, Math.min(12, payload.seatCount || 5)),
   };
 
   await set(cinemaRef, cinemaData);
@@ -63,6 +64,7 @@ export async function setCinemaVideoUrl(
   videoUrl: string,
   title: string,
   user: { uid: string; username: string },
+  seatCount?: number,
 ): Promise<void> {
   const cleanUrl = videoUrl.trim();
   if (!cleanUrl) {
@@ -79,6 +81,24 @@ export async function setCinemaVideoUrl(
     lastUpdated: Date.now(),
     updatedByUid: user.uid,
     updatedByName: user.username,
+    ...(seatCount ? { seatCount: Math.max(1, Math.min(12, seatCount)) } : {}),
+  });
+}
+
+/**
+ * Updates the custom seat count for Cinema Mode.
+ */
+export async function updateCinemaSeatCount(
+  roomId: string,
+  seatCount: number,
+  user?: { uid: string; username: string },
+): Promise<void> {
+  const cleanCount = Math.max(1, Math.min(12, seatCount));
+  const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
+  await update(cinemaRef, {
+    seatCount: cleanCount,
+    lastUpdated: Date.now(),
+    ...(user ? { updatedByUid: user.uid, updatedByName: user.username } : {}),
   });
 }
 

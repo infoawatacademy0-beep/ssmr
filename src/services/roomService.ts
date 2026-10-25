@@ -48,8 +48,7 @@ export interface CreateRoomOptions {
  * a strict 8-element Seat array.
  */
 function normalizeSeats(rawSeats: unknown): Seat[] {
-  const initialSeats = buildInitialSeats();
-  if (!rawSeats) return initialSeats;
+  if (!rawSeats) return buildInitialSeats(8);
 
   let seatList: unknown[] = [];
   if (Array.isArray(rawSeats)) {
@@ -57,6 +56,9 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
   } else if (typeof rawSeats === 'object') {
     seatList = Object.values(rawSeats as Record<string, unknown>);
   }
+
+  const length = Math.max(seatList.length, 1);
+  const initialSeats = buildInitialSeats(length);
 
   return initialSeats.map((defaultSeat, index) => {
     const rawSeat = seatList[index] as Partial<Seat> | undefined;
@@ -180,8 +182,8 @@ export async function joinSeat(
   seatNo: number,
   user: UserSeatInfo,
 ): Promise<void> {
-  if (seatNo < 1 || seatNo > 8) {
-    throw new Error('Seat number must be between 1 and 8.');
+  if (seatNo < 1 || seatNo > 16) {
+    throw new Error('Seat number must be between 1 and 16.');
   }
 
   const seatsRef = ref(database, `rooms/${roomId}/seats`);
@@ -249,8 +251,8 @@ export async function leaveSeat(
   roomId: string,
   seatNo: number,
 ): Promise<void> {
-  if (seatNo < 1 || seatNo > 8) {
-    throw new Error('Seat number must be between 1 and 8.');
+  if (seatNo < 1 || seatNo > 16) {
+    throw new Error('Seat number must be between 1 and 16.');
   }
 
   const seatsRef = ref(database, `rooms/${roomId}/seats`);
@@ -616,6 +618,56 @@ export async function updateRoomPassword(
     isPrivate: Boolean(cleanPassword),
     password: cleanPassword,
   });
+}
+
+/**
+ * Host Control: Dynamically adjusts room seat count (from 2 up to 16 seats).
+ * Expands or shrinks the seat array in Firebase Realtime Database atomically.
+ */
+export async function updateRoomSeatCount(
+  roomId: string,
+  newCount: number,
+  hostName?: string,
+): Promise<void> {
+  const safeCount = Math.max(2, Math.min(16, newCount));
+  const seatsRef = ref(database, `rooms/${roomId}/seats`);
+
+  await runTransaction(seatsRef, (currentSeatsData) => {
+    const currentSeats = normalizeSeats(currentSeatsData);
+    if (currentSeats.length === safeCount) return currentSeats;
+
+    if (safeCount > currentSeats.length) {
+      // Add new vacant seats
+      const newSeats = [...currentSeats];
+      for (let i = currentSeats.length; i < safeCount; i++) {
+        newSeats.push({
+          seatNo: i + 1,
+          userId: null,
+          username: null,
+          avatar: null,
+          isMuted: false,
+          isLocked: false,
+          role: 'speaker',
+          isMicBlocked: false,
+        });
+      }
+      return newSeats;
+    } else {
+      // Truncate to safeCount
+      return currentSeats.slice(0, safeCount);
+    }
+  });
+
+  const roomRef = ref(database, `rooms/${roomId}`);
+  await update(roomRef, { seatCount: safeCount });
+
+  if (hostName) {
+    await sendRoomMessage(
+      roomId,
+      'System',
+      `[ڕێکخستنی کورسی] ژمارەی کورسییەکانی ژوور بۆ ${safeCount} کورسی گۆڕدرا لەلایەن ${hostName}.`,
+    );
+  }
 }
 
 /**

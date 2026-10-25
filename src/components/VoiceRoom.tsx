@@ -1012,12 +1012,24 @@ export default function VoiceRoom() {
                   })}
               </div>
               <span className="text-[10px] text-slate-500">
-                {room.seats.filter((s) => s.userId).length} / {tr('٨ دانیشتوو', '8 Seated')}
+                {room.seats.filter((s) => s.userId).length} / {room.seats.length} {tr('دانیشتوو', 'Seated')}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-3 sm:gap-4">
+          <div
+            className={`grid gap-3 sm:gap-4 ${
+              room.seats.length <= 4
+                ? 'grid-cols-4'
+                : room.seats.length === 6
+                ? 'grid-cols-3 sm:grid-cols-6'
+                : room.seats.length <= 8
+                ? 'grid-cols-4'
+                : room.seats.length === 10
+                ? 'grid-cols-5'
+                : 'grid-cols-4 sm:grid-cols-6'
+            }`}
+          >
             {room.seats.map((seat) => {
               const isOccupied = Boolean(seat.userId);
               const isCurrentUser = seat.userId === user?.uid;

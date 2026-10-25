@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import type { RoomCinemaState, Seat, User, AudienceMember } from '../types';
 import { getVipAvatarClass } from '../types';
-import { updateCinemaPlayback } from '../services';
+import { updateCinemaPlayback, updateCinemaSeatCount } from '../services';
 import { useLanguage } from '../contexts';
 
 interface CinemaPlayerPanelProps {
@@ -49,6 +49,13 @@ const SEAT_NAME_COLORS = [
   'text-pink-400',
   'text-amber-400',
   'text-violet-400',
+  'text-blue-400',
+  'text-teal-400',
+  'text-rose-400',
+  'text-yellow-400',
+  'text-indigo-400',
+  'text-orange-400',
+  'text-purple-400',
 ];
 
 export default function CinemaPlayerPanel({
@@ -81,8 +88,49 @@ export default function CinemaPlayerPanel({
   const [audioBlockedNotice, setAudioBlockedNotice] = useState(false);
   const autoEnteredRef = useRef(false);
 
-  // We use the first 5 seats for the cinema theater sofa (seats 1, 2, 3, 4, 5)
-  const cinemaSeats = seats.slice(0, 5);
+  // Custom seat count configured by Host in cinemaState (default 5, ranges from 1 to 12)
+  const targetSeatCount = Math.max(1, Math.min(12, cinemaState.seatCount || 5));
+  const cinemaSeats: Seat[] = Array.from({ length: targetSeatCount }, (_, i) => {
+    if (seats[i]) return seats[i];
+    return {
+      seatNo: i + 1,
+      userId: null,
+      username: null,
+      avatar: null,
+      isMuted: false,
+      isLocked: false,
+      role: 'speaker',
+      isMicBlocked: false,
+    };
+  });
+
+  const handleIncreaseCinemaSeats = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!isHost) return;
+    if (targetSeatCount >= 12) return;
+    try {
+      await updateCinemaSeatCount(roomId, targetSeatCount + 1, {
+        uid: currentUser.uid,
+        username: currentUser.username,
+      });
+    } catch (err) {
+      console.error('Failed to increase cinema seats:', err);
+    }
+  };
+
+  const handleDecreaseCinemaSeats = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!isHost) return;
+    if (targetSeatCount <= 1) return;
+    try {
+      await updateCinemaSeatCount(roomId, targetSeatCount - 1, {
+        uid: currentUser.uid,
+        username: currentUser.username,
+      });
+    } catch (err) {
+      console.error('Failed to decrease cinema seats:', err);
+    }
+  };
 
   // Reset error when videoUrl changes and reload media
   useEffect(() => {
@@ -495,11 +543,31 @@ export default function CinemaPlayerPanel({
               onClick={(e) => e.stopPropagation()}
               className="absolute bottom-3 inset-x-4 z-40 flex flex-col sm:flex-row items-center justify-between gap-2 pointer-events-auto"
             >
-              {/* Floating 5-Seat Audio Mic Bar */}
+              {/* Floating Custom-Seat Audio Mic Bar */}
               <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 py-1.5 px-3 rounded-2xl bg-black/80 backdrop-blur-md border border-white/15 shadow-xl">
                 <span className="text-[9px] font-black text-rose-400 hidden xs:inline uppercase tracking-wider">
-                  5 MICS:
+                  {targetSeatCount} MICS:
                 </span>
+                {isHost && (
+                  <div className="flex items-center gap-1 mr-1">
+                    <button
+                      onClick={handleDecreaseCinemaSeats}
+                      disabled={targetSeatCount <= 1}
+                      title={tr('کەمکردنی کورسی', 'Remove Seat')}
+                      className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-rose-600 transition font-black text-xs disabled:opacity-30"
+                    >
+                      -
+                    </button>
+                    <button
+                      onClick={handleIncreaseCinemaSeats}
+                      disabled={targetSeatCount >= 12}
+                      title={tr('زیادکردنی کورسی', 'Add Seat')}
+                      className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-emerald-600 transition font-black text-xs disabled:opacity-30"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
                 {cinemaSeats.map((seat, index) => {
                   const isOccupied = Boolean(seat.userId);
                   const isCurrentUser = seat.userId === currentUser.uid;
@@ -742,19 +810,65 @@ export default function CinemaPlayerPanel({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. THE 5-SEAT THEATER VELVET COUCH & AUDIENCE STRIP
+          2. THE THEATER VELVET COUCH & AUDIENCE STRIP (Dynamic Custom Seats)
              (Only visible in standard room stage, hidden in full size)
           ───────────────────────────────────────────────────────────── */}
       {!isFullscreen && (
         <>
           <div className="relative mt-2.5 w-full">
+            {/* Couch Top Header with Custom Seats Stepper */}
+            <div className="flex items-center justify-between px-1 mb-1.5">
+              <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                <span>🛋️</span>
+                <span>{tr('قەنەفەی شاهانەیی سینەما', 'VIP Theater Couch')}</span>
+                <span className="text-[10px] text-rose-300/80">({targetSeatCount} {tr('کورسی', 'Seats')})</span>
+              </span>
+
+              {isHost && (
+                <div className="flex items-center gap-1 bg-black/60 border border-white/10 rounded-xl px-2 py-0.5 shadow">
+                  <span className="text-[9px] text-slate-400 font-bold mr-1">{tr('ژمارەی کورسی:', 'Seats:')}</span>
+                  <button
+                    onClick={handleDecreaseCinemaSeats}
+                    disabled={targetSeatCount <= 1}
+                    title={tr('کەمکردنی کورسی', 'Remove Seat')}
+                    className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-rose-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
+                  >
+                    -
+                  </button>
+                  <span className="px-1.5 text-xs font-black text-amber-400">{targetSeatCount}</span>
+                  <button
+                    onClick={handleIncreaseCinemaSeats}
+                    disabled={targetSeatCount >= 12}
+                    title={tr('زیادکردنی کورسی', 'Add Seat')}
+                    className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-emerald-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Luxury Theater Couch Frame */}
             <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-rose-900/60 bg-gradient-to-b from-[#3a0a14] via-[#2a070e] to-[#1a0408] p-2 sm:p-3 shadow-[0_12px_30px_rgba(0,0,0,0.8),inset_0_2px_15px_rgba(244,63,94,0.15)]">
               {/* Gold Trim Decorative Accent */}
               <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
 
-              {/* 5 Connected Plush Cushions Grid */}
-              <div className="grid grid-cols-5 gap-1 sm:gap-2">
+              {/* Dynamic Connected Plush Cushions Grid */}
+              <div
+                className={`grid gap-1 sm:gap-2 ${
+                  targetSeatCount <= 3
+                    ? 'grid-cols-3'
+                    : targetSeatCount === 4
+                    ? 'grid-cols-4'
+                    : targetSeatCount === 5
+                    ? 'grid-cols-5'
+                    : targetSeatCount === 6
+                    ? 'grid-cols-3 sm:grid-cols-6'
+                    : targetSeatCount <= 8
+                    ? 'grid-cols-4 sm:grid-cols-8'
+                    : 'grid-cols-5 sm:grid-cols-6 md:grid-cols-10'
+                }`}
+              >
                 {cinemaSeats.map((seat, index) => {
                   const isOccupied = Boolean(seat.userId);
                   const isCurrentUser = seat.userId === currentUser.uid;

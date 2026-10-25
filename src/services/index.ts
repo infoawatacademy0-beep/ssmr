@@ -26,6 +26,7 @@ export {
   toggleSeatLock,
   muteSeatByHost,
   updateRoomPassword,
+  updateRoomSeatCount,
   sendSeatEmoji,
   subscribeToSeatEmojis,
 } from './roomService';
@@ -235,6 +236,7 @@ export {
   stopCinemaMode,
   setCinemaVideoUrl,
   updateCinemaPlayback,
+  updateCinemaSeatCount,
   subscribeToRoomCinema,
 } from './cinemaService';
 

@@ -11,6 +11,7 @@ import {
   Sparkles,
   Link2,
   Tv,
+  Users,
 } from 'lucide-react';
 import type { RoomCinemaState, User } from '../types';
 import { startCinemaMode, setCinemaVideoUrl, stopCinemaMode } from '../services';
@@ -58,6 +59,7 @@ export default function CinemaConfigModal({
   const { tr } = useLanguage();
   const [videoUrl, setVideoUrl] = useState(cinemaState?.videoUrl || '');
   const [movieTitle, setMovieTitle] = useState(cinemaState?.title || '');
+  const [seatCount, setSeatCount] = useState(cinemaState?.seatCount || 5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [previewTest, setPreviewTest] = useState(false);
@@ -86,16 +88,23 @@ export default function CinemaConfigModal({
     try {
       const finalTitle = movieTitle.trim() || tr('تایتانیک · فیلمی ڕاستەوخۆ', 'Titanic · Live Cinema');
       if (cinemaState?.isActive) {
-        await setCinemaVideoUrl(roomId, cleanUrl, finalTitle, {
-          uid: currentUser.uid,
-          username: currentUser.username,
-        });
+        await setCinemaVideoUrl(
+          roomId,
+          cleanUrl,
+          finalTitle,
+          {
+            uid: currentUser.uid,
+            username: currentUser.username,
+          },
+          seatCount,
+        );
       } else {
         await startCinemaMode(roomId, {
           videoUrl: cleanUrl,
           title: finalTitle,
           hostUid: currentUser.uid,
           hostName: currentUser.username,
+          seatCount,
         });
       }
       onClose();
@@ -142,13 +151,13 @@ export default function CinemaConfigModal({
                   {tr('مۆدی سینەما و سەیرکردنی فیلم', 'Cinema & Movie Mode')}
                 </h3>
                 <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.2 text-[8px] font-black text-rose-300 uppercase tracking-widest">
-                  VIP 5-SEAT
+                  VIP {seatCount}-SEAT
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 mt-0.5">
                 {tr(
-                  'بەستەری فیلم لە فایەربەیس دابنێ بۆ پەخشکردنی هاوکات لەگەڵ ٥ هاوڕێ لەسەر مایک',
-                  'Set movie URL from Firebase for synced playback with 5 friends on mic',
+                  `بەستەری فیلم دابنێ بۆ پەخشکردنی هاوکات لەگەڵ ${seatCount} هاوڕێ لەسەر مایک`,
+                  `Set movie URL for synced playback with ${seatCount} friends on mic`,
                 )}
               </p>
             </div>
@@ -203,6 +212,63 @@ export default function CinemaConfigModal({
               placeholder={tr('تایتانیک · فیلمی کوردی (یان هەر ناوێک)', 'e.g. Titanic 4K Special Edition')}
               className="w-full rounded-2xl border border-white/[0.09] bg-black/60 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
             />
+          </div>
+
+          {/* Custom Seat Count Selector */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                <Users className="h-3.5 w-3.5 text-amber-400" />
+                <span>{tr('ژمارەی کورسییەکان لە مۆدی فیلم (Custom Seats)', 'Cinema Seat Count')}</span>
+              </label>
+              <span className="text-[11px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-lg border border-amber-400/30">
+                {seatCount} {tr('کورسی', 'Seats')}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-2xl border border-white/10 bg-black/60 p-1">
+                <button
+                  type="button"
+                  onClick={() => setSeatCount((prev) => Math.max(1, prev - 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-rose-600 transition font-black text-sm active:scale-95"
+                >
+                  -
+                </button>
+                <span className="px-3 text-xs font-black text-amber-300">{seatCount}</span>
+                <button
+                  type="button"
+                  onClick={() => setSeatCount((prev) => Math.min(12, prev + 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-emerald-600 transition font-black text-sm active:scale-95"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 flex-1">
+                {[2, 3, 4, 5, 6, 8, 10].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => setSeatCount(num)}
+                    className={`rounded-xl px-2.5 py-1.5 text-[11px] font-black transition ${
+                      seatCount === num
+                        ? 'bg-amber-400 text-black shadow-md shadow-amber-400/30'
+                        : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              {tr(
+                '💡 دەتوانیت ژمارەی کورسییەکان زیاد یان کەم بکەیت بەپێی خواست (لە ١ تا ١٢ کورسی).',
+                '💡 Increase or decrease the number of seats on the cinema sofa (1 to 12 seats).',
+              )}
+            </p>
           </div>
 
           {/* Quick Presets */}

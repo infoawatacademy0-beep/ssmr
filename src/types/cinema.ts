@@ -11,6 +11,7 @@ export interface RoomCinemaState {
   lastUpdated: number;
   updatedByUid: string;
   updatedByName: string;
+  seatCount?: number;
 }
 
 export interface StartCinemaPayload {
@@ -18,4 +19,5 @@ export interface StartCinemaPayload {
   title?: string;
   hostUid: string;
   hostName: string;
+  seatCount?: number;
 }

@@ -70,6 +70,7 @@ export interface Room {
   participantCount?: number;
   activeChat: ChatMessage[];
   seats: Seat[];
+  seatCount?: number;
   coHosts?: Record<string, boolean>;
   moderators?: Record<string, boolean>;
   memberRanks?: Record<string, SeatRole>;
@@ -80,10 +81,11 @@ export interface Room {
 }
 
 /**
- * Helper to build an initial set of 8 empty seats (1-8).
+ * Helper to build an initial set of empty seats (1 to count, default 8).
  */
-export function buildInitialSeats(): Seat[] {
-  return Array.from({ length: 8 }, (_, index) => ({
+export function buildInitialSeats(count = 8): Seat[] {
+  const safeCount = Math.max(1, Math.min(16, count));
+  return Array.from({ length: safeCount }, (_, index) => ({
     seatNo: index + 1,
     userId: null,
     username: null,
