@@ -131,6 +131,9 @@ export {
   deletePost,
   subscribeToPosts,
   normalizePosts,
+  addPostComment,
+  deletePostComment,
+  subscribeToPostComments,
 } from './postService';
 
 export { submitReport } from './reportService';
@@ -226,5 +229,13 @@ export {
   approveAccountDeletion,
   rejectAccountDeletion,
 } from './adminAssetsService';
+
+export {
+  startCinemaMode,
+  stopCinemaMode,
+  setCinemaVideoUrl,
+  updateCinemaPlayback,
+  subscribeToRoomCinema,
+} from './cinemaService';
 
 

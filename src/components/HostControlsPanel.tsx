@@ -15,6 +15,7 @@ import {
   Trash2,
   Gamepad2,
   Music,
+  Film,
 } from 'lucide-react';
 import type { Room, Seat, User, JackarooGame } from '../types';
 import { useLanguage } from '../contexts';
@@ -33,6 +34,8 @@ interface HostControlsPanelProps {
   currentUser: User;
   activeJackarooGame?: JackarooGame | null;
   onOpenMusicPlayer?: () => void;
+  onOpenCinemaConfig?: () => void;
+  isCinemaActive?: boolean;
   onClose: () => void;
 }
 
@@ -41,6 +44,8 @@ export default function HostControlsPanel({
   currentUser,
   activeJackarooGame,
   onOpenMusicPlayer,
+  onOpenCinemaConfig,
+  isCinemaActive,
   onClose,
 }: HostControlsPanelProps) {
   const { tr } = useLanguage();
@@ -185,8 +190,36 @@ export default function HostControlsPanel({
 
         {/* Seats List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-          {/* Quick Host Room Actions: Clear Chat, Cancel Game, Play Music */}
-          <div className="grid grid-cols-3 gap-2 pb-2">
+          {/* Quick Host Room Actions: Cinema Mode, Clear Chat, Cancel Game, Play Music */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-2">
+            <button
+              type="button"
+              onClick={() => {
+                onOpenCinemaConfig?.();
+                onClose();
+              }}
+              className={`flex flex-col items-center justify-center gap-1 rounded-2xl border p-2.5 text-center text-[11px] font-bold transition active:scale-95 ${
+                isCinemaActive
+                  ? 'border-rose-500/50 bg-rose-500/20 text-rose-300 shadow-md shadow-rose-500/20 ring-1 ring-rose-400'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+              }`}
+            >
+              <Film className="h-4 w-4 text-amber-400" />
+              <span>{isCinemaActive ? tr('ڕێکخستنی سینەما', 'Cinema Active') : tr('مۆدی سینەما', 'Cinema Mode')}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onOpenMusicPlayer?.();
+                onClose();
+              }}
+              className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-violet-500/30 bg-violet-500/10 p-2.5 text-center text-[11px] font-bold text-violet-300 transition hover:bg-violet-500/20 active:scale-95"
+            >
+              <Music className="h-4 w-4 text-violet-400" />
+              <span>{tr("پێکردنی گۆرانی", "Play Music")}</span>
+            </button>
+
             <button
               type="button"
               onClick={async () => {
@@ -216,18 +249,6 @@ export default function HostControlsPanel({
             >
               <Gamepad2 className="h-4 w-4 text-amber-400" />
               <span>{tr("داخستنی یاری", "Close Game")}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                onOpenMusicPlayer?.();
-                onClose();
-              }}
-              className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-violet-500/30 bg-violet-500/10 p-2.5 text-center text-[11px] font-bold text-violet-300 transition hover:bg-violet-500/20 active:scale-95"
-            >
-              <Music className="h-4 w-4 text-violet-400" />
-              <span>{tr("پێکردنی گۆرانی", "Play Music")}</span>
             </button>
           </div>
 

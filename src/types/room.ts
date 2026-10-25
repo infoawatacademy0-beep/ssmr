@@ -1,3 +1,5 @@
+import type { RoomCinemaState } from './cinema';
+
 /**
  * Chat message within an active voice room.
  */
@@ -73,6 +75,7 @@ export interface Room {
   memberRanks?: Record<string, SeatRole>;
   blockedMics?: Record<string, boolean>;
   latestEntrance?: RoomEntranceEvent | null;
+  cinema?: RoomCinemaState | null;
   createdAt: number;
 }
 

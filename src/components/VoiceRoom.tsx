@@ -38,6 +38,7 @@ import {
   VolumeX,
   Maximize2,
   Minimize2,
+  Film,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, useLanguage } from '../contexts';
@@ -53,6 +54,7 @@ import {
   type AudienceMember,
   type RoomGiftEvent,
   type PkBattleState,
+  type RoomCinemaState,
 } from '../types';
 import {
   subscribeToRoom,
@@ -79,6 +81,7 @@ import {
   subscribeToPkBattle,
   sendSeatEmoji,
   subscribeToSeatEmojis,
+  subscribeToRoomCinema,
 } from '../services';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import JackarooGamePanel from './JackarooGamePanel';
@@ -90,6 +93,8 @@ import GiftAnimationOverlay from './GiftAnimationOverlay';
 import PkBattlePanel from './PkBattlePanel';
 import FloatingHearts from './FloatingHearts';
 import MusicPlayerPanel from './MusicPlayerPanel';
+import CinemaPlayerPanel from './CinemaPlayerPanel';
+import CinemaConfigModal from './CinemaConfigModal';
 import AudienceGrid from './AudienceGrid';
 import ReportModal from './ReportModal';
 import PrivateChat from './PrivateChat';
@@ -193,6 +198,10 @@ export default function VoiceRoom() {
 
   // Host Controls Panel modal state
   const [isHostControlsOpen, setIsHostControlsOpen] = useState(false);
+
+  // Cinema & Movie Mode state
+  const [cinemaState, setCinemaState] = useState<RoomCinemaState | null>(null);
+  const [isCinemaConfigModalOpen, setIsCinemaConfigModalOpen] = useState(false);
 
   // Room Invite Modal state
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -343,6 +352,11 @@ export default function VoiceRoom() {
       setActiveSeatEmojis(emojisMap);
     });
 
+    // Real-time Cinema & Movie Mode listener
+    const unsubCinema = subscribeToRoomCinema(roomId, (cState) => {
+      setCinemaState(cState);
+    });
+
     // Register user presence in audience (automatic onDisconnect cleanup)
     let unregisterPresence: (() => void) | null = null;
     if (user) {
@@ -376,6 +390,7 @@ export default function VoiceRoom() {
       unsubMusic();
       unsubAudience();
       unsubSeatEmojis();
+      unsubCinema();
       if (unregisterPresence) unregisterPresence();
     };
   }, [roomId, user?.uid]);
@@ -771,6 +786,31 @@ export default function VoiceRoom() {
             <span className="hidden sm:inline">{tr('بانگهێشت', 'Invite')}</span>
           </button>
 
+          {/* Cinema & Movie Mode Button */}
+          {cinemaState?.isActive ? (
+            <button
+              onClick={() => {
+                if (isHost || user.isAdmin) {
+                  setIsCinemaConfigModalOpen(true);
+                }
+              }}
+              className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 px-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/25 animate-pulse"
+              title={tr('مۆدی سینەما چالاکە · کرتە بکە بۆ ڕێکخستن', 'Cinema Active · Click to manage')}
+            >
+              <Film className="h-3.5 w-3.5" />
+              <span>{tr('سینەما', 'Cinema')}</span>
+            </button>
+          ) : (isHost || user.isAdmin) ? (
+            <button
+              onClick={() => setIsCinemaConfigModalOpen(true)}
+              className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 px-2.5 text-xs font-bold text-rose-300 transition-colors hover:bg-rose-500/20 active:scale-95"
+              title={tr('مۆدی سینەما و سەیرکردنی فیلم', 'Cinema & Movie Mode')}
+            >
+              <Film className="h-3.5 w-3.5 text-rose-400" />
+              <span className="hidden xs:inline">{tr('سینەما', 'Cinema')}</span>
+            </button>
+          ) : null}
+
           {/* Music Player Button (For Host & Members) */}
           {(true) && (
             <button
@@ -877,28 +917,59 @@ export default function VoiceRoom() {
          MAIN CONTENT AREA: 8-Seat Stage + Music + Audience + Chat
          ───────────────────────────────────────────────────────── */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        {/* ── THE 8-SEAT AUDIO GRID WITH SEAT FLOATING BADGES ── */}
+        {/* ── THE STAGE AREA: CINEMA MODE (4-SEAT COUCH + SCREEN) OR 8-SEAT AUDIO GRID ── */}
         <section className={isChatExpanded ? 'hidden' : 'shrink-0 p-4 pb-1'}>
-          {/* 4 VS 4 PK Battle Arena Panel (5-min real-time battle) */}
-          <PkBattlePanel
-            roomId={room.id}
-            currentUser={user}
-            isHost={isHost}
-            seats={room.seats}
-            pkBattle={pkBattle}
-            onOpenGiftStore={(targetUserId, targetUsername) => {
-              if (targetUserId) {
-                const targetSeat = room.seats.find((s) => s.userId === targetUserId);
-                setGiftRecipient({
-                  uid: targetUserId,
-                  username: targetUsername || targetSeat?.username || 'User',
-                });
-              } else {
-                setGiftRecipient(null);
-              }
-              setIsGiftModalOpen(true);
-            }}
-          />
+          {cinemaState?.isActive ? (
+            <CinemaPlayerPanel
+              roomId={room.id}
+              roomName={room.roomName}
+              cinemaState={cinemaState}
+              seats={room.seats}
+              currentUser={user}
+              isHost={Boolean(isHost || user.isAdmin)}
+              speakingUids={speakingUids}
+              vipUsersMap={vipUsersMap}
+              vipFramesMap={vipFramesMap}
+              usersAvatarMap={usersAvatarMap}
+              audience={audience}
+              onSeatClick={handleSeatClick}
+              onOpenConfigModal={() => setIsCinemaConfigModalOpen(true)}
+              onOpenGiftStore={(targetUserId, targetUsername) => {
+                if (targetUserId) {
+                  const targetSeat = room.seats.find((s) => s.userId === targetUserId);
+                  setGiftRecipient({
+                    uid: targetUserId,
+                    username: targetUsername || targetSeat?.username || 'User',
+                  });
+                } else {
+                  setGiftRecipient(null);
+                }
+                setIsGiftModalOpen(true);
+              }}
+              onOpenProfile={(uid) => setSelectedProfileUid(uid)}
+            />
+          ) : (
+            <>
+              {/* 4 VS 4 PK Battle Arena Panel (5-min real-time battle) */}
+              <PkBattlePanel
+                roomId={room.id}
+                currentUser={user}
+                isHost={isHost}
+                seats={room.seats}
+                pkBattle={pkBattle}
+                onOpenGiftStore={(targetUserId, targetUsername) => {
+                  if (targetUserId) {
+                    const targetSeat = room.seats.find((s) => s.userId === targetUserId);
+                    setGiftRecipient({
+                      uid: targetUserId,
+                      username: targetUsername || targetSeat?.username || 'User',
+                    });
+                  } else {
+                    setGiftRecipient(null);
+                  }
+                  setIsGiftModalOpen(true);
+                }}
+              />
 
           <div className="flex items-center justify-between pb-2 px-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-300">
@@ -1201,6 +1272,8 @@ export default function VoiceRoom() {
               )}
             </AnimatePresence>
           </div>
+            </>
+          )}
         </section>
 
         {/* ── FEATURE 1: Collaborative Music Room & Media Queue ── */}
@@ -1216,7 +1289,7 @@ export default function VoiceRoom() {
         />
 
         {/* ── FEATURE 2: Live Room Audience Strip Row ── */}
-        {!isChatExpanded && (
+        {!isChatExpanded && !cinemaState?.isActive && (
           <AudienceGrid
             audience={audience}
             seats={room.seats}
@@ -2187,13 +2260,26 @@ export default function VoiceRoom() {
               await setMusicModeActive(room.id, true).catch(console.error);
               setIsMusicPanelVisible(true);
             }}
+            onOpenCinemaConfig={() => setIsCinemaConfigModalOpen(true)}
+            isCinemaActive={Boolean(cinemaState?.isActive)}
             onClose={() => setIsHostControlsOpen(false)}
           />
         )}
       </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────
-         MODAL 8: Room Friends Invitation Modal
+         MODAL 8: Cinema & Movie Mode Configuration Modal (Admin/Host)
+         ───────────────────────────────────────────────────────── */}
+      <CinemaConfigModal
+        roomId={room.id}
+        currentUser={user}
+        cinemaState={cinemaState}
+        isOpen={isCinemaConfigModalOpen}
+        onClose={() => setIsCinemaConfigModalOpen(false)}
+      />
+
+      {/* ─────────────────────────────────────────────────────────
+         MODAL 9: Room Friends Invitation Modal
          ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isInviteModalOpen && (

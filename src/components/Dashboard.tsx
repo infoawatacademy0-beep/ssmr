@@ -81,6 +81,7 @@ import StoriesBar from './StoriesBar';
 import SettingsModal from './SettingsModal';
 import FriendsModal from './FriendsModal';
 import IncomingChatToast from './IncomingChatToast';
+import PostCommentsSection from './PostCommentsSection';
 import { useLanguage } from '../contexts';
 
 const CATEGORIES: { label: string; value: RoomCategory | 'All'; icon: React.ElementType; color: string }[] = [
@@ -145,6 +146,14 @@ export default function Dashboard() {
   const [isPublishingPost, setIsPublishingPost] = useState(false);
   const [publishPostError, setPublishPostError] = useState<string | null>(null);
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
+  const [expandedCommentsPostIds, setExpandedCommentsPostIds] = useState<Record<string, boolean>>({});
+
+  const toggleComments = (postId: string) => {
+    setExpandedCommentsPostIds((prev) => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
+  };
 
   // Visitors State for Right Sidebar
   const [visitors, setVisitors] = useState<ProfileVisitor[]>([]);
@@ -965,21 +974,35 @@ export default function Dashboard() {
 
                       {/* Post Actions Bar */}
                       <div className="mt-4 flex items-center justify-between border-t border-slate-800/60 pt-3 text-xs text-slate-400">
-                        <button
-                          onClick={() => handleToggleLike(post.id)}
-                          className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold transition-all active:scale-90 ${
-                            isLiked
-                              ? 'border border-rose-500/30 bg-rose-500/10 text-rose-400 shadow-sm shadow-rose-500/10'
-                              : 'hover:bg-white/[0.04] hover:text-white'
-                          }`}
-                        >
-                          <Heart
-                            className={`h-4 w-4 transition-colors ${
-                              isLiked ? 'fill-rose-500 text-rose-500' : 'text-slate-400'
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <button
+                            onClick={() => handleToggleLike(post.id)}
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold transition-all active:scale-90 ${
+                              isLiked
+                                ? 'border border-rose-500/30 bg-rose-500/10 text-rose-400 shadow-sm shadow-rose-500/10'
+                                : 'hover:bg-white/[0.04] hover:text-white'
                             }`}
-                          />
-                          <span>{likesCount}</span>
-                        </button>
+                          >
+                            <Heart
+                              className={`h-4 w-4 transition-colors ${
+                                isLiked ? 'fill-rose-500 text-rose-500' : 'text-slate-400'
+                              }`}
+                            />
+                            <span>{likesCount}</span>
+                          </button>
+
+                          <button
+                            onClick={() => toggleComments(post.id)}
+                            className={`flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-bold transition-all active:scale-90 ${
+                              expandedCommentsPostIds[post.id]
+                                ? 'border border-amber-400/30 bg-amber-400/10 text-amber-300 shadow-sm shadow-amber-400/10'
+                                : 'hover:bg-white/[0.04] hover:text-white'
+                            }`}
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                            <span>{post.commentsCount || 0}</span>
+                          </button>
+                        </div>
 
                         <button
                           onClick={() => handleSharePost(post.id)}
@@ -998,6 +1021,16 @@ export default function Dashboard() {
                           )}
                         </button>
                       </div>
+
+                      {/* Expandable Comments Drawer */}
+                      {expandedCommentsPostIds[post.id] && (
+                        <PostCommentsSection
+                          postId={post.id}
+                          postAuthorUid={post.authorUid}
+                          currentUser={user}
+                          onOpenUserProfile={openUserProfile}
+                        />
+                      )}
                     </motion.article>
                   );
                 })}

@@ -10,7 +10,7 @@ export type {
 } from './user';
 export { buildDefaultUser, formatCoinsK, VIP_FRAME_CATALOG, getVipAvatarClass } from './user';
 
-export type { Post, CreatePostPayload } from './post';
+export type { Post, CreatePostPayload, PostComment, CreateCommentPayload } from './post';
 
 export type { ReportTargetType, ReportItem } from './report';
 
@@ -48,4 +48,5 @@ export type { StoryMediaType, Story, StoryGroup } from './story';
 export type { RoomInvite } from './invite';
 export type { ShopItemType, ShopItem, PurchaseRecord } from './shop';
 export type { PkTeam, PkBattleState, PkMode, PkContributor, StartPkBattleOptions } from './pkBattle';
+export type { RoomCinemaState, StartCinemaPayload } from './cinema';
 
