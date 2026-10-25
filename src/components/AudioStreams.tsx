@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Volume2, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 /* ─────────────────────────────────────────────────────────────
    AudioStreams Component
@@ -21,6 +22,7 @@ export default function AudioStreams({
   onUnlockAudio,
   connectionError,
 }: AudioStreamsProps) {
+  const { tr } = useLanguage();
   return (
     <>
       {/* ── Browser Autoplay Blocked Banner ── */}
@@ -38,8 +40,8 @@ export default function AudioStreams({
                 <Volume2 className="h-5 w-5 animate-bounce" />
               </div>
               <div className="flex-1">
-                <p className="text-xs font-bold text-white">دەنگ لەلایەن وێبگەڕەوە وەستێنراوە</p>
-                <p className="text-[10px] text-amber-300">لێرە دابگرە بۆ چالاککردنی دەنگی ژوورەکە</p>
+                <p className="text-xs font-bold text-white">{tr('دەنگ لەلایەن وێبگەڕەوە وەستێنراوە', 'Audio muted by browser')}</p>
+                <p className="text-[10px] text-amber-300">{tr('لێرە دابگرە بۆ چالاککردنی دەنگی ژوورەکە', 'Tap here to enable room audio')}</p>
               </div>
             </div>
           </motion.div>

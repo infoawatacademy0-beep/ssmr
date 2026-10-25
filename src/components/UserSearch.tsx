@@ -219,7 +219,7 @@ export default function UserSearch({
                           </span>
                           <span>&bull;</span>
                           <span className="truncate max-w-[140px] text-slate-500">
-                            {targetUser.bio || 'ئەندامی ژووری دەنگی SSMR'}
+                            {targetUser.bio || tr('ئەندامی ژووری دەنگی SSMR', 'SSMR Voice Arena Member')}
                           </span>
                         </div>
                       </div>

@@ -138,10 +138,15 @@ export { submitReport } from './reportService';
 export {
   followUser,
   unfollowUser,
+  acceptFollow,
   checkIsFollowing,
   subscribeToFollowState,
   subscribeToFollowersCount,
   subscribeToFollowingCount,
+  subscribeToFriendsCount,
+  subscribeToFollowersList,
+  subscribeToFollowingList,
+  subscribeToFriendsList,
   initUserPresence,
   subscribeToUserPresence,
 } from './socialService';

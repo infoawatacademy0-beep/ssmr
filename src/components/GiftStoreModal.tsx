@@ -36,7 +36,7 @@ export default function GiftStoreModal({
   onClose,
   onSent,
 }: GiftStoreModalProps) {
-  const { tr, isRTL } = useLanguage();
+  const { tr, isRTL, t } = useLanguage();
   // Everyone currently sitting on a seat (except me)
   const eligible = seats
     .filter((s) => s.userId && s.userId !== currentUser.uid)
@@ -59,7 +59,7 @@ export default function GiftStoreModal({
   if (eligible.length === 0) {
     eligible.push({
       uid: currentUser.uid,
-      username: `${currentUser.username} (خۆم)`,
+      username: `${currentUser.username} (${tr('خۆم', 'Me')})`,
       avatar: currentUser.avatar || currentUser.profileImage || undefined,
       seatNo: seats.find((s) => s.userId === currentUser.uid)?.seatNo || 1,
     });
@@ -88,28 +88,28 @@ export default function GiftStoreModal({
     setSelectedIds((prev) => (prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]));
 
   const handleCustomQty = () => {
-    const v = window.prompt('ژمارەی دیاری بنووسە (1 - 9999)', String(qty));
+    const v = window.prompt(tr('ژمارەی دیاری بنووسە (1 - 9999)', 'Enter gift quantity (1 - 9999)'), String(qty));
     const n = Math.floor(Number(v));
     if (n >= 1 && n <= 9999) setQty(n);
   };
 
   const handleSend = async () => {
     if (recipients.length === 0) {
-      alert('تکایە کەسێک هەڵبژێرە بۆ ناردنی دیاری.');
+      alert(tr('تکایە کەسێک هەڵبژێرە بۆ ناردنی دیاری.', 'Please select a recipient to send gifts.'));
       return;
     }
     if (coins < totalCost) {
-      alert(`کۆینی پێویستت نییە! پێویستت بە ${totalCost} کۆینە.`);
+      alert(tr(`کۆینی پێویستت نییە! پێویستت بە ${totalCost} کۆینە.`, `Not enough coins! You need ${totalCost} coins.`));
       return;
     }
     setIsSending(true);
     try {
-      const refs = recipients.map((r) => ({ uid: r.uid, username: r.username.replace(' (خۆم)', '') }));
+      const refs = recipients.map((r) => ({ uid: r.uid, username: r.username.replace(` (${tr('خۆم', 'Me')})`, '').replace(' (خۆم)', '') }));
       await sendGiftBatch(roomId, { uid: currentUser.uid, username: currentUser.username }, refs, selectedGift, qty);
       onSent?.(selectedGift, refs, qty);
       onClose();
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا دیاری بنێردرێت.');
+      alert(err.message || tr('نەتوانرا دیاری بنێردرێت.', 'Failed to send gift.'));
     } finally {
       setIsSending(false);
     }
@@ -129,7 +129,7 @@ export default function GiftStoreModal({
         <div className="flex items-center gap-2 px-4 pt-3.5 pb-2" dir="ltr">
           <div className="flex flex-1 items-center gap-2 overflow-x-auto scrollbar-none">
             {eligible.length === 0 && (
-              <span className="text-[11px] text-slate-400">کەس لەسەر کورسی نییە</span>
+              <span className="text-[11px] text-slate-400">{tr('کەس لەسەر کورسی نییە', 'Nobody on seats')}</span>
             )}
             {eligible.map((r) => {
               const on = selectedIds.includes(r.uid);
@@ -262,7 +262,7 @@ export default function GiftStoreModal({
                   ) : (
                     <>
                       <span className="mt-0.5 max-w-full truncate px-1 text-[11px] font-semibold text-slate-200">
-                        {gift.name}
+                        {t(gift.name)}
                       </span>
                       <span className="mb-2 flex items-center gap-0.5 text-[10px] font-bold text-slate-400">
                         <Coins className="h-2.5 w-2.5 text-amber-400" />
@@ -309,7 +309,7 @@ export default function GiftStoreModal({
           <button
             type="button"
             className="flex items-center gap-1.5 rounded-full bg-white/[0.08] px-3 py-2 text-sm font-black text-white"
-            title="باڵانسی کۆین"
+            title={tr("باڵانسی کۆین", "Coin Balance")}
           >
             <ChevronLeft className="h-4 w-4 text-slate-400" />
             <span>{coins.toLocaleString('en-US')}</span>

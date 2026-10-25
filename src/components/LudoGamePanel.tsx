@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { LudoGame, User, Seat } from '../types';
 import { LUDO_COLOR_MAP } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 import {
   createLudoGame,
   joinLudoGame,
@@ -103,6 +104,7 @@ export default function LudoGamePanel({
   seats,
   onClose,
 }: LudoGamePanelProps) {
+  const { tr } = useLanguage();
   const [selectedBet, setSelectedBet] = useState<number>(500);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRollingLocal, setIsRollingLocal] = useState(false);
@@ -250,7 +252,7 @@ export default function LudoGamePanel({
             </div>
             <div>
               <h2 className="font-display text-sm font-bold tracking-wide text-white">
-                یاری لودۆی ٤ یاریزان
+                {tr('یاری لودۆی ٤ یاریزان', '4-Player Ludo Battle')}
               </h2>
               <p className="text-[10px] font-medium tracking-wider text-violet-400 uppercase">
                 High-Stakes Coin Escrow
@@ -276,9 +278,9 @@ export default function LudoGamePanel({
         {!activeLudoGame && (
           <div className="mt-5 space-y-4">
             <div className="text-center">
-              <p className="text-xs text-slate-300 font-medium">بڕی بەشداریکردن دیاریبکە (بۆ هەر یاریزانێک)</p>
+              <p className="text-xs text-slate-300 font-medium">{tr('بڕی بەشداریکردن دیاریبکە (بۆ هەر یاریزانێک)', 'Select Buy-in Amount (Per Player)')}</p>
               <p className="text-[11px] text-slate-500">
-                تاوەکو ٤ یاریزان · براوە تەواوی کۆینەکان دەباتەوە + ٥٠٠ XP
+                {tr('تاوەکو ٤ یاریزان · براوە تەواوی کۆینەکان دەباتەوە + ٥٠٠ XP', 'Up to 4 players · Winner takes all coins + 500 XP')}
               </p>
             </div>
 
@@ -304,7 +306,7 @@ export default function LudoGamePanel({
                     `}
                   >
                     <span className="text-xs font-bold">{amt}</span>
-                    <span className="text-[9px] text-slate-500">کۆین</span>
+                    <span className="text-[9px] text-slate-500">{tr('کۆین', 'Coins')}</span>
                   </button>
                 );
               })}
@@ -314,7 +316,7 @@ export default function LudoGamePanel({
             {!isUserSeated && (
               <div className="flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
                 <ShieldAlert className="h-4 w-4 shrink-0" />
-                <span>سەرەتا لەسەر کورسییەکی مایک دابنیشە بۆ دروستکردن یان بەشداری لە لودۆ.</span>
+                <span>{tr('سەرەتا لەسەر کورسییەکی مایک دابنیشە بۆ دروستکردن یان بەشداری لە لودۆ.', 'Take a mic seat first to create or join Ludo.')}</span>
               </div>
             )}
 
@@ -327,8 +329,8 @@ export default function LudoGamePanel({
               <Swords className="h-4 w-4" />
               <span>
                 {isSubmitting
-                  ? 'خەریکی ئامادەکردنی تەختەیە…'
-                  : `دروستکردنی مێزی لودۆ (${selectedBet} کۆین)`}
+                  ? tr('خەریکی ئامادەکردنی تەختەیە…', 'Preparing board…')
+                  : tr(`دروستکردنی مێزی لودۆ (${selectedBet} کۆین)`, `Create Ludo Table (${selectedBet} Coins)`)}
               </span>
             </button>
           </div>
@@ -340,25 +342,25 @@ export default function LudoGamePanel({
             <div className="flex items-center justify-between rounded-2xl bg-violet-500/10 border border-violet-500/20 p-3">
               <div>
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                  کۆی خەڵات
+                  {tr('کۆی خەڵات', 'Total Pot')}
                 </span>
                 <p className="text-base font-black text-amber-300 flex items-center gap-1">
                   <Coins className="h-4 w-4 text-amber-400" />
-                  <span>{activeLudoGame.totalPot} کۆین</span>
+                  <span>{activeLudoGame.totalPot} {tr('کۆین', 'Coins')}</span>
                 </p>
               </div>
               <div className="text-right">
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                  کۆینی بەشداری
+                  {tr('کۆینی بەشداری', 'Entry Fee')}
                 </span>
-                <p className="text-xs font-bold text-white">{activeLudoGame.betAmount} کۆین</p>
+                <p className="text-xs font-bold text-white">{activeLudoGame.betAmount} {tr('کۆین', 'Coins')}</p>
               </div>
             </div>
 
             {/* 4 Player Slots */}
             <div>
               <p className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
-                شوێنی یاریزانان ({activeLudoGame.players.length} / ٤)
+                {tr('شوێنی یاریزانان', 'Player Slots')} ({activeLudoGame.players.length} / 4)
               </p>
               <div className="grid grid-cols-2 gap-2.5">
                 {[0, 1, 2, 3].map((index) => {
@@ -388,10 +390,10 @@ export default function LudoGamePanel({
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-bold text-white">
-                          {player ? player.username : 'شوێنی بەتاڵ'}
+                          {player ? player.username : tr('شوێنی بەتاڵ', 'Empty Slot')}
                         </p>
                         <p className={`text-[10px] font-semibold ${player ? colorConfig.text : 'text-slate-500'}`}>
-                          {player ? colorConfig.name : 'چاوەڕوانی…'}
+                          {player ? tr(colorConfig.name, colorKey) : tr('چاوەڕوانی…', 'Waiting…')}
                         </p>
                       </div>
                     </div>
@@ -409,7 +411,7 @@ export default function LudoGamePanel({
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-xs font-bold text-black shadow-lg shadow-emerald-500/25 transition-transform active:scale-95 disabled:opacity-50"
                 >
                   <Flame className="h-4 w-4" />
-                  <span>بەشداری لە لودۆ ({activeLudoGame.betAmount} کۆین)</span>
+                  <span>{tr('بەشداری لە لودۆ', 'Join Ludo')} ({activeLudoGame.betAmount} {tr('کۆین', 'Coins')})</span>
                 </button>
               )}
 
@@ -421,19 +423,19 @@ export default function LudoGamePanel({
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3 text-xs font-bold text-white shadow-lg shadow-violet-500/25 transition-transform active:scale-95 disabled:opacity-50"
                   >
                     <Play className="h-4 w-4" />
-                    <span>دەستپێکردنی یاری ({activeLudoGame.players.length}/٤ یاریزان)</span>
+                    <span>{tr('دەستپێکردنی یاری', 'Start Game')} ({activeLudoGame.players.length}/4 {tr('یاریزان', 'Players')})</span>
                   </button>
                   <button
                     onClick={handleCancelGame}
                     className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 active:scale-95"
                   >
-                    هەڵوەشاندنەوە
+                    {tr('هەڵوەشاندنەوە', 'Cancel')}
                   </button>
                 </div>
               ) : (
                 isParticipant && (
                   <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-center text-xs text-slate-400">
-                    چاوەڕوانی خاوەن ژوور بە تا یاری دەستپێبکات…
+                    {tr('چاوەڕوانی خاوەن ژوور بە تا یاری دەستپێبکات…', 'Waiting for host to start game…')}
                   </div>
                 )
               )}
@@ -452,16 +454,16 @@ export default function LudoGamePanel({
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                    کۆی خەڵات
+                    {tr('کۆی خەڵات', 'Total Pot')}
                   </span>
-                  <p className="text-xs font-bold text-amber-300">{activeLudoGame.totalPot} کۆین</p>
+                  <p className="text-xs font-bold text-amber-300">{activeLudoGame.totalPot} {tr('کۆین', 'Coins')}</p>
                 </div>
               </div>
 
               {activePlayer && (
                 <div className="text-right">
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                    نۆرەی یاریزان
+                    {tr('نۆرەی یاریزان', 'Current Turn')}
                   </span>
                   <p className="text-xs font-bold text-white flex items-center gap-1">
                     <span
@@ -478,9 +480,9 @@ export default function LudoGamePanel({
             {/* ── Visual 4-Player Track (Linear Race to Step 25) ── */}
             <div className="rounded-2xl border border-white/[0.08] bg-surface-900/60 p-4">
               <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-3">
-                <span>خاڵی دەستپێک (٠)</span>
+                <span>{tr('خاڵی دەستپێک (٠)', 'Start (0)')}</span>
                 <span className="text-amber-400 flex items-center gap-1">
-                  <Crown className="h-3.5 w-3.5" /> ماڵ (٢٥)
+                  <Crown className="h-3.5 w-3.5" /> {tr('ماڵ (٢٥)', 'Home (25)')}
                 </span>
               </div>
 
@@ -497,7 +499,7 @@ export default function LudoGamePanel({
                           {p.username}
                         </span>
                         <span className={`${colorConfig.text} font-semibold`}>
-                          هەنگاوی {p.position} / {GOAL_POSITION}
+                          {tr('هەنگاوی', 'Step')} {p.position} / {GOAL_POSITION}
                         </span>
                       </div>
 
@@ -530,11 +532,11 @@ export default function LudoGamePanel({
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 py-3.5 text-xs font-bold text-black shadow-lg shadow-amber-500/25 transition-transform active:scale-95 disabled:opacity-50"
                   >
                     <Gamepad2 className="h-4 w-4" />
-                    <span>{isRollingLocal ? 'خەریکی هەڵدانە…' : 'نۆرەی تۆیە — زار هەڵبدە!'}</span>
+                    <span>{isRollingLocal ? tr('خەریکی هەڵدانە…', 'Rolling…') : tr('نۆرەی تۆیە — زار هەڵبدە!', 'Your turn — Roll dice!')}</span>
                   </button>
                 ) : (
                   <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-center text-xs text-slate-400">
-                    چاوەڕوانی {activePlayer?.username} بە تاوەکو زار هەڵبدات…
+                    {tr('چاوەڕوانی', 'Waiting for')} {activePlayer?.username} {tr('بە تاوەکو زار هەڵبدات…', 'to roll dice…')}
                   </div>
                 )}
               </div>
@@ -556,23 +558,23 @@ export default function LudoGamePanel({
 
             <div>
               <h3 className="font-display text-lg font-black text-white">
-                {activeLudoGame.winner.username.toUpperCase()} تەختەی لودۆی کۆنتڕۆڵ کرد و سەرکەوت!
+                {activeLudoGame.winner.username.toUpperCase()} {tr('تەختەی لودۆی کۆنتڕۆڵ کرد و سەرکەوت!', 'won the Ludo match!')}
               </h3>
               <p className="mt-1 text-xs text-amber-300 font-semibold">
-                بردنەوەی تەواوی {activeLudoGame.totalPot} کۆین + ٥٠٠ XP!
+                {tr('بردنەوەی تەواوی', 'Won entire')} {activeLudoGame.totalPot} {tr('کۆین + ٥٠٠ XP!', 'coins + 500 XP!')}
               </p>
             </div>
 
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
               <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-              <span>نوێبوونەوە لە {resetCountdown ?? 0} چرکەدا…</span>
+              <span>{tr('نوێبوونەوە لە', 'Resetting in')} {resetCountdown ?? 0} {tr('چرکەدا…', 'seconds…')}</span>
             </div>
 
             <button
               onClick={() => resetLudoGame(roomId)}
               className="w-full rounded-2xl bg-white/[0.08] py-3 text-xs font-semibold text-white hover:bg-white/[0.14] active:scale-95"
             >
-              یارییەکی تر بکە
+              {tr('یارییەکی تر بکە', 'Play Again')}
             </button>
           </div>
         )}

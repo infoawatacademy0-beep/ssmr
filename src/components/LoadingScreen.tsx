@@ -7,6 +7,7 @@ import { Gamepad2 } from 'lucide-react';
    ────────────────────────────────────────────── */
 
 export default function LoadingScreen() {
+  const isEn = typeof window !== 'undefined' && localStorage.getItem('ssmr_language') === 'en';
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-surface-900">
       {/* Animated logo */}
@@ -30,7 +31,9 @@ export default function LoadingScreen() {
       {/* Brand */}
       <div className="text-center">
         <h1 className="font-display text-2xl font-bold tracking-widest text-white">SSMR</h1>
-        <p className="mt-1 text-xs tracking-widest text-violet-400/60 uppercase">چاوەڕوانبە…</p>
+        <p className="mt-1 text-xs tracking-widest text-violet-400/60 uppercase">
+          {isEn ? 'Please wait…' : 'چاوەڕوانبە…'}
+        </p>
       </div>
 
       {/* Progress bar */}

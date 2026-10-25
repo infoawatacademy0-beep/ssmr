@@ -84,11 +84,11 @@ export default function SettingsModal({
     try {
       await requestAccountDeletion(
         currentUser,
-        'داواکاری سڕینەوەی هەژمار لەلایەن بەکارهێنەرەوە لە بەشی Settings.',
+        language === 'en' ? 'Account deletion requested by user in Settings.' : 'داواکاری سڕینەوەی هەژمار لەلایەن بەکارهێنەرەوە لە بەشی Settings.',
       );
       setShowDeleteConfirm(false);
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا داواکارییەکە بنێردرێت.');
+      alert(err.message || (language === 'en' ? 'Failed to submit request.' : 'نەتوانرا داواکارییەکە بنێردرێت.'));
     } finally {
       setIsRequestingDelete(false);
     }
@@ -99,7 +99,7 @@ export default function SettingsModal({
     try {
       await cancelAccountDeletionRequest(currentUser.uid);
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا داواکارییەکە هەڵبوەشێنرێتەوە.');
+      alert(err.message || (language === 'en' ? 'Failed to cancel request.' : 'نەتوانرا داواکارییەکە هەڵبوەشێنرێتەوە.'));
     } finally {
       setIsRequestingDelete(false);
     }
@@ -281,7 +281,7 @@ export default function SettingsModal({
                     </span>
                     <div className="min-w-0 text-start">
                       <p className="text-xs font-black truncate text-white">کوردی (سۆرانی)</p>
-                      <p className="text-[9px] text-amber-300 font-bold truncate">سەرەکی (Default)</p>
+                      <p className="text-[9px] text-amber-300 font-bold truncate">{language === 'en' ? 'Default' : 'سەرەکی'}</p>
                     </div>
                   </div>
                   {language === 'ku' && (
@@ -307,7 +307,7 @@ export default function SettingsModal({
                     </span>
                     <div className="min-w-0 text-start">
                       <p className="text-xs font-black truncate text-white">English</p>
-                      <p className="text-[9px] text-cyan-300 font-bold truncate">International</p>
+                      <p className="text-[9px] text-cyan-300 font-bold truncate">{language === 'en' ? 'International' : 'نێودەوڵەتی'}</p>
                     </div>
                   </div>
                   {language === 'en' && (

@@ -17,37 +17,39 @@ export interface EmojiCatalogItem {
   vip?: boolean;
   id: string;
   label: string;
+  labelKu?: string;
+  labelEn?: string;
 }
 
 export const SEAT_EMOJI_CATALOG: EmojiCatalogItem[] = [
-  { id: 'grin', label: 'پێکەنین' },
-  { id: 'wave-hand', label: 'سڵاوکردن' },
-  { id: 'buzzer', label: 'دوگمەی سوور' },
-  { id: 'slot-machine', label: 'بەخت' },
-  { id: 'facepalm-laugh', label: 'پێکەنینی زۆر' },
-  { id: 'kiss-right', label: 'ماچ' },
-  { id: 'kiss-left', label: 'ماچ' },
-  { id: 'rose-smile', label: 'گوڵی سوور' },
-  { id: 'heart-eyes', label: 'خۆشەویستی' },
-  { id: 'cool-shades', label: 'چاوێلکە' },
-  { id: 'shisha', label: 'نێرگەلە' },
-  { id: 'rainbow-vomit', label: 'پەلکەزێڕینە' },
-  { id: 'peeking-shy', label: 'شەرمکردن' },
-  { id: 'ninja-bomb', label: 'بۆمب' },
-  { id: 'angry-rage', label: 'توڕەبوون' },
-  { id: 'crying-rivers', label: 'گریان' },
-  { id: 'vip-crown', label: 'تاج', vip: true },
-  { id: 'vip-diamond', label: 'ئەڵماس', vip: true },
-  { id: 'vip-fire', label: 'ئاگر', vip: true },
-  { id: 'vip-rocket', label: 'ڕۆکێت', vip: true },
-  { id: 'vip-trophy', label: 'پاڵەوان', vip: true },
-  { id: 'vip-money', label: 'پارە', vip: true },
-  { id: 'vip-party', label: 'ئاهەنگ', vip: true },
-  { id: 'vip-star', label: 'ئەستێرە', vip: true },
-  { id: 'vip-heart', label: 'دڵ', vip: true },
-  { id: 'vip-unicorn', label: 'ئەسپی شاخدار', vip: true },
-  { id: 'vip-lion', label: 'شێر', vip: true },
-  { id: 'vip-ghost', label: 'تارمایی', vip: true },
+  { id: 'grin', label: 'پێکەنین', labelKu: 'پێکەنین', labelEn: 'Grin' },
+  { id: 'wave-hand', label: 'سڵاوکردن', labelKu: 'سڵاوکردن', labelEn: 'Wave' },
+  { id: 'buzzer', label: 'دوگمەی سوور', labelKu: 'دوگمەی سوور', labelEn: 'Buzzer' },
+  { id: 'slot-machine', label: 'بەخت', labelKu: 'بەخت', labelEn: 'Slots' },
+  { id: 'facepalm-laugh', label: 'پێکەنینی زۆر', labelKu: 'پێکەنینی زۆر', labelEn: 'Laughing' },
+  { id: 'kiss-right', label: 'ماچ', labelKu: 'ماچ', labelEn: 'Kiss' },
+  { id: 'kiss-left', label: 'ماچ', labelKu: 'ماچ', labelEn: 'Kiss' },
+  { id: 'rose-smile', label: 'گوڵی سوور', labelKu: 'گوڵی سوور', labelEn: 'Rose' },
+  { id: 'heart-eyes', label: 'خۆشەویستی', labelKu: 'خۆشەویستی', labelEn: 'Heart Eyes' },
+  { id: 'cool-shades', label: 'چاوێلکە', labelKu: 'چاوێلکە', labelEn: 'Sunglasses' },
+  { id: 'shisha', label: 'نێرگەلە', labelKu: 'نێرگەلە', labelEn: 'Shisha' },
+  { id: 'rainbow-vomit', label: 'پەلکەزێڕینە', labelKu: 'پەلکەزێڕینە', labelEn: 'Rainbow' },
+  { id: 'peeking-shy', label: 'شەرمکردن', labelKu: 'شەرمکردن', labelEn: 'Shy' },
+  { id: 'ninja-bomb', label: 'بۆمب', labelKu: 'بۆمب', labelEn: 'Bomb' },
+  { id: 'angry-rage', label: 'توڕەبوون', labelKu: 'توڕەبوون', labelEn: 'Angry' },
+  { id: 'crying-rivers', label: 'گریان', labelKu: 'گریان', labelEn: 'Crying' },
+  { id: 'vip-crown', label: 'تاج', labelKu: 'تاج', labelEn: 'Crown', vip: true },
+  { id: 'vip-diamond', label: 'ئەڵماس', labelKu: 'ئەڵماس', labelEn: 'Diamond', vip: true },
+  { id: 'vip-fire', label: 'ئاگر', labelKu: 'ئاگر', labelEn: 'Fire', vip: true },
+  { id: 'vip-rocket', label: 'ڕۆکێت', labelKu: 'ڕۆکێت', labelEn: 'Rocket', vip: true },
+  { id: 'vip-trophy', label: 'پاڵەوان', labelKu: 'پاڵەوان', labelEn: 'Trophy', vip: true },
+  { id: 'vip-money', label: 'پارە', labelKu: 'پارە', labelEn: 'Money', vip: true },
+  { id: 'vip-party', label: 'ئاهەنگ', labelKu: 'ئاهەنگ', labelEn: 'Party', vip: true },
+  { id: 'vip-star', label: 'ئەستێرە', labelKu: 'ئەستێرە', labelEn: 'Star', vip: true },
+  { id: 'vip-heart', label: 'دڵ', labelKu: 'دڵ', labelEn: 'Heart', vip: true },
+  { id: 'vip-unicorn', label: 'ئەسپی شاخدار', labelKu: 'ئەسپی شاخدار', labelEn: 'Unicorn', vip: true },
+  { id: 'vip-lion', label: 'شێر', labelKu: 'شێر', labelEn: 'Lion', vip: true },
+  { id: 'vip-ghost', label: 'تارمایی', labelKu: 'تارمایی', labelEn: 'Ghost', vip: true },
 ];
 
 /**
@@ -728,7 +730,7 @@ export function SeatEmojiPickerModal({
                     className={`group relative flex flex-col items-center justify-center rounded-2xl p-2 transition hover:bg-white/[0.06] active:scale-90 ${
                       item.vip ? 'bg-amber-400/[0.06] ring-1 ring-amber-400/30' : ''
                     } ${item.vip && !isVip ? 'opacity-50' : ''}`}
-                    title={item.label}
+                    title={tr(item.labelKu || item.label, item.labelEn || item.label)}
                   >
                     <AnimatedEmojiGraphic emojiId={item.id} size={64} />
                     {item.vip && (
@@ -737,7 +739,7 @@ export function SeatEmojiPickerModal({
                       </span>
                     )}
                     <span className="mt-1 text-[10px] text-slate-400 group-hover:text-white truncate max-w-full">
-                      {item.label}
+                      {tr(item.labelKu || item.label, item.labelEn || item.label)}
                     </span>
                   </button>
                 ))}

@@ -19,11 +19,15 @@ import {
   subscribeToNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  acceptFollow,
+  checkIsFollowing,
 } from '../services';
 import { useLanguage } from '../contexts';
+import type { User } from '../types';
 
 interface NotificationCenterProps {
   currentUid: string;
+  currentUser?: User;
   onClose: () => void;
   onOpenProfile?: (uid: string) => void;
 }
@@ -42,6 +46,7 @@ function formatNotificationTime(timestamp: number, isEn: boolean): string {
 
 export default function NotificationCenter({
   currentUid,
+  currentUser,
   onClose,
   onOpenProfile,
 }: NotificationCenterProps) {
@@ -49,6 +54,8 @@ export default function NotificationCenter({
   const isEn = language === 'en';
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [acceptedUids, setAcceptedUids] = useState<Record<string, boolean>>({});
+  const [processingFollowUid, setProcessingFollowUid] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = subscribeToNotifications(currentUid, (notifs) => {
@@ -56,6 +63,27 @@ export default function NotificationCenter({
     });
     return () => unsub();
   }, [currentUid]);
+
+  const handleAcceptFollowBack = async (e: React.MouseEvent, senderUid: string) => {
+    e.stopPropagation();
+    if (!senderUid || processingFollowUid) return;
+    setProcessingFollowUid(senderUid);
+    try {
+      await acceptFollow(
+        {
+          uid: currentUid,
+          username: currentUser?.username || tr('ئەندام', 'Member'),
+          avatar: currentUser?.avatar || currentUser?.profileImage,
+        },
+        senderUid,
+      );
+      setAcceptedUids((prev) => ({ ...prev, [senderUid]: true }));
+    } catch (err) {
+      console.error('Failed to accept follow back:', err);
+    } finally {
+      setProcessingFollowUid(null);
+    }
+  };
 
   const handleMarkAllRead = async () => {
     try {
@@ -199,7 +227,13 @@ export default function NotificationCenter({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
                       <h4 className="truncate text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
-                        {notif.title}
+                        {isEn
+                          ? notif.title.includes('فۆڵۆوکار')
+                            ? 'New Follower 👥'
+                            : notif.title.includes('هاوڕێیەتی')
+                            ? 'Mutual Friends 🤝'
+                            : t(notif.title)
+                          : notif.title}
                       </h4>
                       <span className="shrink-0 text-[10px] text-slate-500 font-medium">
                         {formatNotificationTime(notif.timestamp, isEn)}
@@ -207,8 +241,36 @@ export default function NotificationCenter({
                     </div>
 
                     <p className="mt-0.5 text-xs text-slate-300 leading-relaxed line-clamp-2">
-                      {notif.body}
+                      {isEn
+                        ? notif.body.includes('فۆڵۆوی هەژمارەکەتی کرد')
+                          ? `${notif.senderName || 'Someone'} started following your profile!`
+                          : notif.body.includes('بوون بە هاوڕێ')
+                          ? `${notif.senderName || 'User'} followed you back, you are now friends!`
+                          : t(notif.body)
+                        : notif.body}
                     </p>
+
+                    {/* Instant Follow Back / Accept Follow Action */}
+                    {notif.type === 'follow' && notif.senderUid && (
+                      <div className="mt-2.5 flex items-center gap-2">
+                        {acceptedUids[notif.senderUid] ? (
+                          <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
+                            <CheckCheck className="h-3 w-3" />
+                            <span>{tr('بوون بە هاوڕێ 🤝', 'Now Friends 🤝')}</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleAcceptFollowBack(e, notif.senderUid!)}
+                            disabled={processingFollowUid === notif.senderUid}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 px-3 py-1.5 text-[11px] font-black text-black shadow-md shadow-amber-500/20 transition hover:scale-105 active:scale-95"
+                          >
+                            <UserPlus className="h-3 w-3" />
+                            <span>{tr('وەرگرتن و فۆڵۆوکردنەوە', 'Accept & Follow Back')}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     {(notif.roomId || notif.actionUrl) && (
                       <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-400">

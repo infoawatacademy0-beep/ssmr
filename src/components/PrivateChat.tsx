@@ -6,22 +6,23 @@ import {
   Send,
   ImagePlus,
   Mic,
-  MicOff,
   X,
-  Play,
-  Pause,
   Clock,
   ShieldAlert,
   UserCheck,
   UserPlus,
-  Volume2,
-  Paperclip,
   Radio,
   Sparkles,
   Crown,
   Smile,
+  Palette,
+  Trash2,
+  Check,
+  Loader2,
+  Camera,
+  Link as LinkIcon,
 } from 'lucide-react';
-import type { User, DirectMessage, DirectMessageType } from '../types';
+import type { User, DirectMessage } from '../types';
 import { useLanguage } from '../contexts';
 import {
   getThreadId,
@@ -32,9 +33,14 @@ import {
   followUser,
   unfollowUser,
 } from '../services';
+import { uploadImageToImgBB } from '../services/imgbbService';
+import { getChatThemeById, type ChatTheme } from '../constants/chatThemes';
 
 import ReportModal from './ReportModal';
 import { SeatEmojiPickerModal } from './SeatEmojiSystem';
+import ChatAudioPlayer from './ChatAudioPlayer';
+import ChatThemeModal from './ChatThemeModal';
+import ImageLightboxModal from './ImageLightboxModal';
 
 interface PrivateChatProps {
   currentUser: User;
@@ -59,6 +65,25 @@ export default function PrivateChat({
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+
+  // Chat Theme & Wallpaper State
+  const [themeId, setThemeId] = useState<string>(() => {
+    return (
+      localStorage.getItem(`ssmr_chat_theme_${threadId}`) ||
+      localStorage.getItem('ssmr_chat_theme_default') ||
+      'inferno_fire'
+    );
+  });
+  const [customWallpaper, setCustomWallpaper] = useState<string>(() => {
+    return localStorage.getItem(`ssmr_chat_wallpaper_${threadId}`) || '';
+  });
+  const [wallpaperOpacity, setWallpaperOpacity] = useState<number>(() => {
+    const saved = localStorage.getItem(`ssmr_chat_wallpaper_opacity_${threadId}`);
+    return saved ? Number(saved) : 25;
+  });
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+
+  const currentTheme: ChatTheme = getChatThemeById(themeId);
 
   // Presence State
   const [presence, setPresence] = useState<{ isOnline: boolean; lastSeen: number; statusText: string }>({
@@ -91,9 +116,15 @@ export default function PrivateChat({
   const [isFollowing, setIsFollowing] = useState(false);
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
 
-  // Image Attachment Input State
-  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  // Image Upload / Attachment State
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [imageCaption, setImageCaption] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isImageUrlModalOpen, setIsImageUrlModalOpen] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState('');
+  const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
 
   // Voice Memo Recording State
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
@@ -101,10 +132,6 @@ export default function PrivateChat({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
-
-  // Audio Playback State
-  const [activeAudioPlayingId, setActiveAudioPlayingId] = useState<string | null>(null);
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   // Moderation Report Modal State
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -139,6 +166,23 @@ export default function PrivateChat({
   useEffect(() => {
     chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
+
+  // Theme updates
+  const handleSelectTheme = (newId: string) => {
+    setThemeId(newId);
+    localStorage.setItem(`ssmr_chat_theme_${threadId}`, newId);
+    localStorage.setItem('ssmr_chat_theme_default', newId);
+  };
+
+  const handleSetCustomWallpaper = (url: string) => {
+    setCustomWallpaper(url);
+    localStorage.setItem(`ssmr_chat_wallpaper_${threadId}`, url);
+  };
+
+  const handleSetWallpaperOpacity = (op: number) => {
+    setWallpaperOpacity(op);
+    localStorage.setItem(`ssmr_chat_wallpaper_opacity_${threadId}`, String(op));
+  };
 
   // Follow Toggle
   const handleToggleFollow = async () => {
@@ -184,8 +228,86 @@ export default function PrivateChat({
     }
   };
 
-  // Send Image Link Message
-  const handleSendImage = async () => {
+  // Select Image File from Device
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert(tr('تکایە تەنها وێنە هەڵبژێرە.', 'Please select an image file.'));
+      return;
+    }
+    setSelectedImageFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setSelectedImagePreview(objectUrl);
+    e.target.value = '';
+  };
+
+  // Paste image from clipboard
+  const handleContainerPaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          setSelectedImageFile(file);
+          setSelectedImagePreview(URL.createObjectURL(file));
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  };
+
+  // Send Selected Image File
+  const handleSendImageFile = async () => {
+    if (!selectedImageFile || isUploadingImage) return;
+
+    setIsUploadingImage(true);
+    try {
+      let finalImageUrl = '';
+
+      try {
+        finalImageUrl = await uploadImageToImgBB(
+          selectedImageFile,
+          `chat_${threadId}_${Date.now()}`,
+        );
+      } catch (uploadErr) {
+        console.warn('ImgBB upload fallback to Base64:', uploadErr);
+        // Fallback to Base64 data URL
+        finalImageUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedImageFile);
+        });
+      }
+
+      await sendDirectMessage({
+        threadId,
+        senderUid: currentUser.uid,
+        senderName: currentUser.username,
+        senderAvatar: currentUser.avatar || currentUser.profileImage || null,
+        recipientUid: recipientUser.uid,
+        recipientName: recipientUser.username,
+        recipientAvatar: recipientUser.avatar || null,
+        imageUrl: finalImageUrl,
+        text: imageCaption.trim() || undefined,
+        type: 'image',
+      });
+
+      setSelectedImageFile(null);
+      setSelectedImagePreview(null);
+      setImageCaption('');
+    } catch (err: any) {
+      alert(err.message || tr('نەتوانرا وێنەکە بنێردرێت.', 'Failed to send image.'));
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Send Image via URL link
+  const handleSendImageUrl = async () => {
     const imgUrl = imageUrlInput.trim();
     if (!imgUrl) return;
 
@@ -203,7 +325,7 @@ export default function PrivateChat({
         type: 'image',
       });
       setImageUrlInput('');
-      setIsImagePickerOpen(false);
+      setIsImageUrlModalOpen(false);
     } catch (err: any) {
       alert(err.message || 'Failed to send image.');
     } finally {
@@ -219,16 +341,29 @@ export default function PrivateChat({
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
+
+        const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+        let selectedMime = '';
+        for (const m of mimeTypes) {
+          if (MediaRecorder.isTypeSupported(m)) {
+            selectedMime = m;
+            break;
+          }
+        }
+
+        const mediaRecorder = selectedMime
+          ? new MediaRecorder(stream, { mimeType: selectedMime })
+          : new MediaRecorder(stream);
+
         mediaRecorderRef.current = mediaRecorder;
 
         mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
+          if (event.data && event.data.size > 0) {
             audioChunksRef.current.push(event.data);
           }
         };
 
-        mediaRecorder.start();
+        mediaRecorder.start(200);
         setIsRecordingVoice(true);
 
         recordingTimerRef.current = window.setInterval(() => {
@@ -237,13 +372,30 @@ export default function PrivateChat({
       } else {
         throw new Error('MediaRecorder not available');
       }
-    } catch (err) {
-      console.warn('Microphone access unavailable, using simulated voice memo.');
-      setIsRecordingVoice(true);
-      recordingTimerRef.current = window.setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
-      }, 1000);
+    } catch (err: any) {
+      console.error('Microphone error:', err);
+      alert(
+        tr(
+          'نەتوانرا دەست بە مایک بگات. تکایە مۆڵەتی مایک بدە لە وێبگەڕەکەتدا.',
+          'Microphone access denied. Please allow microphone permissions in browser.',
+        ),
+      );
     }
+  };
+
+  // Voice Memo: Cancel Recording
+  const handleCancelRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+    }
+    audioChunksRef.current = [];
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
   };
 
   // Voice Memo: Stop Recording and Send
@@ -253,13 +405,15 @@ export default function PrivateChat({
       recordingTimerRef.current = null;
     }
 
+    const duration = recordingSeconds;
     setIsRecordingVoice(false);
     setIsSending(true);
 
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.onstop = async () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const mime = mediaRecorderRef.current?.mimeType || 'audio/webm';
+          const audioBlob = new Blob(audioChunksRef.current, { type: mime });
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = async () => {
@@ -273,70 +427,52 @@ export default function PrivateChat({
               recipientName: recipientUser.username,
               recipientAvatar: recipientUser.avatar || null,
               audioUrl: base64Audio,
+              duration,
               type: 'voice',
             });
             setIsSending(false);
+            setRecordingSeconds(0);
           };
           mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
         };
         mediaRecorderRef.current.stop();
       } else {
-        // Fallback demo audio track URL for voice memo
-        const sampleAudio = 'https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg';
-        await sendDirectMessage({
-          threadId,
-          senderUid: currentUser.uid,
-          senderName: currentUser.username,
-          senderAvatar: currentUser.avatar || currentUser.profileImage || null,
-          recipientUid: recipientUser.uid,
-          recipientName: recipientUser.username,
-          recipientAvatar: recipientUser.avatar || null,
-          audioUrl: sampleAudio,
-          type: 'voice',
-        });
         setIsSending(false);
       }
     } catch (err: any) {
       alert(err.message || 'Failed to record voice memo.');
       setIsSending(false);
+      setRecordingSeconds(0);
     }
-  };
-
-  // Voice Memo: Playback Toggle
-  const handleTogglePlayAudio = (messageId: string, audioUrl?: string) => {
-    if (!audioUrl) return;
-
-    if (activeAudioPlayingId === messageId) {
-      audioElementRef.current?.pause();
-      setActiveAudioPlayingId(null);
-      return;
-    }
-
-    if (audioElementRef.current) {
-      audioElementRef.current.pause();
-    }
-
-    const audio = new Audio(audioUrl);
-    audioElementRef.current = audio;
-    setActiveAudioPlayingId(messageId);
-
-    audio.play().catch(console.error);
-    audio.onended = () => {
-      setActiveAudioPlayingId(null);
-    };
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/70 backdrop-blur-sm">
+    <div
+      onPaste={handleContainerPaste}
+      className="fixed inset-0 z-50 flex items-center justify-end bg-black/70 backdrop-blur-sm"
+    >
       <motion.div
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-        className="flex h-full w-full max-w-md flex-col border-l border-slate-800 bg-slate-950 shadow-2xl"
+        className={`relative flex h-full w-full max-w-md flex-col border-l border-white/10 shadow-2xl overflow-hidden ${currentTheme.containerBg}`}
       >
+        {/* Custom Background Wallpaper Layer */}
+        {customWallpaper && (
+          <div
+            className="absolute inset-0 bg-cover bg-center pointer-events-none z-0"
+            style={{
+              backgroundImage: `url(${customWallpaper})`,
+              opacity: wallpaperOpacity / 100,
+            }}
+          />
+        )}
+
         {/* ── CHAT HEADER ── */}
-        <header className="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60 p-4 backdrop-blur-xl">
+        <header
+          className={`relative z-10 flex items-center justify-between border-b p-4 backdrop-blur-xl ${currentTheme.headerBg}`}
+        >
           <div className="flex items-center gap-3">
             <div
               className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
@@ -385,6 +521,15 @@ export default function PrivateChat({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Theme & Wallpaper Settings Button */}
+            <button
+              onClick={() => setIsThemeModalOpen(true)}
+              title={tr('ڕووکار و باکگراوندی چات', 'Chat Themes & Wallpaper')}
+              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-amber-300 transition hover:bg-white/[0.1] hover:scale-105 active:scale-95"
+            >
+              <Palette className="h-4 w-4" />
+            </button>
+
             {/* Mutual Follow Button */}
             <button
               onClick={handleToggleFollow}
@@ -397,13 +542,15 @@ export default function PrivateChat({
               }`}
             >
               {isFollowing ? <UserCheck className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{isFollowing ? tr('فۆڵۆکراوە', 'Following') : tr('فۆڵۆکردن', 'Follow')}</span>
+              <span className="hidden sm:inline">
+                {isFollowing ? tr('فۆڵۆکراوە', 'Following') : tr('فۆڵۆکردن', 'Follow')}
+              </span>
             </button>
 
             {/* Moderation Report Button */}
             <button
               onClick={() => setIsReportModalOpen(true)}
-              title={tr("ناردنی ڕاپۆرت", "Report User")}
+              title={tr('ناردنی ڕاپۆرت', 'Report User')}
               className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 text-slate-400 transition hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400"
             >
               <ShieldAlert className="h-4 w-4" />
@@ -420,15 +567,20 @@ export default function PrivateChat({
         </header>
 
         {/* ── MESSAGES STREAM ── */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="relative z-10 flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center p-6">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 border border-slate-800 text-amber-400 mb-2">
                 <Radio className="h-6 w-6" />
               </div>
-              <h4 className="text-xs font-bold text-white">{tr("کەناڵی تایبەتی ڕاستەوخۆ", "Direct Private Channel")}</h4>
+              <h4 className="text-xs font-bold text-white">
+                {tr('کەناڵی تایبەتی ڕاستەوخۆ', 'Direct Private Channel')}
+              </h4>
               <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
-                {tr('پەیوەندی تایبەت و پارێزراو. نامە، بەستەری وێنە و تۆماری دەنگی ئاڵوگۆڕ بکە.', 'Private & secure connection. Exchange messages, images and voice memos.')}
+                {tr(
+                  'پەیوەندی تایبەت و پارێزراو. نامە، بەستەری وێنە و تۆماری دەنگی ئاڵوگۆڕ بکە.',
+                  'Private & secure connection. Exchange messages, images and voice memos.',
+                )}
               </p>
             </div>
           ) : (
@@ -440,8 +592,8 @@ export default function PrivateChat({
               const isSenderVip = isMine ? Boolean(currentUser.isVerified) : recipientIsVip;
               const isEmojiOnly = Boolean(
                 msg.text &&
-                msg.text.trim().length <= 20 &&
-                /^[\p{Extended_Pictographic}\uFE0F\u200D\s]+$/u.test(msg.text.trim())
+                  msg.text.trim().length <= 20 &&
+                  /^[\p{Extended_Pictographic}\uFE0F\u200D\s]+$/u.test(msg.text.trim()),
               );
               const senderInitial = (isMine ? currentUser.username : recipientUser.username)
                 .charAt(0)
@@ -478,12 +630,12 @@ export default function PrivateChat({
                     )}
                   </div>
 
-                  <div className={`flex flex-col max-w-[76%] ${isMine ? 'items-end' : 'items-start'}`}>
+                  <div className={`flex flex-col max-w-[78%] ${isMine ? 'items-end' : 'items-start'}`}>
                     <div
-                      className={`rounded-3xl p-3 shadow-md ${
+                      className={`rounded-3xl p-3 shadow-md backdrop-blur-sm ${
                         isMine
-                          ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-medium rounded-br-sm'
-                          : 'border border-slate-800 bg-slate-900 text-slate-200 rounded-bl-sm'
+                          ? `${currentTheme.myBubbleClass} rounded-br-sm`
+                          : `${currentTheme.theirBubbleClass} rounded-bl-sm`
                       }`}
                     >
                       {/* Variant 1: Text message */}
@@ -501,65 +653,37 @@ export default function PrivateChat({
                       {/* Variant 2: Image attachment message */}
                       {msg.type === 'image' && msg.imageUrl && (
                         <div className="space-y-1.5">
-                          <img
-                            src={msg.imageUrl}
-                            alt="Attachment"
-                            className="max-h-48 w-full rounded-2xl object-cover cursor-pointer hover:opacity-95"
-                            onClick={() => window.open(msg.imageUrl, '_blank')}
-                          />
+                          <div
+                            onClick={() => setLightboxImageUrl(msg.imageUrl!)}
+                            className="group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10"
+                          >
+                            <img
+                              src={msg.imageUrl}
+                              alt="Attachment"
+                              className="max-h-56 w-full rounded-2xl object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold drop-shadow">
+                              {tr('کلیک بکە بۆ گەورەکردن', 'Click to expand')}
+                            </div>
+                          </div>
                           {msg.text && (
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap pt-0.5">{msg.text}</p>
                           )}
                         </div>
                       )}
 
                       {/* Variant 3: Voice memo message */}
                       {msg.type === 'voice' && msg.audioUrl && (
-                        <div className="flex items-center gap-3 py-1">
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePlayAudio(msg.id, msg.audioUrl)}
-                            className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition ${
-                              isMine
-                                ? 'bg-black text-amber-400 hover:bg-slate-950'
-                                : 'bg-amber-400 text-black hover:bg-amber-300'
-                            }`}
-                          >
-                            {activeAudioPlayingId === msg.id ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4 ml-0.5" />
-                            )}
-                          </button>
-
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5">
-                              <Volume2 className="h-3.5 w-3.5" />
-                              <span className="text-[11px] font-bold">{tr("دەنگی تۆمارکراو", "Voice Memo")}</span>
-                            </div>
-                            {/* Animated Audio Waveform Mock */}
-                            <div className="flex items-center gap-0.5">
-                              {Array.from({ length: 14 }).map((_, i) => (
-                                <span
-                                  key={i}
-                                  className={`w-0.5 rounded-full transition-all ${
-                                    isMine ? 'bg-black/60' : 'bg-slate-400'
-                                  } ${
-                                    activeAudioPlayingId === msg.id
-                                      ? 'h-3 animate-pulse'
-                                      : i % 2 === 0
-                                      ? 'h-2'
-                                      : 'h-4'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                        <ChatAudioPlayer
+                          audioUrl={msg.audioUrl}
+                          duration={msg.duration}
+                          isMine={isMine}
+                          accentColor={currentTheme.accentHex}
+                        />
                       )}
                     </div>
 
-                    <span className="mt-1 px-1.5 text-[9px] text-slate-500">
+                    <span className="mt-1 px-1.5 text-[9px] text-slate-400 font-medium opacity-80">
                       {formatChatTime(msg.timestamp)}
                     </span>
                   </div>
@@ -570,16 +694,98 @@ export default function PrivateChat({
           <div ref={chatScrollRef} />
         </div>
 
-        {/* ── IMAGE LINK ATTACHMENT MODAL POPUP ── */}
+        {/* ── IMAGE ATTACHMENT PREVIEW DRAWER ── */}
         <AnimatePresence>
-          {isImagePickerOpen && (
-            <div className="border-t border-slate-800 bg-slate-900/90 p-3 backdrop-blur-md">
+          {selectedImagePreview && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="relative z-20 border-t border-white/10 bg-slate-950/95 p-3.5 backdrop-blur-xl"
+            >
               <div className="flex items-center justify-between pb-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  {tr('بەستەری وێنە دابنێ', 'Attach Image Link')}
+                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Camera className="h-3.5 w-3.5" />
+                  <span>{tr('ناردنی وێنە', 'Send Image')}</span>
                 </span>
                 <button
-                  onClick={() => setIsImagePickerOpen(false)}
+                  type="button"
+                  onClick={() => {
+                    setSelectedImageFile(null);
+                    setSelectedImagePreview(null);
+                    setImageCaption('');
+                  }}
+                  className="rounded-full p-1 text-slate-400 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex gap-3 items-center">
+                <img
+                  src={selectedImagePreview}
+                  alt="Preview"
+                  className="h-20 w-20 rounded-2xl object-cover border border-amber-400/30 shadow-md shrink-0"
+                />
+
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="text"
+                    value={imageCaption}
+                    onChange={(e) => setImageCaption(e.target.value)}
+                    placeholder={tr('کورتەیەک بنووسە لەگەڵ وێنەکە…', 'Add a caption…')}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                  />
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedImageFile(null);
+                        setSelectedImagePreview(null);
+                        setImageCaption('');
+                      }}
+                      className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-bold text-slate-300"
+                    >
+                      {tr('پاشگەزبوونەوە', 'Cancel')}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendImageFile}
+                      disabled={isUploadingImage}
+                      className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 px-4 py-1.5 text-xs font-black text-black shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50"
+                    >
+                      {isUploadingImage ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>{tr('خەریکی ناردنە…', 'Sending…')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-3.5 w-3.5" />
+                          <span>{tr('ناردنی وێنە', 'Send')}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── IMAGE URL LINK MODAL ── */}
+        <AnimatePresence>
+          {isImageUrlModalOpen && (
+            <div className="relative z-20 border-t border-white/10 bg-slate-950/95 p-3.5 backdrop-blur-xl">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                  <LinkIcon className="h-3 w-3" />
+                  <span>{tr('هاوپێچکردنی بەستەری وێنە', 'Attach Image Link')}</span>
+                </span>
+                <button
+                  onClick={() => setIsImageUrlModalOpen(false)}
                   className="rounded-full p-1 text-slate-400 hover:text-white"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -591,16 +797,16 @@ export default function PrivateChat({
                   type="url"
                   value={imageUrlInput}
                   onChange={(e) => setImageUrlInput(e.target.value)}
-                  placeholder={tr("بەستەری وێنە لێرە دابنێ (https://…)", "Paste image link here (https://...)")}
-                  className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                  placeholder="https://images.unsplash.com/…"
+                  className="flex-1 rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                 />
                 <button
                   type="button"
-                  onClick={handleSendImage}
+                  onClick={handleSendImageUrl}
                   disabled={!imageUrlInput.trim()}
                   className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-black disabled:opacity-50"
                 >
-                  هاوپێچکردن
+                  {tr('ناردن', 'Send')}
                 </button>
               </div>
             </div>
@@ -609,32 +815,64 @@ export default function PrivateChat({
 
         {/* ── VOICE RECORDING BANNER ── */}
         {isRecordingVoice && (
-          <div className="flex items-center justify-between border-t border-rose-500/30 bg-rose-500/10 px-4 py-3 text-rose-300">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
-              <span className="text-xs font-bold">
-                {tr('تۆمارکردنی دەنگ: ', 'Recording Voice: ')}{recordingSeconds} {tr('چرکە', 's')}
+          <div className="relative z-20 flex items-center justify-between border-t border-rose-500/30 bg-rose-950/80 px-4 py-3 text-rose-200 backdrop-blur-xl">
+            <div className="flex items-center gap-2.5">
+              <span className="h-3 w-3 rounded-full bg-rose-500 animate-ping" />
+              <div className="flex items-center gap-1 font-mono text-xs font-black">
+                <Mic className="h-3.5 w-3.5 text-rose-400" />
+                <span>
+                  {Math.floor(recordingSeconds / 60)}:
+                  {recordingSeconds % 60 < 10 ? '0' : ''}
+                  {recordingSeconds % 60}
+                </span>
+              </div>
+              <span className="text-[11px] font-medium text-rose-300">
+                {tr('خەریکی تۆمارکردنە…', 'Recording audio…')}
               </span>
             </div>
 
-            <button
-              onClick={handleStopRecordingAndSend}
-              className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-bold text-white shadow-md hover:bg-rose-500"
-            >
-              تەواوکردن و ناردن
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCancelRecording}
+                title={tr('پاشگەزبوونەوە و سڕینەوە', 'Discard')}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStopRecordingAndSend}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3.5 py-1.5 text-xs font-black text-white shadow-md shadow-emerald-500/25 active:scale-95"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>{tr('تەواو و ناردن', 'Send Memo')}</span>
+              </button>
+            </div>
           </div>
         )}
 
         {/* ── CHAT INPUT COMPOSER ── */}
-        <footer className="border-t border-slate-800/80 bg-slate-900/40 p-3 backdrop-blur-xl">
-          <form onSubmit={handleSendText} className="flex items-center gap-2">
-            {/* Image link button */}
+        <footer
+          className={`relative z-10 border-t p-3 backdrop-blur-xl ${currentTheme.footerBg}`}
+        >
+          {/* Hidden File Input for Device Image Selection */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
+          <form onSubmit={handleSendText} className="flex items-center gap-1.5 sm:gap-2">
+            {/* Image from device button */}
             <button
               type="button"
-              onClick={() => setIsImagePickerOpen(!isImagePickerOpen)}
-              title={tr("هاوپێچکردنی وێنە", "Attach Image")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-amber-400/40 hover:text-amber-300"
+              onClick={() => fileInputRef.current?.click()}
+              title={tr('هەڵبژاردنی وێنە لە مۆبایل/ئامێر', 'Upload Image from Device')}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-slate-300 transition hover:border-amber-400/40 hover:text-amber-300 active:scale-95"
             >
               <ImagePlus className="h-4 w-4" />
             </button>
@@ -643,11 +881,15 @@ export default function PrivateChat({
             <button
               type="button"
               onClick={isRecordingVoice ? handleStopRecordingAndSend : handleStartRecording}
-              title={isRecordingVoice ? tr('وەستاندنی تۆمارکردن', 'Stop Recording') : tr('تۆمارکردنی دەنگ', 'Record Voice Memo')}
+              title={
+                isRecordingVoice
+                  ? tr('وەستاندنی تۆمارکردن', 'Stop Recording')
+                  : tr('تۆمارکردنی دەنگ', 'Record Voice Memo')
+              }
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
                 isRecordingVoice
-                  ? 'border-rose-500 bg-rose-500/20 text-rose-400 animate-pulse'
-                  : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-amber-400/40 hover:text-amber-300'
+                  ? 'border-rose-500 bg-rose-500/30 text-rose-300 animate-pulse'
+                  : 'border-white/10 bg-white/[0.05] text-slate-300 hover:border-amber-400/40 hover:text-amber-300 active:scale-95'
               }`}
             >
               <Mic className="h-4 w-4" />
@@ -657,11 +899,11 @@ export default function PrivateChat({
             <button
               type="button"
               onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-              title={tr("ئیمۆجی", "Emojis")}
+              title={tr('ئیمۆجی', 'Emojis')}
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition ${
                 isEmojiPickerOpen
                   ? 'border-amber-400 bg-amber-400/20 text-amber-300 shadow-md shadow-amber-400/20'
-                  : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-amber-400/40 hover:text-amber-300'
+                  : 'border-white/10 bg-white/[0.05] text-slate-300 hover:border-amber-400/40 hover:text-amber-300 active:scale-95'
               }`}
             >
               <Smile className="h-4 w-4" />
@@ -672,16 +914,16 @@ export default function PrivateChat({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={tr("نامەی تایبەتی بنووسە…", "Write a private message…")}
+              placeholder={tr('نامەی تایبەتی بنووسە…', 'Write a private message…')}
               disabled={isRecordingVoice}
-              className="flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 disabled:opacity-50"
+              className="flex-1 rounded-2xl border border-white/10 bg-black/40 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 disabled:opacity-50"
             />
 
             {/* Send Button */}
             <button
               type="submit"
               disabled={!inputText.trim() || isSending || isRecordingVoice}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-black shadow-md transition disabled:opacity-40 hover:bg-amber-400"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-md shadow-amber-500/25 transition disabled:opacity-40 hover:brightness-110 active:scale-95"
             >
               <Send className="h-4 w-4" />
             </button>
@@ -689,7 +931,33 @@ export default function PrivateChat({
         </footer>
       </motion.div>
 
-      {/* Mobile Emoji Picker Drawer Modal */}
+      {/* ── THEME & WALLPAPER SETTINGS MODAL ── */}
+      <AnimatePresence>
+        {isThemeModalOpen && (
+          <ChatThemeModal
+            currentThemeId={themeId}
+            customWallpaperUrl={customWallpaper}
+            wallpaperOpacity={wallpaperOpacity}
+            onSelectTheme={handleSelectTheme}
+            onSetCustomWallpaper={handleSetCustomWallpaper}
+            onSetWallpaperOpacity={handleSetWallpaperOpacity}
+            onClose={() => setIsThemeModalOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── IMAGE LIGHTBOX FULLSCREEN MODAL ── */}
+      <AnimatePresence>
+        {lightboxImageUrl && (
+          <ImageLightboxModal
+            imageUrl={lightboxImageUrl}
+            senderName={recipientUser.username}
+            onClose={() => setLightboxImageUrl(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── MOBILE EMOJI PICKER MODAL ── */}
       <SeatEmojiPickerModal
         isOpen={isEmojiPickerOpen}
         onClose={() => setIsEmojiPickerOpen(false)}

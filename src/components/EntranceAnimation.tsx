@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Sparkles, UserCheck, Volume2 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { RoomEntranceEvent } from '../types';
 import { speakUserEntrance } from '../services';
 
@@ -15,6 +16,7 @@ interface EntranceAnimationProps {
    ───────────────────────────────────────────────────────────── */
 
 export default function EntranceAnimation({ entranceEvent }: EntranceAnimationProps) {
+  const { tr } = useLanguage();
   const [currentEntrance, setCurrentEntrance] = useState<RoomEntranceEvent | null>(null);
   const lastSpokenIdRef = useRef<string | null>(null);
 
@@ -124,12 +126,12 @@ export default function EntranceAnimation({ entranceEvent }: EntranceAnimationPr
                 {isVip ? (
                   <>
                     <Sparkles className="h-2.5 w-2.5 text-amber-300 animate-spin" />
-                    <span className="font-semibold text-amber-300">بەخێربێیت VIP هاتە ژوورەوە</span>
+                    <span className="font-semibold text-amber-300">{tr('بەخێربێیت VIP هاتە ژوورەوە', 'VIP Member Joined')}</span>
                   </>
                 ) : (
                   <>
                     <UserCheck className="h-2.5 w-2.5 text-violet-400" />
-                    <span>هاتە نێو ژوورەوە</span>
+                    <span>{tr('هاتە نێو ژوورەوە', 'Joined the room')}</span>
                   </>
                 )}
               </p>

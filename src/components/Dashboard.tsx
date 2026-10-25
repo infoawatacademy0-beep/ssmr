@@ -39,6 +39,9 @@ import {
   ShieldAlert,
   BadgeCheck,
   Crown,
+  HeartHandshake,
+  Users,
+  UserCheck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
@@ -62,6 +65,9 @@ import {
   subscribeToUserVisitors,
   subscribeToUnreadCount,
   subscribeToUserInbox,
+  subscribeToFollowersCount,
+  subscribeToFollowingCount,
+  subscribeToFriendsCount,
 } from '../services';
 
 import UserProfileManager from './UserProfileManager';
@@ -73,6 +79,7 @@ import Leaderboard from './Leaderboard';
 import ArenaShop from './ArenaShop';
 import StoriesBar from './StoriesBar';
 import SettingsModal from './SettingsModal';
+import FriendsModal from './FriendsModal';
 import IncomingChatToast from './IncomingChatToast';
 import { useLanguage } from '../contexts';
 
@@ -85,41 +92,44 @@ const CATEGORIES: { label: string; value: RoomCategory | 'All'; icon: React.Elem
 ];
 
 const ROOM_NAME_SUGGESTIONS = [
-  'دیوەخانی هاوڕێیان',
-  'شەوانی کوردستان و چات',
-  'ژووری دەنگی گەنجان',
-  'گۆڕەپانی جاکۆرۆ و یاری',
-  'ژووری میوزیک و گۆرانی',
+  { ku: 'دیوەخانی هاوڕێیان', en: 'Friends Lounge' },
+  { ku: 'شەوانی کوردستان و چات', en: 'Kurdistan Night Chat' },
+  { ku: 'ژووری دەنگی گەنجان', en: 'Youth Voice Room' },
+  { ku: 'گۆڕەپانی جاکۆرۆ و یاری', en: 'Jackaroo & Gaming Arena' },
+  { ku: 'ژووری میوزیک و گۆرانی', en: 'Music & Song Lounge' },
 ];
 
-function formatTimeAgo(timestamp: number): string {
+function formatTimeAgo(timestamp: number, isEn: boolean = false): string {
   const diffMs = Date.now() - timestamp;
   const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 45) return 'هەر ئێستا';
+  if (diffSec < 45) return isEn ? 'Just now' : 'هەر ئێستا';
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} خولەک لەمەوبەر`;
+  if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} خولەک لەمەوبەر`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} کاتژمێر لەمەوبەر`;
+  if (diffHr < 24) return isEn ? `${diffHr}h ago` : `${diffHr} کاتژمێر لەمەوبەر`;
   const diffDays = Math.floor(diffHr / 24);
-  return `${diffDays} ڕۆژ لەمەوبەر`;
+  return isEn ? `${diffDays}d ago` : `${diffDays} ڕۆژ لەمەوبەر`;
 }
 
-function getAccountAge(createdAt: number): string {
+function getAccountAge(createdAt: number, isEn: boolean = false): string {
   const diffMs = Date.now() - (createdAt || Date.now());
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return 'ئەمڕۆ بەشداربووە';
-  if (diffDays === 1) return 'ئەندامە بۆ ١ ڕۆژ';
-  if (diffDays < 30) return `ئەندامە بۆ ${diffDays} ڕۆژ`;
+  if (diffDays <= 0) return isEn ? 'Joined today' : 'ئەمڕۆ بەشداربووە';
+  if (diffDays === 1) return isEn ? 'Member for 1 day' : 'ئەندامە بۆ ١ ڕۆژ';
+  if (diffDays < 30) return isEn ? `Member for ${diffDays} days` : `ئەندامە بۆ ${diffDays} ڕۆژ`;
   const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths === 1) return 'ئەندامە بۆ ١ مانگ';
-  if (diffMonths < 12) return `ئەندامە بۆ ${diffMonths} مانگ`;
+  if (diffMonths === 1) return isEn ? 'Member for 1 month' : 'ئەندامە بۆ ١ مانگ';
+  if (diffMonths < 12) return isEn ? `Member for ${diffMonths} months` : `ئەندامە بۆ ${diffMonths} مانگ`;
   const diffYears = Math.floor(diffDays / 365);
-  return diffYears === 1 ? 'ئەندامە بۆ ١ ساڵ' : `ئەندامە بۆ ${diffYears} ساڵ`;
+  return diffYears === 1
+    ? (isEn ? 'Member for 1 year' : 'ئەندامە بۆ ١ ساڵ')
+    : (isEn ? `Member for ${diffYears} years` : `ئەندامە بۆ ${diffYears} ساڵ`);
 }
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
-  const { language, t, isRTL } = useLanguage();
+  const { language, t, tr, isRTL } = useLanguage();
+  const isEn = language === 'en';
   const navigate = useNavigate();
 
   // Active navigation tab
@@ -174,8 +184,26 @@ export default function Dashboard() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isShopOpen, setIsShopOpen] = useState(false);
+  const [isFriendsModalOpen, setIsFriendsModalOpen] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [friendsCount, setFriendsCount] = useState(0);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [inboxThreadsCount, setInboxThreadsCount] = useState(0);
+
+  // Live Followers, Following & Friends counts
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsubFollowers = subscribeToFollowersCount(user.uid, setFollowersCount);
+    const unsubFollowing = subscribeToFollowingCount(user.uid, setFollowingCount);
+    const unsubFriends = subscribeToFriendsCount(user.uid, setFriendsCount);
+
+    return () => {
+      unsubFollowers();
+      unsubFollowing();
+      unsubFriends();
+    };
+  }, [user?.uid]);
 
   // Unread Notifications live count (respects Activity Notifications toggle)
   useEffect(() => {
@@ -248,11 +276,11 @@ export default function Dashboard() {
     e.preventDefault();
     if (!user) return;
     if (!newRoomName.trim()) {
-      setCreateRoomError('تکایە ناوی ژوور بنووسە.');
+      setCreateRoomError(tr('تکایە ناوی ژوور بنووسە.', 'Please enter an arena name.'));
       return;
     }
     if (isPrivate && !roomPassword.trim()) {
-      setCreateRoomError('تکایە وشەی نهێنی بۆ ژوورە تایبەتەکە دابنێ.');
+      setCreateRoomError(tr('تکایە وشەی نهێنی بۆ ژوورە تایبەتەکە دابنێ.', 'Please enter a password for the private arena.'));
       return;
     }
 
@@ -278,7 +306,7 @@ export default function Dashboard() {
       setIsPrivate(false);
       navigate(`/room/${roomId}`);
     } catch (err: any) {
-      setCreateRoomError(err.message || 'نەتوانرا ژوور دروست بکرێت.');
+      setCreateRoomError(err.message ? t(err.message) : tr('نەتوانرا ژوور دروست بکرێت.', 'Could not create arena.'));
     } finally {
       setIsCreatingRoom(false);
     }
@@ -324,7 +352,7 @@ export default function Dashboard() {
       });
       setNewPostContent('');
     } catch (err: any) {
-      setPublishPostError(err.message || 'نەتوانرا پۆست بڵاوبکرێتەوە.');
+      setPublishPostError(err.message ? t(err.message) : tr('نەتوانرا پۆست بڵاوبکرێتەوە.', 'Could not publish post.'));
     } finally {
       setIsPublishingPost(false);
     }
@@ -341,11 +369,11 @@ export default function Dashboard() {
 
   const handleDeletePost = async (postId: string) => {
     if (!user) return;
-    if (!window.confirm('ئایا دڵنیایت لە سڕینەوەی ئەم پۆستە؟')) return;
+    if (!window.confirm(tr('ئایا دڵنیایت لە سڕینەوەی ئەم پۆستە؟', 'Are you sure you want to delete this post?'))) return;
     try {
       await deletePost(postId, user.uid);
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا پۆست بسڕدرێتەوە.');
+      alert(err.message ? t(err.message) : tr('نەتوانرا پۆست بسڕدرێتەوە.', 'Could not delete post.'));
     }
   };
 
@@ -383,13 +411,13 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-display text-base font-black tracking-wider text-white">
-                  گۆڕەپانی SSMR
+                  {tr('گۆڕەپانی SSMR', 'SSMR Arena')}
                 </span>
                 <span className="rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[8px] font-black tracking-widest text-amber-400 uppercase border border-amber-400/20">
-                  ڕاستەوخۆ
+                  {tr('ڕاستەوخۆ', 'LIVE')}
                 </span>
               </div>
-              <p className="text-[10px] font-medium text-slate-500">تۆڕی کۆمەڵایەتی ڕاستەوخۆ</p>
+              <p className="text-[10px] font-medium text-slate-500">{tr('تۆڕی کۆمەڵایەتی ڕاستەوخۆ', 'Live Social Network')}</p>
             </div>
           </div>
 
@@ -467,7 +495,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center gap-3">
                 <MessageSquare className="h-4 w-4 text-cyan-400" />
-                <span>نامەی تایبەتی</span>
+                <span>{t('nav.messages', 'نامەی تایبەتی')}</span>
               </div>
               {inboxThreadsCount > 0 && (
                 <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold border border-cyan-500/30">
@@ -477,12 +505,25 @@ export default function Dashboard() {
             </button>
 
             <button
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
+            >
+              <div className="flex items-center gap-3">
+                <HeartHandshake className="h-4 w-4 text-amber-400" />
+                <span>{t('nav.friends', 'هاوڕێ و فۆڵۆوەکان')}</span>
+              </div>
+              <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                {friendsCount + followersCount}
+              </span>
+            </button>
+
+            <button
               onClick={() => setIsWalletModalOpen(true)}
               className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <div className="flex items-center gap-3">
                 <Wallet className="h-4 w-4" />
-                <span>جزدان</span>
+                <span>{t('nav.wallet', 'جزدان')}</span>
               </div>
               <span className="font-mono text-[11px] font-bold text-amber-300">
                 {formatCoinsK(user.coins)}
@@ -494,7 +535,7 @@ export default function Dashboard() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
             >
               <Settings className="h-4 w-4" />
-              <span>ڕێکخستنەکان</span>
+              <span>{t('settings.title', 'ڕێکخستنەکان')}</span>
             </button>
           </nav>
         </div>
@@ -506,7 +547,7 @@ export default function Dashboard() {
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 py-3 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95"
           >
             <Plus className="h-4 w-4" />
-            <span>کردنەوەی ژوور</span>
+            <span>{tr('کردنەوەی ژوور', 'Create Room')}</span>
           </button>
         </div>
       </aside>
@@ -522,8 +563,8 @@ export default function Dashboard() {
               <Radio className="h-4 w-4" />
             </div>
             <div>
-              <h1 className="font-display text-sm font-black text-white">ژووری دەنگی</h1>
-              <span className="text-[9px] text-slate-400 uppercase font-bold">پەخشی ڕاستەوخۆ</span>
+              <h1 className="font-display text-sm font-black text-white">{tr('ژووری دەنگی', 'Voice Arena')}</h1>
+              <span className="text-[9px] text-slate-400 uppercase font-bold">{tr('پەخشی ڕاستەوخۆ', 'Live Broadcast')}</span>
             </div>
           </div>
 
@@ -556,6 +597,19 @@ export default function Dashboard() {
               {inboxThreadsCount > 0 && (
                 <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-cyan-500 text-[8px] font-bold text-black flex items-center justify-center">
                   {inboxThreadsCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-amber-400"
+              title="Friends & Connections"
+            >
+              <HeartHandshake className="h-4 w-4" />
+              {friendsCount + followersCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-amber-400 text-[8px] font-bold text-black flex items-center justify-center">
+                  {friendsCount + followersCount > 9 ? '9+' : friendsCount + followersCount}
                 </span>
               )}
             </button>
@@ -612,7 +666,7 @@ export default function Dashboard() {
                   }`}
                 >
                   <IconComp className={`h-3.5 w-3.5 ${cat.color}`} />
-                  <span>{cat.label}</span>
+                  <span>{tr(cat.label, cat.value === 'All' ? 'All Arenas' : cat.value)}</span>
                 </button>
               );
             })}
@@ -623,7 +677,7 @@ export default function Dashboard() {
             className="hidden sm:flex shrink-0 items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black shadow-lg shadow-amber-500/20 transition hover:bg-amber-400"
           >
             <Plus className="h-4 w-4" />
-            <span>کردنەوەی ژوور</span>
+            <span>{tr('کردنەوەی ژوور', 'Create Room')}</span>
           </button>
         </div>
 
@@ -633,7 +687,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <Flame className="h-4 w-4 text-amber-400" />
               <h2 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
-                ژوورە چالاکەکان
+                {tr('ژوورە چالاکەکان', 'Active Arenas')}
               </h2>
             </div>
             <span className="text-[10px] font-semibold text-slate-500"></span>
@@ -642,15 +696,15 @@ export default function Dashboard() {
           {displayRooms.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 py-12 text-center">
               <Headphones className="h-8 w-8 text-slate-600 mb-2" />
-              <h3 className="text-xs font-bold text-white">هیچ ژوورێکی ڕاستەوخۆ نییە</h3>
+              <h3 className="text-xs font-bold text-white">{tr('هیچ ژوورێکی ڕاستەوخۆ نییە', 'No Live Arenas Found')}</h3>
               <p className="mt-1 text-[11px] text-slate-400 max-w-xs">
-                یەکەم کەس بە کە ژوورێکی دەنگی بکاتەوە بە یاری و پەخشی دەنگ!
+                {tr('یەکەم کەس بە کە ژوورێکی دەنگی بکاتەوە بە یاری و پەخشی دەنگ!', 'Be the first to launch an arena with voice chat and games!')}
               </p>
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="mt-3.5 rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black"
               >
-                یەکەم ژوور بکەرەوە
+                {tr('یەکەم ژوور بکەرەوە', 'Launch First Arena')}
               </button>
             </div>
           ) : (
@@ -722,7 +776,7 @@ export default function Dashboard() {
                       </div>
 
                       <div className="flex items-center gap-1 text-amber-400 text-[10px] font-bold group-hover:translate-x-1 transition-transform">
-                        <span>چوونەژوورەوە</span>
+                        <span>{tr('چوونەژوورەوە', 'Join Arena')}</span>
                         <ArrowRight className="h-3 w-3" />
                       </div>
                     </div>
@@ -769,7 +823,7 @@ export default function Dashboard() {
                     maxLength={400}
                     value={newPostContent}
                     onChange={(e) => setNewPostContent(e.target.value)}
-                    placeholder="پۆستێک، بیرۆکەیەک یان بانگهێشتێکی یاری بڵاوبکەرەوە…"
+                    placeholder={tr('پۆستێک، بیرۆکەیەک یان بانگهێشتێکی یاری بڵاوبکەرەوە…', 'Share a post, idea, or arena invite…')}
                     className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/60 p-3 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
                   />
 
@@ -791,7 +845,7 @@ export default function Dashboard() {
                       className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-4 py-2 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95 disabled:opacity-40"
                     >
                       <Send className="h-3.5 w-3.5" />
-                      <span>{isPublishingPost ? 'خەریکی بڵاوکردنەوەیە…' : 'بڵاوکردنەوە'}</span>
+                      <span>{isPublishingPost ? tr('خەریکی بڵاوکردنەوەیە…', 'Publishing…') : tr('بڵاوکردنەوە', 'Publish')}</span>
                     </button>
                   </div>
                 </form>
@@ -805,18 +859,18 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-amber-400" />
                 <h3 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
-                  پۆستە گشتییەکان ({posts.length})
+                  {tr('پۆستە گشتییەکان', 'Public Posts')} ({posts.length})
                 </h3>
               </div>
-              <span className="text-[10px] font-semibold text-slate-500">پۆست</span>
+              <span className="text-[10px] font-semibold text-slate-500">{tr('پۆست', 'Posts')}</span>
             </div>
 
             {posts.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 py-12 text-center">
                 <MessageSquare className="h-7 w-7 text-slate-600 mb-2" />
-                <p className="text-xs font-bold text-white">هێشتا هیچ پۆستێک بڵاونەکراوەتەوە</p>
+                <p className="text-xs font-bold text-white">{tr('هێشتا هیچ پۆستێک بڵاونەکراوەتەوە', 'No posts published yet')}</p>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  یەکەم کەس بە کە پۆستێک لەسەر شاشەی گشتی بڵاوبکاتەوە!
+                  {tr('یەکەم کەس بە کە پۆستێک لەسەر شاشەی گشتی بڵاوبکاتەوە!', 'Be the first to share an update on the community feed!')}
                 </p>
               </div>
             ) : (
@@ -881,14 +935,14 @@ export default function Dashboard() {
                               )}
                               {isAuthor && (
                                 <span className="rounded-md bg-white/[0.06] px-1.5 py-0.2 text-[9px] font-semibold text-slate-400">
-                                  تۆ
+                                  {tr('تۆ', 'You')}
                                 </span>
                               )}
                             </div>
 
                             <div className="flex items-center gap-1 text-[10px] text-slate-500">
                               <Clock className="h-3 w-3" />
-                              <span>{formatTimeAgo(post.timestamp)}</span>
+                              <span>{formatTimeAgo(post.timestamp, isEn)}</span>
                             </div>
                           </div>
                         </div>
@@ -934,12 +988,12 @@ export default function Dashboard() {
                           {copiedPostId === post.id ? (
                             <>
                               <Check className="h-3.5 w-3.5 text-emerald-400" />
-                              <span className="text-emerald-400 text-[11px]">لینک کۆپی کرا</span>
+                              <span className="text-emerald-400 text-[11px]">{tr('لینک کۆپی کرا', 'Link Copied')}</span>
                             </>
                           ) : (
                             <>
                               <Share2 className="h-3.5 w-3.5" />
-                              <span className="text-[11px]">هاوبەشکردن</span>
+                              <span className="text-[11px]">{tr('هاوبەشکردن', 'Share')}</span>
                             </>
                           )}
                         </button>
@@ -1047,7 +1101,7 @@ export default function Dashboard() {
                   <ShieldCheck className="h-4 w-4 text-cyan-400" />
                 </div>
                 <p className="text-[11px] text-slate-400 italic line-clamp-2">
-                  "{user.bio || 'ئەندامی ژووری دەنگی SSMR.'}"
+                  "{user.bio || tr('ئەندامی ژووری دەنگی SSMR.', 'SSMR Voice Arena Member.')}"
                 </p>
               </div>
             </div>
@@ -1055,7 +1109,7 @@ export default function Dashboard() {
           {/* Account Age Counter */}
           <div className="mt-4 flex items-center gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-[11px] text-slate-400 font-medium">
             <Calendar className="h-3.5 w-3.5 text-amber-400" />
-            <span>{getAccountAge(user.createdAt)}</span>
+            <span>{getAccountAge(user.createdAt, isEn)}</span>
           </div>
 
           {/* Dynamic Tier Level & XP Progress Percentage Bar */}
@@ -1063,7 +1117,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between text-xs font-bold">
               <div className="flex items-center gap-1.5 text-purple-300">
                 <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                <span>ئاستی {user.level || 1}</span>
+                <span>{tr('ئاستی', 'Level')} {user.level || 1}</span>
               </div>
               <span className="font-mono text-amber-300 text-[11px]">{xpProgressPercentage}%</span>
             </div>
@@ -1078,7 +1132,7 @@ export default function Dashboard() {
             </div>
             <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>{xpInCurrentLevel} XP</span>
-              <span>١٠٠٠ XP بۆ ئاستی دواتر</span>
+              <span>{isEn ? '1,000 XP to next level' : '١٠٠٠ XP بۆ ئاستی دواتر'}</span>
             </div>
           </div>
 
@@ -1086,11 +1140,38 @@ export default function Dashboard() {
           <div className="mt-3 flex items-center justify-between rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3">
             <div className="flex items-center gap-2">
               <Coins className="h-4 w-4 text-amber-400" />
-              <span className="text-xs font-bold text-slate-300">باڵانسی جزدان</span>
+              <span className="text-xs font-bold text-slate-300">{tr('باڵانسی جزدان', 'Wallet Balance')}</span>
             </div>
             <span className="font-mono text-sm font-black text-amber-300">
               {formatCoinsK(user.coins)}
             </span>
+          </div>
+
+          {/* Followers, Following & Friends Stats */}
+          <div className="mt-3 grid grid-cols-3 gap-1.5">
+            <button
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="flex flex-col items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/5 py-2 px-1 transition hover:bg-cyan-500/15 hover:border-cyan-400/40"
+            >
+              <span className="font-mono text-xs font-black text-white">{followersCount}</span>
+              <span className="text-[9px] font-bold text-cyan-300">{tr('فۆڵۆوکار', 'Followers')}</span>
+            </button>
+
+            <button
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="flex flex-col items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/5 py-2 px-1 transition hover:bg-purple-500/15 hover:border-purple-400/40"
+            >
+              <span className="font-mono text-xs font-black text-white">{followingCount}</span>
+              <span className="text-[9px] font-bold text-purple-300">{tr('فۆڵۆوکراو', 'Following')}</span>
+            </button>
+
+            <button
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="flex flex-col items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/5 py-2 px-1 transition hover:bg-amber-500/15 hover:border-amber-400/40"
+            >
+              <span className="font-mono text-xs font-black text-white">{friendsCount}</span>
+              <span className="text-[9px] font-bold text-amber-300">{tr('هاوڕێکان', 'Friends')}</span>
+            </button>
           </div>
 
           <button
@@ -1098,7 +1179,7 @@ export default function Dashboard() {
             className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 py-2.5 text-xs font-bold text-slate-200 transition hover:border-amber-400/40 hover:text-amber-300"
           >
             <UserIcon className="h-3.5 w-3.5" />
-            <span>دەستکاریکردنی پڕۆفایل</span>
+            <span>{tr('دەستکاریکردنی پڕۆفایل', 'Edit Profile')}</span>
           </button>
         </div>
       </div>
@@ -1109,15 +1190,15 @@ export default function Dashboard() {
             <div className="flex items-center gap-2 text-slate-300">
               <Eye className="h-4 w-4 text-amber-400" />
               <h4 className="font-display text-xs font-bold uppercase tracking-wider">
-                سەردانیکەرانی پڕۆفایل ({visitors.length})
+                {tr('سەردانیکەرانی پڕۆفایل', 'Profile Visitors')} ({visitors.length})
               </h4>
             </div>
-            <span className="text-[9px] text-slate-500">ڕاستەوخۆ</span>
+            <span className="text-[9px] text-slate-500">{tr('ڕاستەوخۆ', 'Live')}</span>
           </div>
 
           {visitors.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-800 py-6 text-center text-xs text-slate-500">
-              هێشتا هیچ سەردانیکەرێک تۆمار نەکراوە.
+              {tr('هێشتا هیچ سەردانیکەرێک تۆمار نەکراوە.', 'No visitors recorded yet.')}
             </div>
           ) : (
             <div className="space-y-2">
@@ -1141,7 +1222,7 @@ export default function Dashboard() {
                   </div>
 
                   <span className="text-[10px] text-slate-500 font-medium">
-                    {formatTimeAgo(visitor.timestamp)}
+                    {formatTimeAgo(visitor.timestamp, isEn)}
                   </span>
                 </div>
               ))}
@@ -1220,10 +1301,10 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h2 className="font-display text-sm font-bold text-white tracking-wide">
-                      دروستکردنی ژووری دەنگی
+                      {tr('دروستکردنی ژووری دەنگی', 'Create Voice Arena')}
                     </h2>
                     <p className="text-[10px] font-medium text-amber-400 uppercase">
-                      ژووری دەنگی ٨ کورسی
+                      {tr('ژووری دەنگی ٨ کورسی', '8-Seat Voice Room')}
                     </p>
                   </div>
                 </div>
@@ -1244,7 +1325,7 @@ export default function Dashboard() {
               <form onSubmit={handleCreateRoom} className="mt-5 space-y-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                    ناوی ژوور
+                    {tr('ناوی ژوور', 'Room Name')}
                   </label>
                   <input
                     type="text"
@@ -1252,19 +1333,19 @@ export default function Dashboard() {
                     maxLength={40}
                     value={newRoomName}
                     onChange={(e) => setNewRoomName(e.target.value)}
-                    placeholder="بۆ نموونە: دیوەخانی هاوڕێیان"
+                    placeholder={tr('بۆ نموونە: دیوەخانی هاوڕێیان', 'e.g., Friends Lounge')}
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-xs font-semibold text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
                   />
 
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {ROOM_NAME_SUGGESTIONS.map((sug) => (
                       <button
-                        key={sug}
+                        key={sug.en}
                         type="button"
-                        onClick={() => setNewRoomName(sug)}
+                        onClick={() => setNewRoomName(tr(sug.ku, sug.en))}
                         className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[10px] font-semibold text-slate-400 hover:border-amber-400/30 hover:text-amber-300"
                       >
-                        {sug}
+                        {tr(sug.ku, sug.en)}
                       </button>
                     ))}
                   </div>
@@ -1272,14 +1353,14 @@ export default function Dashboard() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-2 uppercase tracking-wider">
-                    بەش هەڵبژێرە
+                    {tr('بەش هەڵبژێرە', 'Select Category')}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { cat: 'Gaming' as RoomCategory, label: 'یارییەکان', icon: Gamepad2 },
-                      { cat: 'Voice Chat' as RoomCategory, label: 'چاتی دەنگی', icon: MessageSquare },
-                      { cat: 'Music' as RoomCategory, label: 'میوزیک و گۆرانی', icon: Music },
-                      { cat: 'Chill' as RoomCategory, label: 'هاوڕێیەتی و پشوو', icon: Coffee },
+                      { cat: 'Gaming' as RoomCategory, label: tr('یارییەکان', 'Gaming'), icon: Gamepad2 },
+                      { cat: 'Voice Chat' as RoomCategory, label: tr('چاتی دەنگی', 'Voice Chat'), icon: MessageSquare },
+                      { cat: 'Music' as RoomCategory, label: tr('میوزیک و گۆرانی', 'Music'), icon: Music },
+                      { cat: 'Chill' as RoomCategory, label: tr('هاوڕێیەتی و پشوو', 'Chill'), icon: Coffee },
                     ].map(({ cat, label, icon: IconComp }) => {
                       const isSelected = newRoomCategory === cat;
                       return (
@@ -1306,7 +1387,7 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Lock className="h-4 w-4 text-amber-400" />
-                      <span className="text-xs font-bold text-white">ژووری تایبەت</span>
+                      <span className="text-xs font-bold text-white">{tr('ژووری تایبەت', 'Private Room')}</span>
                     </div>
                     <button
                       type="button"
@@ -1328,7 +1409,7 @@ export default function Dashboard() {
                       type="password"
                       value={roomPassword}
                       onChange={(e) => setRoomPassword(e.target.value)}
-                      placeholder="وشەی نهێنی ژوور بنووسە"
+                      placeholder={tr('وشەی نهێنی ژوور بنووسە', 'Enter room password')}
                       className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                     />
                   )}
@@ -1341,7 +1422,7 @@ export default function Dashboard() {
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 py-3.5 text-xs font-bold text-black shadow-lg shadow-amber-500/25 transition-transform active:scale-95 disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" />
-                    <span>{isCreatingRoom ? 'خەریکی دروستکردنە…' : 'دەستپێکردنی پەخشی ڕاستەوخۆ'}</span>
+                    <span>{isCreatingRoom ? tr('خەریکی دروستکردنە…', 'Creating arena…') : tr('دەستپێکردنی پەخشی ڕاستەوخۆ', 'Launch Live Broadcast')}</span>
                   </button>
                 </div>
               </form>
@@ -1364,7 +1445,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-amber-400" />
                   <h3 className="font-display text-xs font-bold text-white uppercase">
-                    ژووری قفڵکراو
+                    {tr('ژووری قفڵکراو', 'Locked Room')}
                   </h3>
                 </div>
                 <button
@@ -1377,7 +1458,8 @@ export default function Dashboard() {
 
               <form onSubmit={handleUnlockRoom} className="mt-4 space-y-3">
                 <p className="text-xs text-slate-400">
-                  وشەی نهێنی بنووسە بۆ چوونەژوورەوە بۆ <strong>{lockedRoomTarget.roomName}</strong>:
+                  {tr('وشەی نهێنی بنووسە بۆ چوونەژوورەوە بۆ', 'Enter password to join')}{' '}
+                  <strong>{lockedRoomTarget.roomName}</strong>:
                 </p>
 
                 <input
@@ -1387,19 +1469,21 @@ export default function Dashboard() {
                     setEnteredPassword(e.target.value);
                     setPasswordError(false);
                   }}
-                  placeholder="وشەی نهێنی ژوور"
+                  placeholder={tr('وشەی نهێنی ژوور', 'Room password')}
                   className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                 />
 
                 {passwordError && (
-                  <p className="text-[11px] text-rose-400 font-medium">وشەی نهێنی هەڵەیە. تکایە دووبارە هەوڵبدەرەوە.</p>
+                  <p className="text-[11px] text-rose-400 font-medium">
+                    {tr('وشەی نهێنی هەڵەیە. تکایە دووبارە هەوڵبدەرەوە.', 'Incorrect password. Please try again.')}
+                  </p>
                 )}
 
                 <button
                   type="submit"
                   className="w-full rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20"
                 >
-                  کردنەوە و چوونەژوورەوە
+                  {tr('کردنەوە و چوونەژوورەوە', 'Unlock & Join')}
                 </button>
               </form>
             </motion.div>
@@ -1456,20 +1540,20 @@ export default function Dashboard() {
               </div>
 
               <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                باڵانسی خەزێنەی جزدان
+                {tr('باڵانسی خەزێنەی جزدان', 'Wallet Vault Balance')}
               </h3>
               <div className="mt-2 font-mono text-3xl font-black text-amber-300">
                 {formatCoinsK(user.coins)}
               </div>
               <p className="mt-1 text-xs text-slate-400">
-                کۆین دەتوانیت لە یارییەکانی زار و جاکۆرۆ و ناردنی دیارییە شاهانەکان بەکاریبهێنیت.
+                {tr('کۆین دەتوانیت لە یارییەکانی زار و جاکۆرۆ و ناردنی دیارییە شاهانەکان بەکاریبهێنیت.', 'Use coins in Dice & Jackaroo games and for sending royal gifts.')}
               </p>
 
               <button
                 onClick={() => setIsWalletModalOpen(false)}
                 className="mt-6 w-full rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20"
               >
-                داخستنی جزدان
+                {tr('داخستنی جزدان', 'Close Wallet')}
               </button>
             </motion.div>
           </div>
@@ -1518,8 +1602,28 @@ export default function Dashboard() {
         {isNotificationsOpen && (
           <NotificationCenter
             currentUid={user.uid}
+            currentUser={user}
             onClose={() => setIsNotificationsOpen(false)}
             onOpenProfile={(uid) => openUserProfile(uid)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── FRIENDS & FOLLOW CONNECTIONS MODAL ── */}
+      <AnimatePresence>
+        {isFriendsModalOpen && user && (
+          <FriendsModal
+            currentUser={user}
+            onClose={() => setIsFriendsModalOpen(false)}
+            onOpenProfile={(uid) => openUserProfile(uid)}
+            onOpenDirectMessage={(recipient) => {
+              setIsFriendsModalOpen(false);
+              setActiveChatRecipient({
+                uid: recipient.uid,
+                username: recipient.username,
+                avatar: recipient.avatar,
+              });
+            }}
           />
         )}
       </AnimatePresence>

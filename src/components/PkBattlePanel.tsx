@@ -38,12 +38,12 @@ interface PkBattlePanelProps {
 }
 
 const PENALTY_PRESETS = [
-  '🎤 گۆرانی گوتن',
-  '💪 ١٠ جاران شناو',
-  '🤫 بێدەنگبوون بۆ ١ خولەک',
-  '🎭 گۆڕینی وێنەی پرۆفایل بۆ ١٠ خولەک',
-  '🚰 خواردنەوەی پەرداخێک ئاو',
-  '🚫 بەبێ سزا',
+  { id: 'sing', ku: '🎤 گۆرانی گوتن', en: '🎤 Sing a song' },
+  { id: 'pushups', ku: '💪 ١٠ جاران شناو', en: '💪 10 Push-ups' },
+  { id: 'silent', ku: '🤫 بێدەنگبوون بۆ ١ خولەک', en: '🤫 Silent for 1 min' },
+  { id: 'avatar', ku: '🎭 گۆڕینی وێنەی پرۆفایل بۆ ١٠ خولەک', en: '🎭 Change profile pic for 10 min' },
+  { id: 'water', ku: '🚰 خواردنەوەی پەرداخێک ئاو', en: '🚰 Drink a glass of water' },
+  { id: 'none', ku: '🚫 بەبێ سزا', en: '🚫 No Penalty' },
 ];
 
 export default function PkBattlePanel({
@@ -62,7 +62,7 @@ export default function PkBattlePanel({
   // Setup form states
   const [selectedMode, setSelectedMode] = useState<PkMode>('4v4');
   const [selectedDuration, setSelectedDuration] = useState<number>(300); // 5 min default
-  const [selectedPenalty, setSelectedPenalty] = useState<string>('🎤 گۆرانی گوتن');
+  const [selectedPenalty, setSelectedPenalty] = useState<string>('sing');
   const [customPenaltyText, setCustomPenaltyText] = useState<string>('');
   const [customRedSeats, setCustomRedSeats] = useState<number[]>([1, 2]);
   const [customBlueSeats, setCustomBlueSeats] = useState<number[]>([3, 4]);
@@ -165,11 +165,14 @@ export default function PkBattlePanel({
     if (isStarting) return;
     setIsStarting(true);
     try {
+      const activePreset = PENALTY_PRESETS.find(p => p.id === selectedPenalty);
       const penaltyFinal =
-        selectedPenalty === '🚫 بەبێ سزا'
+        selectedPenalty === 'none'
           ? ''
           : selectedPenalty === 'custom'
           ? customPenaltyText
+          : activePreset
+          ? `${activePreset.ku} / ${activePreset.en}`
           : selectedPenalty;
 
       const options: StartPkBattleOptions = {
@@ -196,7 +199,7 @@ export default function PkBattlePanel({
         durationSeconds: 300,
         redSeats: [1, 2, 5, 6],
         blueSeats: [3, 4, 7, 8],
-        penalty: '🎤 گۆرانی گوتن',
+        penalty: '🎤 گۆرانی گوتن / 🎤 Sing a song',
       });
     } catch (err: any) {
       alert(err.message || 'Failed to start 4v4 battle');
@@ -359,12 +362,12 @@ export default function PkBattlePanel({
                           <div className="text-xs uppercase">{mode}</div>
                           <div className="text-[9px] font-normal text-slate-400">
                             {mode === '1v1'
-                              ? '١ بە ١'
+                              ? tr('١ بە ١', '1 vs 1')
                               : mode === '2v2'
-                              ? '٢ بە ٢'
+                              ? tr('٢ بە ٢', '2 vs 2')
                               : mode === '3v3'
-                              ? '٣ بە ٣'
-                              : '٤ بە ٤'}
+                              ? tr('٣ بە ٣', '3 vs 3')
+                              : tr('٤ بە ٤', '4 vs 4')}
                           </div>
                         </button>
                       ))}
@@ -475,17 +478,17 @@ export default function PkBattlePanel({
                       {tr('٣. سزای دۆڕاو (Punishment)', '3. Loser Punishment')}
                     </label>
                     <div className="flex flex-wrap gap-1.5">
-                      {PENALTY_PRESETS.map((penalty) => (
+                      {PENALTY_PRESETS.map((p) => (
                         <button
-                          key={penalty}
-                          onClick={() => setSelectedPenalty(penalty)}
+                          key={p.id}
+                          onClick={() => setSelectedPenalty(p.id)}
                           className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
-                            selectedPenalty === penalty
+                            selectedPenalty === p.id
                               ? 'border-rose-400 bg-rose-500/20 text-rose-300'
                               : 'border-white/10 bg-white/5 text-slate-400 hover:bg-white/10'
                           }`}
                         >
-                          {penalty}
+                          {tr(p.ku, p.en)}
                         </button>
                       ))}
                       <button

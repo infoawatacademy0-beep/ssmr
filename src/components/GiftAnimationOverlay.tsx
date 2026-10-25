@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCoinsK, type RoomGiftEvent } from '../types';
 import { playGiftSoundEffect } from '../services';
+import { useLanguage } from '../contexts/LanguageContext';
 import GiftIcon from './GiftIcon';
 import ChromaKeyVideo from './ChromaKeyVideo';
 
@@ -10,6 +11,7 @@ interface GiftAnimationOverlayProps {
 }
 
 export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlayProps) {
+  const { tr, t } = useLanguage();
   const [activeEvent, setActiveEvent] = useState<RoomGiftEvent | null>(null);
   const [queue, setQueue] = useState<RoomGiftEvent[]>([]);
   const [videoErrorMap, setVideoErrorMap] = useState<Record<string, boolean>>({});
@@ -116,7 +118,7 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
               {senderUsername}
             </p>
             <p className="truncate text-[10px] text-amber-200 font-semibold">
-              ناردنی <strong className="text-amber-400">{gift.name}</strong> بۆ{' '}
+              {tr('ناردنی', 'Sent')} <strong className="text-amber-400">{t(gift.name)}</strong> {tr('بۆ', 'to')}{' '}
               <strong className="text-pink-300">{recipientUsername}</strong>
             </p>
           </div>
@@ -435,7 +437,7 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
           >
             <div className="inline-flex flex-col items-center rounded-3xl border border-amber-400/50 bg-gradient-to-r from-black/85 via-slate-900/90 to-black/85 px-6 py-2.5 shadow-[0_0_30px_rgba(0,0,0,0.9)] backdrop-blur-xl">
               <h3 className="font-display text-lg sm:text-xl font-black uppercase tracking-wider bg-gradient-to-r from-amber-200 via-yellow-400 to-orange-400 bg-clip-text text-transparent drop-shadow">
-                {gift.name}
+                {t(gift.name)}
               </h3>
               <div className="mt-1 flex items-center gap-2 text-xs font-bold">
                 <span className="text-white">{senderUsername}</span>

@@ -22,6 +22,9 @@ import {
   Send,
   BadgeCheck,
   Crown,
+  Users,
+  HeartHandshake,
+  Search,
 } from 'lucide-react';
 import { getVipAvatarClass, type User, type ProfileVisitor } from '../types';
 import { useLanguage } from '../contexts';
@@ -33,6 +36,13 @@ import {
   subscribeToUserVisitors,
   subscribeToUserPresence,
   subscribeToFollowState,
+  subscribeToFollowersCount,
+  subscribeToFollowingCount,
+  subscribeToFriendsCount,
+  subscribeToFollowersList,
+  subscribeToFollowingList,
+  subscribeToFriendsList,
+  acceptFollow,
   followUser,
   unfollowUser,
   uploadImageToImgBB,
@@ -114,9 +124,12 @@ export default function UserProfileManager({
     statusText: 'Offline',
   });
 
-  // Follow state
+  // Follow state & counts
   const [isFollowing, setIsFollowing] = useState(false);
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [friendsCount, setFriendsCount] = useState(0);
 
   // Moderation Report Modal State
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -130,8 +143,55 @@ export default function UserProfileManager({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Active sub-tab in modal: 'profile' or 'visitors'
-  const [activeTab, setActiveTab] = useState<'profile' | 'visitors'>('profile');
+  // Active sub-tab in modal: 'profile' | 'friends' | 'visitors'
+  const [activeTab, setActiveTab] = useState<'profile' | 'friends' | 'visitors'>('profile');
+  const [friendsSubTab, setFriendsSubTab] = useState<'friends' | 'followers' | 'following'>('friends');
+  const [searchFriendsQuery, setSearchFriendsQuery] = useState('');
+  const [friendsList, setFriendsList] = useState<User[]>([]);
+  const [followersList, setFollowersList] = useState<User[]>([]);
+  const [followingList, setFollowingList] = useState<User[]>([]);
+  const [myFollowingMap, setMyFollowingMap] = useState<Record<string, boolean>>({});
+  const [processingFriendUid, setProcessingFriendUid] = useState<string | null>(null);
+
+  // Subscriptions to follower, following, and mutual friends counts
+  useEffect(() => {
+    const unsubFollowers = subscribeToFollowersCount(activeUid, setFollowersCount);
+    const unsubFollowing = subscribeToFollowingCount(activeUid, setFollowingCount);
+    const unsubFriends = subscribeToFriendsCount(activeUid, setFriendsCount);
+
+    return () => {
+      unsubFollowers();
+      unsubFollowing();
+      unsubFriends();
+    };
+  }, [activeUid]);
+
+  // Track current user's following list for accurate follow/unfollow states
+  useEffect(() => {
+    const unsub = subscribeToFollowingList(currentUser.uid, (followings) => {
+      const map: Record<string, boolean> = {};
+      followings.forEach((u) => {
+        map[u.uid] = true;
+      });
+      setMyFollowingMap(map);
+    });
+    return () => unsub();
+  }, [currentUser.uid]);
+
+  // Subscribe to lists when the friends tab is opened
+  useEffect(() => {
+    if (activeTab !== 'friends') return;
+
+    const unsubFriends = subscribeToFriendsList(activeUid, setFriendsList);
+    const unsubFollowers = subscribeToFollowersList(activeUid, setFollowersList);
+    const unsubFollowing = subscribeToFollowingList(activeUid, setFollowingList);
+
+    return () => {
+      unsubFriends();
+      unsubFollowers();
+      unsubFollowing();
+    };
+  }, [activeTab, activeUid]);
 
   // 1. Fetch target user's profile if viewing someone else
   useEffect(() => {
@@ -209,6 +269,47 @@ export default function UserProfileManager({
       console.error('Follow toggle error:', err);
     } finally {
       setIsTogglingFollow(false);
+    }
+  };
+
+  // Follow/unfollow action inside friends list
+  const handleFriendToggleFollow = async (targetUid: string) => {
+    if (processingFriendUid || targetUid === currentUser.uid) return;
+    setProcessingFriendUid(targetUid);
+    const isCurrentlyFollowing = Boolean(myFollowingMap[targetUid]);
+    try {
+      if (isCurrentlyFollowing) {
+        await unfollowUser(currentUser.uid, targetUid);
+        setMyFollowingMap((prev) => ({ ...prev, [targetUid]: false }));
+      } else {
+        await followUser(currentUser.uid, targetUid);
+        setMyFollowingMap((prev) => ({ ...prev, [targetUid]: true }));
+      }
+    } catch (err) {
+      console.error('Failed to toggle follow in list:', err);
+    } finally {
+      setProcessingFriendUid(null);
+    }
+  };
+
+  // Accept follow back inside friends list
+  const handleFriendAcceptFollow = async (follower: User) => {
+    if (processingFriendUid || follower.uid === currentUser.uid) return;
+    setProcessingFriendUid(follower.uid);
+    try {
+      await acceptFollow(
+        {
+          uid: currentUser.uid,
+          username: currentUser.username,
+          avatar: currentUser.avatar || currentUser.profileImage,
+        },
+        follower.uid,
+      );
+      setMyFollowingMap((prev) => ({ ...prev, [follower.uid]: true }));
+    } catch (err) {
+      console.error('Failed to accept follow in list:', err);
+    } finally {
+      setProcessingFriendUid(null);
     }
   };
 
@@ -320,10 +421,10 @@ export default function UserProfileManager({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-sm font-black tracking-wider text-white uppercase">
-                  {isViewingSelf ? 'بەڕێوەبردنی پڕۆفایل' : `پڕۆفایلی ${profileData.username}`}
+                  {isViewingSelf ? tr('بەڕێوەبردنی پڕۆفایل', 'Manage Profile') : tr(`پڕۆفایلی ${profileData.username}`, `${profileData.username}'s Profile`)}
                 </h2>
                 <span className="rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black text-amber-400 uppercase border border-amber-400/20">
-                  ئاستی {profileData.level || 1}
+                  {tr('ئاستی', 'Level')} {profileData.level || 1}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">
@@ -352,7 +453,7 @@ export default function UserProfileManager({
           </div>
         </div>
 
-        {/* ── SUB-TABS (PROFILE / VISITORS) ── */}
+        {/* ── SUB-TABS (PROFILE / FRIENDS / VISITORS) ── */}
         <div className="flex border-b border-white/[0.06] bg-white/[0.01] px-6 pt-2">
           <button
             onClick={() => setActiveTab('profile')}
@@ -364,6 +465,18 @@ export default function UserProfileManager({
           >
             <UserIcon className="h-3.5 w-3.5" />
             <span>{tr("ناسنامەی پڕۆفایل", "Profile Identity")}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('friends')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
+              activeTab === 'friends'
+                ? 'border-amber-400 text-amber-300'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <HeartHandshake className="h-3.5 w-3.5" />
+            <span>{tr("هاوڕێ و فۆڵۆوەکان", "Friends & Follows")} ({friendsCount + followersCount})</span>
           </button>
 
           <button
@@ -499,7 +612,7 @@ export default function UserProfileManager({
                       </div>
 
                     <p className="text-xs text-slate-300 font-medium italic">
-                      "{bioInput || profileData.bio || 'ئەندامی ژووری دەنگی SSMR.'}"
+                      "{bioInput || profileData.bio || tr('ئەندامی ژووری دەنگی SSMR.', 'SSMR Voice Arena Member.')}"
                     </p>
 
                     <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
@@ -512,6 +625,60 @@ export default function UserProfileManager({
                         <Sparkles className="h-3.5 w-3.5 text-purple-400" />
                         <span>{tr("ئاستی", "Level")} {profileData.level || 1} ({profileData.xp || 0} XP)</span>
                       </div>
+                    </div>
+
+                    {/* Prominent Follower & Following Stats */}
+                    <div className="mt-3.5 grid grid-cols-3 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('friends');
+                          setFriendsSubTab('followers');
+                        }}
+                        className="flex flex-col items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-2 transition hover:scale-105 hover:border-cyan-400/50"
+                      >
+                        <div className="flex items-center gap-1 text-cyan-400">
+                          <Users className="h-3.5 w-3.5" />
+                          <span className="font-mono text-sm font-black text-white">{followersCount}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-tight">
+                          {tr("فۆڵۆوکاران", "Followers")}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('friends');
+                          setFriendsSubTab('following');
+                        }}
+                        className="flex flex-col items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/10 p-2 transition hover:scale-105 hover:border-purple-400/50"
+                      >
+                        <div className="flex items-center gap-1 text-purple-400">
+                          <UserCheck className="h-3.5 w-3.5" />
+                          <span className="font-mono text-sm font-black text-white">{followingCount}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-purple-300 uppercase tracking-tight">
+                          {tr("فۆڵۆوکراوان", "Following")}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('friends');
+                          setFriendsSubTab('friends');
+                        }}
+                        className="flex flex-col items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 p-2 transition hover:scale-105 hover:border-amber-400/50"
+                      >
+                        <div className="flex items-center gap-1 text-amber-400">
+                          <HeartHandshake className="h-3.5 w-3.5" />
+                          <span className="font-mono text-sm font-black text-white">{friendsCount}</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-300 uppercase tracking-tight">
+                          {tr("هاوڕێکان", "Friends")}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -635,7 +802,7 @@ export default function UserProfileManager({
                               const hostedUrl = await uploadImageToImgBB(file, `avatar_${currentUser.uid}`);
                               await handleAutoSaveAvatar(hostedUrl);
                             } catch (err: any) {
-                              setErrorMessage(err.message || 'نەتوانرا وێنەکە بەرزبکرێتەوە بۆ ImgBB.');
+                              setErrorMessage(err.message || tr('نەتوانرا وێنەکە بەرزبکرێتەوە بۆ ImgBB.', 'Failed to upload image to ImgBB.'));
                             } finally {
                               setIsUploadingImage(false);
                               e.target.value = '';
@@ -692,6 +859,245 @@ export default function UserProfileManager({
                 </form>
               )}
             </>
+          )}
+
+          {activeTab === 'friends' && (
+            <div className="space-y-3">
+              {/* Sub-pills (Friends / Followers / Following) */}
+              <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-slate-950/60 p-1 border border-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => setFriendsSubTab('friends')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
+                    friendsSubTab === 'friends'
+                      ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <HeartHandshake className="h-3 w-3 text-amber-400" />
+                  <span>{tr('هاوڕێکان', 'Friends')}</span>
+                  <span className="text-[10px] font-mono opacity-80">({friendsCount})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFriendsSubTab('followers')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
+                    friendsSubTab === 'followers'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Users className="h-3 w-3 text-cyan-400" />
+                  <span>{tr('فۆڵۆوکاران', 'Followers')}</span>
+                  <span className="text-[10px] font-mono opacity-80">({followersCount})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFriendsSubTab('following')}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
+                    friendsSubTab === 'following'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <UserCheck className="h-3 w-3 text-purple-400" />
+                  <span>{tr('فۆڵۆوکراوان', 'Following')}</span>
+                  <span className="text-[10px] font-mono opacity-80">({followingCount})</span>
+                </button>
+              </div>
+
+              {/* Quick Search inside Friends list */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={searchFriendsQuery}
+                  onChange={(e) => setSearchFriendsQuery(e.target.value)}
+                  placeholder={tr('گەڕان بەپێی ناو…', 'Filter by name…')}
+                  className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.02] py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
+                />
+                {searchFriendsQuery && (
+                  <button
+                    onClick={() => setSearchFriendsQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Items List */}
+              {(() => {
+                let currentSource: User[] = [];
+                if (friendsSubTab === 'friends') currentSource = friendsList;
+                else if (friendsSubTab === 'followers') currentSource = followersList;
+                else currentSource = followingList;
+
+                const query = searchFriendsQuery.toLowerCase().trim();
+                const filtered = query
+                  ? currentSource.filter(
+                      (u) =>
+                        (u.username || '').toLowerCase().includes(query) ||
+                        (u.bio || '').toLowerCase().includes(query),
+                    )
+                  : currentSource;
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/[0.08] bg-white/[0.01] py-10 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/[0.04] text-slate-500 mb-2">
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-300">
+                        {query
+                          ? tr('هیچ ئەنجامێک نەدۆزرایەوە', 'No matching users found')
+                          : friendsSubTab === 'friends'
+                            ? tr('هیچ هاوڕێیەکی دوولایەنە نییە', 'No mutual friends yet')
+                            : friendsSubTab === 'followers'
+                              ? tr('هیچ فۆڵۆوکارێک نییە', 'No followers yet')
+                              : tr('فۆڵۆوی هیچ کەسێک نەکراوە', 'Not following anyone')}
+                      </p>
+                      <p className="mt-1 text-[10px] text-slate-500 max-w-xs">
+                        {friendsSubTab === 'friends'
+                          ? tr(
+                              'کاتێک لەگەڵ کەسێک فۆڵۆوی یەکتر بکەن، دەبن بە هاوڕێ و لێرەدا دەردەکەون.',
+                              'When two users follow each other, they become mutual friends here.',
+                            )
+                          : tr(
+                              'لە بەشی گەڕاندا دەتوانیت بەدوای ئەندامانی تردا بگەڕێیت.',
+                              'You can discover and connect with other users in the search tab.',
+                            )}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                    {filtered.map((user) => {
+                      const isCurrentUser = user.uid === currentUser.uid;
+                      const isFollowedByMe = Boolean(myFollowingMap[user.uid]);
+
+                      return (
+                        <div
+                          key={user.uid}
+                          className="flex items-center justify-between gap-2.5 rounded-2xl border border-white/[0.06] bg-slate-900/40 p-2.5 transition hover:border-amber-400/30 hover:bg-slate-900/70"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {/* Avatar with VIP border */}
+                            <div
+                              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full p-0.5 ${
+                                user.isVerified
+                                  ? `${getVipAvatarClass(user.isVerified, user.vipFrame)} bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600`
+                                  : 'bg-gradient-to-tr from-amber-500 to-yellow-600'
+                              }`}
+                            >
+                              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-950">
+                                {user.avatar || user.profileImage ? (
+                                  <img
+                                    src={user.avatar || user.profileImage}
+                                    alt={user.username}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="font-display text-xs font-black text-amber-300">
+                                    {(user.username || 'U').charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${
+                                  user.isOnline ? 'bg-emerald-400' : 'bg-slate-500'
+                                }`}
+                              />
+                            </div>
+
+                            {/* User details */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="truncate text-xs font-bold text-white">
+                                  {user.username}
+                                </h4>
+                                {user.isVerified && (
+                                  <BadgeCheck size={13} className="text-sky-400 fill-sky-400/20 shrink-0" />
+                                )}
+                                <span className="rounded-md bg-white/[0.06] px-1 py-0.2 text-[8px] font-bold text-slate-300">
+                                  {tr('ئاستی', 'Level')} {user.level || 1}
+                                </span>
+                              </div>
+                              <p className="truncate text-[10px] text-slate-400">
+                                {user.bio || tr('ئەندامی گۆڕەپانی دەنگی SSMR', 'SSMR Voice Arena Member')}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Direct Message button */}
+                            {!isCurrentUser && onOpenPrivateChat && (
+                              <button
+                                onClick={() => {
+                                  onOpenPrivateChat({
+                                    uid: user.uid,
+                                    username: user.username,
+                                    avatar: user.avatar || user.profileImage,
+                                  });
+                                  onClose();
+                                }}
+                                title={tr('نامەی تایبەتی', 'Message')}
+                                className="flex h-7 w-7 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 transition hover:bg-cyan-500/20"
+                              >
+                                <MessageSquare className="h-3 w-3" />
+                              </button>
+                            )}
+
+                            {/* Follow / Unfollow / Accept Follow Back Button */}
+                            {!isCurrentUser && (
+                              <>
+                                {friendsSubTab === 'followers' && !isFollowedByMe ? (
+                                  <button
+                                    onClick={() => handleFriendAcceptFollow(user)}
+                                    disabled={processingFriendUid === user.uid}
+                                    className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 px-2.5 py-1 text-[11px] font-black text-black shadow-md shadow-amber-500/20 transition hover:scale-105 active:scale-95"
+                                  >
+                                    <UserPlus className="h-3 w-3" />
+                                    <span>{tr('وەرگرتن و فۆڵۆو', 'Accept & Follow Back')}</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleFriendToggleFollow(user.uid)}
+                                    disabled={processingFriendUid === user.uid}
+                                    className={`flex items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-bold transition ${
+                                      isFollowedByMe
+                                        ? 'border border-amber-400/30 bg-amber-400/15 text-amber-300 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-300'
+                                        : 'border border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600'
+                                    }`}
+                                  >
+                                    {isFollowedByMe ? (
+                                      <>
+                                        <UserCheck className="h-3 w-3" />
+                                        <span>{tr('فۆڵۆکراوە', 'Following')}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <UserPlus className="h-3 w-3" />
+                                        <span>{tr('فۆڵۆو', 'Follow')}</span>
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           )}
 
           {activeTab === 'visitors' && (

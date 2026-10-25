@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import type { ReportItem, User } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 import {
   subscribeToAllReports,
   resolveReport,
@@ -29,6 +30,7 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ currentUser, onClose }: AdminDashboardProps) {
+  const { tr } = useLanguage();
   const [activeTab, setActiveTab] = useState<'reports' | 'users'>('reports');
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -106,13 +108,13 @@ export default function AdminDashboard({ currentUser, onClose }: AdminDashboardP
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                  ناوەندی کۆنترۆڵی ئەدمین
+                  {tr('ناوەندی کۆنترۆڵی ئەدمین', 'Admin Control Center')}
                 </h3>
                 <span className="rounded-md bg-rose-500/20 px-1.5 py-0.5 text-[8px] font-bold text-rose-300 uppercase">
-                  ستاف
+                  {tr('ستاف', 'Staff')}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400">پانێڵی بەڕێوەبردن و چاودێری</p>
+              <p className="text-[10px] text-slate-400">{tr('پانێڵی بەڕێوەبردن و چاودێری', 'Management & Supervision Panel')}</p>
             </div>
           </div>
 
@@ -135,7 +137,7 @@ export default function AdminDashboard({ currentUser, onClose }: AdminDashboardP
             }`}
           >
             <AlertTriangle className="h-4 w-4 text-rose-400" />
-            <span>ڕاپۆرتەکان ({pendingReportsCount} چاوەڕوانکراو)</span>
+            <span>{tr('ڕاپۆرتەکان', 'Reports')} ({pendingReportsCount} {tr('چاوەڕوانکراو', 'pending')})</span>
           </button>
 
           <button
@@ -147,7 +149,7 @@ export default function AdminDashboard({ currentUser, onClose }: AdminDashboardP
             }`}
           >
             <Users className="h-4 w-4 text-cyan-400" />
-            <span>بەڕێوەبردنی بەکارهێنەران</span>
+            <span>{tr('بەڕێوەبردنی بەکارهێنەران', 'Manage Users')}</span>
           </button>
         </div>
 

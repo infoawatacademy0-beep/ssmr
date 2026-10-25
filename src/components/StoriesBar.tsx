@@ -160,7 +160,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
             </div>
           </div>
           <span className="mt-1.5 truncate max-w-[60px] text-[10px] font-bold text-slate-300">
-            ستۆری نوێ
+            {tr('ستۆری نوێ', 'New Story')}
           </span>
         </div>
 
@@ -237,7 +237,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                       : 'border border-slate-800 bg-slate-950 text-slate-400'
                   }`}
                 >
-                  کارتی نووسین
+                  {tr('کارتی نووسین', 'Text Card')}
                 </button>
                 <button
                   type="button"
@@ -248,7 +248,7 @@ export default function StoriesBar({ currentUser }: StoriesBarProps) {
                       : 'border border-slate-800 bg-slate-950 text-slate-400'
                   }`}
                 >
-                  ستۆری وێنە
+                  {tr('ستۆری وێنە', 'Image Story')}
                 </button>
               </div>
 

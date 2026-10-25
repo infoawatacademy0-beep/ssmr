@@ -115,12 +115,13 @@ function Logo() {
 /* ---------- feature pills ---------- */
 
 const features = [
-  { icon: Coins, label: '١,٠٠٠ کۆین', color: 'text-amber-400' },
-  { icon: Trophy, label: 'ئاستی ١', color: 'text-emerald-400' },
-  { icon: Star, label: 'زیادکەری XP', color: 'text-cyan-400' },
+  { icon: Coins, ku: '١,٠٠٠ کۆین', en: '1,000 Coins', color: 'text-amber-400' },
+  { icon: Trophy, ku: 'ئاستی ١', en: 'Level 1', color: 'text-emerald-400' },
+  { icon: Star, ku: 'زیادکەری XP', en: 'XP Booster', color: 'text-cyan-400' },
 ];
 
 function FeaturePills() {
+  const { tr } = useLanguage();
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -130,11 +131,11 @@ function FeaturePills() {
     >
       {features.map((f) => (
         <div
-          key={f.label}
+          key={f.ku}
           className="flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-slate-400"
         >
           <f.icon className={`h-3.5 w-3.5 ${f.color}`} />
-          {f.label}
+          {tr(f.ku, f.en)}
         </div>
       ))}
     </motion.div>

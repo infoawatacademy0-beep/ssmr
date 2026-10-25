@@ -19,6 +19,7 @@ import {
   type JackarooCard,
   type User,
 } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 import {
   createJackarooGame,
   joinJackarooGame,
@@ -41,15 +42,15 @@ interface JackarooGamePanelProps {
 
 const BET_OPTIONS = [0, 50, 100, 250, 500, 1000];
 
-const CARD_POWER_HINT: Record<string, string> = {
-  A: 'چوونە دەرەوە لە بنکە یان ١ / ١١ هەنگاو بۆ پێشەوە',
-  K: 'چوونە دەرەوە لە بنکە یان ١٣ هەنگاو بۆ پێشەوە',
-  Q: '١٢ هەنگاو بۆ پێشەوە',
-  J: 'گۆڕینەوەی مۆرە لەگەڵ بەرامبەر یان ١١ هەنگاو',
-  '4': '٤ هەنگاو بۆ دواوە (-4)',
-  '10': '١٠ هەنگاو بۆ پێشەوە',
-  '7': '٧ هەنگاو بۆ پێشەوە',
-  '5': '٥ هەنگاو بۆ پێشەوە',
+const CARD_POWER_HINT: Record<string, { ku: string; en: string }> = {
+  A: { ku: 'چوونە دەرەوە لە بنکە یان ١ / ١١ هەنگاو بۆ پێشەوە', en: 'Exit base or 1 / 11 steps forward' },
+  K: { ku: 'چوونە دەرەوە لە بنکە یان ١٣ هەنگاو بۆ پێشەوە', en: 'Exit base or 13 steps forward' },
+  Q: { ku: '١٢ هەنگاو بۆ پێشەوە', en: '12 steps forward' },
+  J: { ku: 'گۆڕینەوەی مۆرە لەگەڵ بەرامبەر یان ١١ هەنگاو', en: 'Swap marble with opponent or 11 steps' },
+  '4': { ku: '٤ هەنگاو بۆ دواوە (-4)', en: '4 steps backward (-4)' },
+  '10': { ku: '١٠ هەنگاو بۆ پێشەوە', en: '10 steps forward' },
+  '7': { ku: '٧ هەنگاو بۆ پێشەوە', en: '7 steps forward' },
+  '5': { ku: '٥ هەنگاو بۆ پێشەوە', en: '5 steps forward' },
 };
 
 export default function JackarooGamePanel({
@@ -59,6 +60,7 @@ export default function JackarooGamePanel({
   isRoomHost = false,
   onClose,
 }: JackarooGamePanelProps) {
+  const { tr, isRTL } = useLanguage();
   const [selectedMaxPlayers, setSelectedMaxPlayers] = useState<2 | 3 | 4>(4);
   const [selectedBet, setSelectedBet] = useState<number>(100);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -117,7 +119,7 @@ export default function JackarooGamePanel({
         selectedBet,
       );
     } catch (err: any) {
-      showError(err.message || 'نەتوانرا یاری دروست بکرێت');
+      showError(err.message || tr('نەتوانرا یاری دروست بکرێت', 'Failed to create game'));
     } finally {
       setBusy(false);
     }
@@ -133,7 +135,7 @@ export default function JackarooGamePanel({
         avatar: currentUser.avatar,
       });
     } catch (err: any) {
-      showError(err.message || 'نەتوانرا بەشداری بکەیت');
+      showError(err.message || tr('نەتوانرا بەشداری بکەیت', 'Failed to join game'));
     } finally {
       setBusy(false);
     }
@@ -145,7 +147,7 @@ export default function JackarooGamePanel({
     try {
       await startJackarooGameNow(roomId, currentUser.uid);
     } catch (err: any) {
-      showError(err.message || 'نەتوانرا دەست پێبکرێت');
+      showError(err.message || tr('نەتوانرا دەست پێبکرێت', 'Failed to start game'));
     } finally {
       setBusy(false);
     }
@@ -157,7 +159,7 @@ export default function JackarooGamePanel({
     if (selectedCard.rank === 'J' && jackSwapMode) {
       const mPos = myPlayer?.marbles[marbleIndex] ?? -1;
       if (mPos < 0 || mPos >= 48) {
-        showError('تەنها مۆرەی سەر ڕێڕەو هەڵبژێرە بۆ گۆڕینەوە');
+        showError(tr('تەنها مۆرەی سەر ڕێڕەو هەڵبژێرە بۆ گۆڕینەوە', 'Only select marbles on the track to swap'));
         return;
       }
       setSelectedMyMarbleForSwap(marbleIndex);
@@ -176,7 +178,7 @@ export default function JackarooGamePanel({
       setUseAceEleven(false);
       setJackSwapMode(false);
     } catch (err: any) {
-      showError(err.message || 'ئەم جووڵەیە دروست نییە');
+      showError(err.message || tr('ئەم جووڵەیە دروست نییە', 'Invalid move'));
     } finally {
       setBusy(false);
     }
@@ -208,7 +210,7 @@ export default function JackarooGamePanel({
       setJackSwapMode(false);
       setSelectedMyMarbleForSwap(null);
     } catch (err: any) {
-      showError(err.message || 'نەتوانرا مۆرەکان بگۆڕدرێنەوە');
+      showError(err.message || tr('نەتوانرا مۆرەکان بگۆڕدرێنەوە', 'Failed to swap marbles'));
     } finally {
       setBusy(false);
     }
@@ -222,7 +224,7 @@ export default function JackarooGamePanel({
       setJackSwapMode(false);
       setSelectedMyMarbleForSwap(null);
     } catch (err: any) {
-      showError(err.message || 'نەتوانرا کارت بسووتێنرێت');
+      showError(err.message || tr('نەتوانرا کارت بسووتێنرێت', 'Failed to burn card'));
     } finally {
       setBusy(false);
     }
@@ -235,7 +237,7 @@ export default function JackarooGamePanel({
       await closeJackarooGame(roomId);
       onClose();
     } catch (err: any) {
-      showError(err.message || 'نەتوانرا دابخرێت');
+      showError(err.message || tr('نەتوانرا دابخرێت', 'Failed to close game'));
     } finally {
       setBusy(false);
     }
@@ -305,16 +307,16 @@ export default function JackarooGamePanel({
             <div>
               <div className="flex items-center gap-1.5">
                 <h2 className="text-sm font-black tracking-wide text-amber-300">
-                  VIP JACKAROO · جاکۆرۆ
+                  VIP JACKAROO · {tr('جاکۆرۆ', 'Jackaroo')}
                 </h2>
                 {activeGame && (
                   <span className="rounded-full bg-amber-500/20 border border-amber-400/30 px-2 py-0.2 text-[9px] font-bold text-amber-300">
-                    {activeGame.maxPlayers} کەسی
+                    {activeGame.maxPlayers} {tr('کەسی', 'Players')}
                   </span>
                 )}
               </div>
               <p className="text-[10px] text-slate-400">
-                یاری ئەسڵی جاکۆرۆ بە تەختە و کارتی تایبەت (٢ یان ٣ یان ٤ یاریزان)
+                {tr('یاری ئەسڵی جاکۆرۆ بە تەختە و کارتی تایبەت (٢ یان ٣ یان ٤ یاریزان)', 'Authentic Jackaroo card & board game (2, 3 or 4 players)')}
               </p>
             </div>
           </div>
@@ -325,15 +327,15 @@ export default function JackarooGamePanel({
                 onClick={handleCloseTable}
                 disabled={busy}
                 className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-2.5 text-[10px] font-black text-rose-300 hover:bg-rose-500/25 active:scale-95"
-                title="هەڵوەشاندنەوەی یاری (Cancel Game)"
+                title={tr("هەڵوەشاندنەوەی یاری (Cancel Game)", "Cancel Game")}
               >
-                <span>داخستنی یاری</span>
+                <span>{tr('داخستنی یاری', 'Close Game')}</span>
               </button>
             )}
             <button
               onClick={() => setShowRules((v) => !v)}
               className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-amber-300 hover:bg-white/10"
-              title="یاساکانی جاکۆرۆ"
+              title={tr("یاساکانی جاکۆرۆ", "Jackaroo Rules")}
             >
               <HelpCircle className="h-4 w-4" />
             </button>
@@ -355,13 +357,13 @@ export default function JackarooGamePanel({
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-b border-amber-500/20 bg-amber-950/30 px-4 py-2.5 text-[11px] leading-relaxed text-amber-100"
             >
-              <p className="font-bold text-amber-300 mb-1">🃏 یاساکانی کارتەکانی جاکۆرۆ:</p>
+              <p className="font-bold text-amber-300 mb-1">{tr('🃏 یاساکانی کارتەکانی جاکۆرۆ:', '🃏 Jackaroo Card Rules:')}</p>
               <ul className="space-y-0.5 text-[10px] text-slate-200">
-                <li>• <strong>A (ئەس)</strong>: هێنانە دەرەوەی مۆرە لە بنکە، یان ١ یان ١١ هەنگاو.</li>
-                <li>• <strong>K (شا)</strong>: هێنانە دەرەوەی مۆرە لە بنکە، یان ١٣ هەنگاو.</li>
-                <li>• <strong>J (جاک)</strong>: گۆڕینەوەی مۆرەیەک لەگەڵ مۆرەی بەرامبەر، یان ١١ هەنگاو.</li>
-                <li>• <strong>4 (چوار)</strong>: گەڕانەوە بۆ دواوە بە ٤ هەنگاو (-4) بۆ نزیکبوونەوە لە ماڵ!</li>
-                <li>• <strong>Q (١٢ هەنگاو)</strong> · <strong>10 (١٠ هەنگاو)</strong> · <strong>7 (٧ هەنگاو)</strong> · <strong>5 (٥ هەنگاو)</strong>.</li>
+                <li>• <strong>A (Ace)</strong>: {tr('هێنانە دەرەوەی مۆرە لە بنکە، یان ١ یان ١١ هەنگاو.', 'Exit base, or 1 or 11 steps forward.')}</li>
+                <li>• <strong>K (King)</strong>: {tr('هێنانە دەرەوەی مۆرە لە بنکە، یان ١٣ هەنگاو.', 'Exit base, or 13 steps forward.')}</li>
+                <li>• <strong>J (Jack)</strong>: {tr('گۆڕینەوەی مۆرەیەک لەگەڵ مۆرەی بەرامبەر، یان ١١ هەنگاو.', 'Swap marble with opponent, or 11 steps.')}</li>
+                <li>• <strong>4 (Four)</strong>: {tr('گەڕانەوە بۆ دواوە بە ٤ هەنگاو (-4) بۆ نزیکبوونەوە لە ماڵ!', 'Move 4 steps backward (-4) to get close to home!')}</li>
+                <li>• <strong>{tr('Q (١٢ هەنگاو) · 10 (١٠ هەنگاو) · 7 (٧ هەنگاو) · 5 (٥ هەنگاو).', 'Q (12 steps) · 10 (10 steps) · 7 (7 steps) · 5 (5 steps).')}</strong></li>
               </ul>
             </motion.div>
           )}
@@ -390,16 +392,16 @@ export default function JackarooGamePanel({
                 <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-2xl shadow-lg shadow-amber-500/30">
                   🃏
                 </div>
-                <h3 className="text-base font-black text-white">مێزی نوێی جاکۆرۆ دروست بکە</h3>
+                <h3 className="text-base font-black text-white">{tr('مێزی نوێی جاکۆرۆ دروست بکە', 'Create New Jackaroo Table')}</h3>
                 <p className="mt-1 text-xs text-slate-400">
-                  ژمارەی یاریزانەکان هەڵبژێرە (٢ کەس، ٣ کەس، یان ٤ کەس) و دەست بە یاری بکە!
+                  {tr('ژمارەی یاریزانەکان هەڵبژێرە (٢ کەس، ٣ کەس، یان ٤ کەس) و دەست بە یاری بکە!', 'Choose number of players (2, 3 or 4) and start playing!')}
                 </p>
               </div>
 
               {/* Player Count Selector: 2, 3, or 4 Players */}
               <div>
                 <label className="mb-2 block text-xs font-bold text-slate-300">
-                  ژمارەی یاریزانەکان هەڵبژێرە:
+                  {tr('ژمارەی یاریزانەکان هەڵبژێرە:', 'Select number of players:')}
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
                   {([2, 3, 4] as const).map((cnt) => {
@@ -416,8 +418,8 @@ export default function JackarooGamePanel({
                         }`}
                       >
                         <Users className="h-5 w-5 mb-1" />
-                        <span className="text-sm font-black">{cnt} کەس</span>
-                        <span className="text-[10px] opacity-75">{cnt} یاریزان</span>
+                        <span className="text-sm font-black">{cnt} {tr('کەس', 'Players')}</span>
+                        <span className="text-[10px] opacity-75">{cnt} {tr('یاریزان', 'Players')}</span>
                       </button>
                     );
                   })}
@@ -427,7 +429,7 @@ export default function JackarooGamePanel({
               {/* Coin Wager Selector */}
               <div>
                 <label className="mb-2 block text-xs font-bold text-slate-300">
-                  بڕی گرەوی کۆین (بۆ هەر یاریزانێک):
+                  {tr('بڕی گرەوی کۆین (بۆ هەر یاریزانێک):', 'Coin Bet Amount (Per Player):')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {BET_OPTIONS.map((bet) => {
@@ -444,7 +446,7 @@ export default function JackarooGamePanel({
                         }`}
                       >
                         <Coins className="h-3.5 w-3.5 text-amber-400" />
-                        <span>{bet === 0 ? 'بێبەرامبەر (0)' : bet.toLocaleString()}</span>
+                        <span>{bet === 0 ? tr('بێبەرامبەر (0)', 'Free (0)') : bet.toLocaleString()}</span>
                       </button>
                     );
                   })}
@@ -457,7 +459,7 @@ export default function JackarooGamePanel({
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 py-3.5 text-sm font-black text-black shadow-xl shadow-amber-500/25 transition-transform active:scale-95 disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4" />
-                <span>کردنەوەی مێزی جاکۆرۆ ({selectedMaxPlayers} کەسی)</span>
+                <span>{tr('کردنەوەی مێزی جاکۆرۆ', 'Open Jackaroo Table')} ({selectedMaxPlayers} {tr('کەسی', 'Players')})</span>
               </button>
             </div>
           )}
@@ -468,15 +470,15 @@ export default function JackarooGamePanel({
               <div className="flex items-center justify-between rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
                 <div>
                   <p className="text-xs font-black text-amber-300">
-                    چاوەڕوانی یاریزانەکان ({activeGame.players.length} / {activeGame.maxPlayers})
+                    {tr('چاوەڕوانی یاریزانەکان', 'Waiting for Players')} ({activeGame.players.length} / {activeGame.maxPlayers})
                   </p>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    خەڵاتی گشتی: <strong className="text-amber-400">{activeGame.totalPot} کۆین</strong>
+                    {tr('خەڵاتی گشتی:', 'Total Pot:')} <strong className="text-amber-400">{activeGame.totalPot} {tr('کۆین', 'Coins')}</strong>
                   </p>
                 </div>
                 <div className="flex items-center gap-1 rounded-xl bg-black/40 px-3 py-1.5 text-xs font-bold text-amber-300">
                   <Coins className="h-4 w-4 text-amber-400" />
-                  <span>گرەو: {activeGame.betAmount}</span>
+                  <span>{tr('گرەو:', 'Bet:')} {activeGame.betAmount}</span>
                 </div>
               </div>
 
@@ -506,10 +508,10 @@ export default function JackarooGamePanel({
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold text-white">
-                          {p ? p.username : 'بەتاڵە...'}
+                          {p ? p.username : tr('بەتاڵە...', 'Empty...')}
                         </p>
                         <p className={`text-[10px] font-semibold ${meta.text}`}>
-                          ڕەنگی {meta.kurdishName}
+                          {tr('ڕەنگی', 'Color')} {isRTL ? meta.kurdishName : meta.name}
                         </p>
                       </div>
                     </div>
@@ -527,7 +529,7 @@ export default function JackarooGamePanel({
                       className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3.5 text-sm font-black text-black shadow-lg shadow-emerald-500/25 active:scale-95 disabled:opacity-50"
                     >
                       <Play className="h-4 w-4 fill-black" />
-                      <span>بەشداریکردن لە یاری ({activeGame.betAmount} کۆین)</span>
+                      <span>{tr('بەشداریکردن لە یاری', 'Join Game')} ({activeGame.betAmount} {tr('کۆین', 'Coins')})</span>
                     </button>
                   )}
 
@@ -540,7 +542,7 @@ export default function JackarooGamePanel({
                     >
                       <Flame className="h-4 w-4" />
                       <span>
-                        دەستپێکردن ئێستا بە {activeGame.players.length} یاریزان
+                        {tr('دەستپێکردن ئێستا بە', 'Start now with')} {activeGame.players.length} {tr('یاریزان', 'Players')}
                       </span>
                     </button>
                   )}
@@ -551,7 +553,7 @@ export default function JackarooGamePanel({
                     disabled={busy}
                     className="w-full rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20"
                   >
-                    هەڵوەشاندنەوەی مێز و گەڕاندنەوەی کۆین
+                    {tr('هەڵوەشاندنەوەی مێز و گەڕاندنەوەی کۆین', 'Cancel table & refund coins')}
                   </button>
                 )}
               </div>
@@ -569,10 +571,10 @@ export default function JackarooGamePanel({
                       {activeGame.lastActionText}
                     </p>
                     <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                      <span>گەڕی #{activeGame.roundNumber}</span>
+                      <span>{tr('گەڕی', 'Round')} #{activeGame.roundNumber}</span>
                       <span>·</span>
                       <span className="text-amber-400 font-bold">
-                        خەڵات: {activeGame.totalPot} کۆین
+                        {tr('خەڵات:', 'Pot:')} {activeGame.totalPot} {tr('کۆین', 'Coins')}
                       </span>
                     </div>
                   </div>
@@ -619,7 +621,7 @@ export default function JackarooGamePanel({
                           </span>
                         </div>
                         <span className="text-[9px] text-slate-400">
-                          ماڵ: {homeCount}/4 · کارت: {p.hand.length}
+                          {tr('ماڵ:', 'Home:')} {homeCount}/4 · {tr('کارت:', 'Cards:')} {p.hand.length}
                         </span>
                       </div>
                     );
@@ -868,17 +870,17 @@ export default function JackarooGamePanel({
                   <div className="rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 p-4 text-center">
                     <Trophy className="mx-auto h-8 w-8 text-amber-400 mb-1" />
                     <h4 className="text-sm font-black text-white">
-                      🏆 {activeGame.winnerUsername} یاری جاکۆرۆی بردەوە!
+                      🏆 {activeGame.winnerUsername} {tr('یاری جاکۆرۆی بردەوە!', 'won the Jackaroo match!')}
                     </h4>
                     <p className="text-xs text-amber-300 mt-0.5">
-                      خەڵاتی وەرگیراو: {activeGame.totalPot} کۆین
+                      {tr('خەڵاتی وەرگیراو:', 'Prize Won:')} {activeGame.totalPot} {tr('کۆین', 'Coins')}
                     </p>
                     <button
                       onClick={handleCloseTable}
                       className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2 text-xs font-black text-black"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
-                      <span>یاری نوێ</span>
+                      <span>{tr('یاری نوێ', 'New Game')}</span>
                     </button>
                   </div>
                 )}
@@ -890,11 +892,11 @@ export default function JackarooGamePanel({
                       <span className="text-xs font-black text-white">
                         {isMyTurn ? (
                           <span className="text-emerald-400 animate-pulse">
-                            🟢 نۆرەی تۆیە! کارتێک هەڵبژێرە و کرتە لە مۆرەکەت بکە
+                            🟢 {tr('نۆرەی تۆیە! کارتێک هەڵبژێرە و کرتە لە مۆرەکەت بکە', 'Your turn! Select a card and tap your marble')}
                           </span>
                         ) : (
                           <span className="text-slate-400">
-                            چاوەڕوانی نۆرەی{' '}
+                            {tr('چاوەڕوانی نۆرەی', 'Waiting for turn of')}{' '}
                             {activeGame.players[activeGame.currentTurnIndex]?.username}...
                           </span>
                         )}
@@ -907,7 +909,7 @@ export default function JackarooGamePanel({
                           className="flex items-center gap-1 rounded-lg border border-rose-500/40 bg-rose-500/15 px-2.5 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-500/25 active:scale-95"
                         >
                           <Flame className="h-3 w-3 text-rose-400" />
-                          <span>سووتاندنی کارت</span>
+                          <span>{tr('سووتاندنی کارت', 'Burn Card')}</span>
                         </button>
                       )}
                     </div>
@@ -924,7 +926,7 @@ export default function JackarooGamePanel({
                               : 'text-slate-300 hover:bg-white/5'
                           }`}
                         >
-                          چوونە دەرەوە / +1 هەنگاو
+                          {tr('چوونە دەرەوە / +1 هەنگاو', 'Exit Base / +1 Step')}
                         </button>
                         <button
                           type="button"
@@ -935,7 +937,7 @@ export default function JackarooGamePanel({
                               : 'text-slate-300 hover:bg-white/5'
                           }`}
                         >
-                          +11 هەنگاو بۆ پێشەوە
+                          {tr('+11 هەنگاو بۆ پێشەوە', '+11 Steps Forward')}
                         </button>
                       </div>
                     )}
@@ -954,7 +956,7 @@ export default function JackarooGamePanel({
                               : 'text-slate-300 hover:bg-white/5'
                           }`}
                         >
-                          +11 هەنگاو بۆ پێشەوە
+                          {tr('+11 هەنگاو بۆ پێشەوە', '+11 Steps Forward')}
                         </button>
                         <button
                           type="button"
@@ -966,7 +968,7 @@ export default function JackarooGamePanel({
                           }`}
                         >
                           <ArrowLeftRight className="h-3 w-3" />
-                          <span>گۆڕینەوەی مۆرە (Swap)</span>
+                          <span>{tr('گۆڕینەوەی مۆرە (Swap)', 'Swap Marble')}</span>
                         </button>
                       </div>
                     )}
@@ -974,8 +976,8 @@ export default function JackarooGamePanel({
                     {jackSwapMode && isMyTurn && (
                       <p className="text-center text-[10px] font-semibold text-violet-300">
                         {selectedMyMarbleForSwap === null
-                          ? '١) سەرەتا کرتە لە مۆرەی خۆت لەسەر ڕێڕەوەکە بکە'
-                          : '٢) ئێستا کرتە لە مۆرەی بەرامبەر بکە بۆ گۆڕینەوە!'}
+                          ? tr('١) سەرەتا کرتە لە مۆرەی خۆت لەسەر ڕێڕەوەکە بکە', '1) First tap your own marble on the track')
+                          : tr('٢) ئێستا کرتە لە مۆرەی بەرامبەر بکە بۆ گۆڕینەوە!', '2) Now tap opponent marble to swap!')}
                       </p>
                     )}
 
@@ -1031,8 +1033,9 @@ export default function JackarooGamePanel({
 
                     {selectedCard && (
                       <p className="text-center text-[10px] text-amber-300/90">
-                        {CARD_POWER_HINT[selectedCard.rank] ||
-                          `${selectedCard.rank} هەنگاو بۆ پێشەوە`}
+                        {CARD_POWER_HINT[selectedCard.rank]
+                          ? tr(CARD_POWER_HINT[selectedCard.rank].ku, CARD_POWER_HINT[selectedCard.rank].en)
+                          : `${selectedCard.rank} ${tr('هەنگاو بۆ پێشەوە', 'steps forward')}`}
                       </p>
                     )}
                   </div>

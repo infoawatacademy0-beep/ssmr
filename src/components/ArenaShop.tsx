@@ -166,7 +166,7 @@ export default function ArenaShop({ currentUser, onClose }: ArenaShopProps) {
                       </div>
                       {item.isLimited && (
                         <span className="rounded-md bg-rose-500/15 border border-rose-500/20 px-2 py-0.5 text-[9px] font-bold text-rose-400 uppercase">
-                          دیاریکراو
+                          {tr('دیاریکراو', 'Limited')}
                         </span>
                       )}
                     </div>

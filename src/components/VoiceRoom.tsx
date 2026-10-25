@@ -627,8 +627,8 @@ export default function VoiceRoom() {
         >
           <Radio className="h-7 w-7 text-white" />
         </motion.div>
-        <p className="text-sm font-semibold text-white">پەیوەستبوون بە ژووری دەنگی…</p>
-        <p className="mt-1 text-xs text-slate-500">ئامادەکردنی کەناڵەکانی دەنگ و مایکرۆفۆن</p>
+        <p className="text-sm font-semibold text-white">{tr('پەیوەستبوون بە ژووری دەنگی…', 'Connecting to voice room…')}</p>
+        <p className="mt-1 text-xs text-slate-500">{tr('ئامادەکردنی کەناڵەکانی دەنگ و مایکرۆفۆن', 'Setting up audio & microphone channels')}</p>
       </div>
     );
   }
@@ -639,13 +639,13 @@ export default function VoiceRoom() {
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-500/10 text-rose-400">
           <PhoneOff className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold text-white">ژوورەکە بەردەست نییە</h2>
-        <p className="mt-2 text-sm text-slate-400 max-w-xs">{error || 'ئەم ژوورە دەنگییە داخراوە یان بوونی نییە.'}</p>
+        <h2 className="text-xl font-bold text-white">{tr('ژوورەکە بەردەست نییە', 'Room Not Available')}</h2>
+        <p className="mt-2 text-sm text-slate-400 max-w-xs">{error || tr('ئەم ژوورە دەنگییە داخراوە یان بوونی نییە.', 'This voice arena is closed or no longer exists.')}</p>
         <button
           onClick={() => navigate('/')}
           className="mt-6 rounded-2xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/30 transition-transform active:scale-95"
         >
-          گەڕانەوە بۆ سەرەتا
+          {tr('گەڕانەوە بۆ سەرەتا', 'Back to Dashboard')}
         </button>
       </div>
     );
@@ -706,7 +706,7 @@ export default function VoiceRoom() {
         <div
           onClick={() => room.hostId && setSelectedProfileUid(room.hostId)}
           className="flex cursor-pointer items-center gap-2 min-w-0 group"
-          title="بینینی پڕۆفایلی خاوەنی ژوور"
+          title={tr('بینینی پڕۆفایلی خاوەنی ژوور', 'View Host Profile')}
         >
           <div
             className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 font-bold shadow-md text-xs ${
@@ -736,7 +736,7 @@ export default function VoiceRoom() {
               {room.roomName}
             </h1>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <span className="truncate max-w-[110px]">خاوەن: <strong className="text-violet-400">{room.hostName}</strong></span>
+              <span className="truncate max-w-[110px]">{tr('خاوەن', 'Host')}: <strong className="text-violet-400">{room.hostName}</strong></span>
               {(hostIsVerified || vipUsersMap[room.hostId]) && (
                 <span title="Verified VIP Host" className="inline-flex items-center gap-0.5 shrink-0">
                   <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
@@ -755,7 +755,7 @@ export default function VoiceRoom() {
           {/* Live Audience Counter */}
           <div
             className="flex h-8 items-center gap-1 rounded-xl bg-white/[0.04] border border-white/[0.06] px-2 text-xs font-bold text-slate-300"
-            title="گوێگرانی ژوور"
+            title={tr('گوێگرانی ژوور', 'Audience')}
           >
             <Users className="h-3.5 w-3.5 text-emerald-400" />
             <span className="text-[11px] text-white">{audience.length}</span>
@@ -765,10 +765,10 @@ export default function VoiceRoom() {
           <button
             onClick={() => setIsInviteModalOpen(true)}
             className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/20"
-            title="بانگهێشتکردنی هاوڕێیان"
+            title={tr('بانگهێشتکردنی هاوڕێیان', 'Invite Friends')}
           >
             <UserPlus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">بانگهێشت</span>
+            <span className="hidden sm:inline">{tr('بانگهێشت', 'Invite')}</span>
           </button>
 
           {/* Music Player Button (For Host & Members) */}
@@ -787,7 +787,7 @@ export default function VoiceRoom() {
                   ? 'border-violet-400 bg-violet-500/25 text-violet-200'
                   : 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20'
               }`}
-              title="مۆدی گۆرانی (Music Mode)"
+              title={tr('مۆدی گۆرانی (Music Mode)', 'Music Mode')}
             >
               <Music className="h-3.5 w-3.5" />
             </button>
@@ -800,14 +800,14 @@ export default function VoiceRoom() {
                 try {
                   await updateRoomPassword(room.id, null);
                 } catch (err: any) {
-                  alert(err.message || 'نەتوانرا پاسۆرد لاببرێت');
+                  alert(err.message || tr('نەتوانرا پاسۆرد لاببرێت', 'Failed to remove password'));
                 }
               }}
               className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-2 text-[10px] font-black text-rose-300 transition-colors hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300"
-              title="کرتە بکە بۆ لابردنی پاسۆردی ژوورەکە (Remove Room Password)"
+              title={tr('کرتە بکە بۆ لابردنی پاسۆردی ژوورەکە (Remove Room Password)', 'Remove Room Password')}
             >
               <Lock className="h-3 w-3" />
-              <span className="hidden xs:inline">لابردنی پاسۆرد</span>
+              <span className="hidden xs:inline">{tr('لابردنی پاسۆرد', 'Remove Password')}</span>
             </button>
           )}
 
@@ -819,7 +819,7 @@ export default function VoiceRoom() {
               title="Host Controls"
             >
               <Shield className="h-3.5 w-3.5 text-amber-400" />
-              <span className="hidden sm:inline">پانێڵ</span>
+              <span className="hidden sm:inline">{tr('پانێڵ', 'Controls')}</span>
             </button>
           )}
 
@@ -827,16 +827,16 @@ export default function VoiceRoom() {
           {(isHost || user.isAdmin) && (
             <button
               onClick={async () => {
-                if (!window.confirm('ئایا دڵنیایت دەتەوێت ژوورەکە بە تەواوی بسڕیتەوە؟')) return;
+                if (!window.confirm(tr('ئایا دڵنیایت دەتەوێت ژوورەکە بە تەواوی بسڕیتەوە؟', 'Are you sure you want to permanently delete this room?'))) return;
                 try {
                   await deleteRoom(room.id);
                   navigate('/');
                 } catch (err: any) {
-                  alert(err.message || 'نەتوانرا ژوورەکە بسڕدرێتەوە');
+                  alert(err.message || tr('نەتوانرا ژوورەکە بسڕدرێتەوە', 'Failed to delete room'));
                 }
               }}
               className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/40 bg-rose-500/15 text-rose-300 transition-colors hover:bg-rose-500/30"
-              title="سڕینەوەی ژوورەکە (Delete Room)"
+              title={tr('سڕینەوەی ژوورەکە (Delete Room)', 'Delete Room')}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -846,7 +846,7 @@ export default function VoiceRoom() {
           <button
             onClick={handleShareRoom}
             className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-300 transition-colors hover:bg-white/[0.08]"
-            title="کۆپیکردنی بەستەری ژوور"
+            title={tr('کۆپیکردنی بەستەری ژوور', 'Copy Room Link')}
           >
             {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
           </button>
@@ -855,7 +855,7 @@ export default function VoiceRoom() {
           <button
             onClick={() => setIsRoomReportOpen(true)}
             className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-400 transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"
-            title="ڕاپۆرتکردنی ئەم ژوورە"
+            title={tr('ڕاپۆرتکردنی ئەم ژوورە', 'Report Room')}
           >
             <ShieldAlert className="h-3.5 w-3.5" />
           </button>
@@ -904,7 +904,7 @@ export default function VoiceRoom() {
             <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-300">
               <span>🌻</span>
               <span>
-                کۆی دیاری: {formatCoinsK(Object.values(seatGiftCoins).reduce((a, b) => a + b, 0))}
+                {tr('کۆی دیاری', 'Total Gifts')}: {formatCoinsK(Object.values(seatGiftCoins).reduce((a, b) => a + b, 0))}
               </span>
             </span>
             <div className="flex items-center gap-2">
@@ -944,7 +944,7 @@ export default function VoiceRoom() {
                   })}
               </div>
               <span className="text-[10px] text-slate-500">
-                {room.seats.filter((s) => s.userId).length} / ٨ دانیشتوو
+                {room.seats.filter((s) => s.userId).length} / {tr('٨ دانیشتوو', '8 Seated')}
               </span>
             </div>
           </div>
@@ -1136,9 +1136,9 @@ export default function VoiceRoom() {
                           ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
                           : 'text-slate-500 font-medium'
                       }`}
-                      title={isOccupied ? seat.username || `کورسی ${seat.seatNo}` : `کورسی ${seat.seatNo}`}
+                      title={isOccupied ? seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}` : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
                     >
-                      {isOccupied ? (isCurrentUser ? `${seat.username} (تۆ)` : seat.username) : `کورسی ${seat.seatNo}`}
+                      {isOccupied ? (isCurrentUser ? `${seat.username} (${tr('تۆ', 'You')})` : seat.username) : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
                     </span>
                   </div>
                 </div>
@@ -1163,13 +1163,13 @@ export default function VoiceRoom() {
                     </div>
                     <div>
                       <p className="text-xs font-black text-white flex items-center gap-1.5">
-                        <span>VIP JACKAROO · جاکۆرۆ</span>
+                        <span>VIP JACKAROO · {tr('جاکۆرۆ', 'Jackaroo')}</span>
                         <span className="rounded bg-amber-400/20 px-1.5 py-0.2 text-[8px] text-amber-300 font-bold uppercase">
                           {activeJackarooGame.maxPlayers}P · {activeJackarooGame.status}
                         </span>
                       </p>
                       <p className="text-[10px] text-amber-200/90">
-                        {activeJackarooGame.players.length}/{activeJackarooGame.maxPlayers} یاریزان · خەڵات: {formatCoinsK(activeJackarooGame.totalPot)} کۆین
+                        {activeJackarooGame.players.length}/{activeJackarooGame.maxPlayers} {tr('یاریزان', 'Players')} · {tr('خەڵات', 'Prize')}: {formatCoinsK(activeJackarooGame.totalPot)} {tr('کۆین', 'Coins')}
                       </p>
                     </div>
                   </div>
@@ -1187,13 +1187,13 @@ export default function VoiceRoom() {
                           }
                         }}
                         className="rounded-lg border border-rose-500/40 bg-rose-500/20 px-2 py-1 text-[10px] font-black text-rose-300 hover:bg-rose-500/30"
-                        title="هەڵوەشاندنەوەی یاری (Cancel Game)"
+                        title={tr('هەڵوەشاندنەوەی یاری (Cancel Game)', 'Cancel Game')}
                       >
-                        داخستن ✕
+                        {tr('داخستن', 'Close')} ✕
                       </button>
                     )}
                     <div className="flex items-center gap-1 text-[11px] font-black text-amber-400">
-                      <span>{activeJackarooGame.status === 'waiting' ? 'بەشداری بکە' : 'بینینی یاری'}</span>
+                      <span>{activeJackarooGame.status === 'waiting' ? tr('بەشداری بکە', 'Join Game') : tr('بینینی یاری', 'View Game')}</span>
                       <Flame className="h-3.5 w-3.5" />
                     </div>
                   </div>
@@ -1247,23 +1247,23 @@ export default function VoiceRoom() {
           <div className="flex items-center justify-between pb-2">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-                چاتی ڕاستەوخۆی ژوور
+                {tr('چاتی ڕاستەوخۆی ژوور', 'Live Room Chat')}
               </span>
               <button
                 type="button"
                 onClick={() => setIsChatExpanded((v) => !v)}
                 className="flex items-center gap-1 rounded-lg border border-violet-500/35 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300 transition hover:bg-violet-500/25 active:scale-95"
-                title={isChatExpanded ? 'بچووککردنەوەی چات' : 'گەورەکردنی چات'}
+                title={isChatExpanded ? tr('بچووککردنەوەی چات', 'Collapse Chat') : tr('گەورەکردنی چات', 'Expand Chat')}
               >
                 {isChatExpanded ? (
                   <>
                     <Minimize2 className="h-3 w-3" />
-                    <span>بچووککردنەوە</span>
+                    <span>{tr('بچووککردنەوە', 'Collapse')}</span>
                   </>
                 ) : (
                   <>
                     <Maximize2 className="h-3 w-3" />
-                    <span>گەورەکردن</span>
+                    <span>{tr('گەورەکردن', 'Expand')}</span>
                   </>
                 )}
               </button>
@@ -1280,14 +1280,14 @@ export default function VoiceRoom() {
                     }
                   }}
                   className="flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-300 transition hover:bg-rose-500/25 active:scale-95"
-                  title="سڕینەوەی چات (Clear Chat)"
+                  title={tr('سڕینەوەی چات (Clear Chat)', 'Clear Chat')}
                 >
                   <Trash2 className="h-3 w-3" />
-                  <span>سڕینەوەی چات</span>
+                  <span>{tr('سڕینەوەی چات', 'Clear Chat')}</span>
                 </button>
               )}
               <span className="text-[10px] text-slate-500">
-                {room.activeChat.length} نامە
+                {room.activeChat.length} {tr('نامە', 'Messages')}
               </span>
             </div>
           </div>
@@ -1299,7 +1299,7 @@ export default function VoiceRoom() {
           >
             {room.activeChat.length === 0 ? (
               <div className="flex h-full items-center justify-center text-slate-500 text-center">
-                <p>هێشتا هیچ نامەیەک نییە.<br />یەکەم کەس بە کە سڵاو بنێرێت!</p>
+                <p>{tr('هێشتا هیچ نامەیەک نییە.', 'No messages yet.')}<br />{tr('یەکەم کەس بە کە سڵاو بنێرێت!', 'Be the first to say hi!')}</p>
               </div>
             ) : (
               room.activeChat.map((msg) => {
@@ -1355,7 +1355,7 @@ export default function VoiceRoom() {
                           setSelectedProfileUid(msg.senderId);
                         }
                       }}
-                      title={`بینینی پڕۆفایل و چاتکردن لەگەڵ ${msg.senderName}`}
+                      title={tr(`بینینی پڕۆفایل و چاتکردن لەگەڵ ${msg.senderName}`, `View profile & chat with ${msg.senderName}`)}
                       className={`relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow ${
                         isSenderVip
                           ? 'border-2 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.45)]'
@@ -1393,7 +1393,7 @@ export default function VoiceRoom() {
                             isSenderVip ? 'text-amber-300' : 'text-slate-400 hover:text-white'
                           }`}
                         >
-                          {isMe ? 'تۆ' : msg.senderName}
+                          {isMe ? tr('تۆ', 'You') : msg.senderName}
                         </button>
                         {isSenderVip && (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-red-500/25 border border-amber-400/50 px-1.5 py-0.2 text-[8px] font-black text-amber-300">
@@ -1403,7 +1403,7 @@ export default function VoiceRoom() {
                         )}
                         {isHostSender && (
                           <span className="flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.2 text-[8px] font-bold text-amber-300">
-                            <Crown className="h-2 w-2" /> خاوەن
+                            <Crown className="h-2 w-2" /> {tr('خاوەن', 'Host')}
                           </span>
                         )}
                       </div>
@@ -1457,7 +1457,7 @@ export default function VoiceRoom() {
             <button
               type="button"
               onClick={() => setIsChatExpanded((v) => !v)}
-              title={isChatExpanded ? 'بچووککردنەوەی چات' : 'گەورەکردنی چات'}
+              title={isChatExpanded ? tr('بچووککردنەوەی چات', 'Collapse Chat') : tr('گەورەکردنی چات', 'Expand Chat')}
               className={`room-nav-btn ${isChatExpanded ? 'room-nav-btn-active' : ''}`}
             >
               <MessageSquare className="h-[22px] w-[22px]" strokeWidth={2.2} />
@@ -1472,7 +1472,7 @@ export default function VoiceRoom() {
                 setGiftRecipient(null);
                 setIsGiftModalOpen(true);
               }}
-              title="دیاری (Gifts)"
+              title={tr('دیاری (Gifts)', 'Gifts')}
               className="room-nav-btn !bg-transparent !border-transparent"
             >
               <motion.img
@@ -1491,7 +1491,7 @@ export default function VoiceRoom() {
             <button
               type="button"
               onClick={() => setIsRoomMenuOpen(true)}
-              title="زیاتر"
+              title={tr('زیاتر', 'More')}
               className={`room-nav-btn relative ${isRoomMenuOpen ? 'room-nav-btn-active' : ''}`}
             >
               <Menu className="h-[22px] w-[22px]" strokeWidth={2.2} />
@@ -1542,7 +1542,7 @@ export default function VoiceRoom() {
           <button
             type="button"
             onClick={() => setIsEmojiPickerOpen(true)}
-            title="ئیمۆجی جوڵاو"
+            title={tr('ئیمۆجی جوڵاو', 'Animated Emoji')}
             className={`room-nav-btn ${isEmojiPickerOpen ? 'room-nav-btn-active' : ''}`}
           >
             <Smile className="h-[24px] w-[24px]" strokeWidth={2.2} />
@@ -1554,12 +1554,12 @@ export default function VoiceRoom() {
               type="button"
               onClick={() => {
                 if (!mySeat) {
-                  alert('سەرەتا لەسەر کورسییەک دابنیشە بۆ قسەکردن');
+                  alert(tr('سەرەتا لەسەر کورسییەک دابنیشە بۆ قسەکردن', 'Please take a seat first to speak'));
                   return;
                 }
                 handleToggleMyMute();
               }}
-              title={!mySeat ? 'لەسەر کورسی نیت' : mySeat.isMuted ? 'کردنەوەی مایک' : 'داخستنی مایک'}
+              title={!mySeat ? tr('لەسەر کورسی نیت', 'Not in a seat') : mySeat.isMuted ? tr('کردنەوەی مایک', 'Unmute Mic') : tr('داخستنی مایک', 'Mute Mic')}
               className={`room-nav-btn ${
                 mySeat && !mySeat.isMuted
                   ? '!border-emerald-400/50 !bg-emerald-500/25 !text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.45)]'
@@ -1579,7 +1579,7 @@ export default function VoiceRoom() {
             <button
               type="button"
               onClick={() => setIsSpeakerMuted((v) => !v)}
-              title={isSpeakerMuted ? 'کردنەوەی دەنگ' : 'بێدەنگکردنی ژوور'}
+              title={isSpeakerMuted ? tr('کردنەوەی دەنگ', 'Unmute Speaker') : tr('بێدەنگکردنی ژوور', 'Mute Room Audio')}
               className={`room-nav-btn ${isSpeakerMuted ? '!border-rose-400/40 !bg-rose-500/20 !text-rose-300' : ''}`}
             >
               {isSpeakerMuted ? (
@@ -1613,7 +1613,7 @@ export default function VoiceRoom() {
                   {
                     key: 'voice',
                     emoji: mySeat?.voiceEffect === 'venom' ? '👹' : mySeat?.voiceEffect === 'child' ? '👶' : '🎙️',
-                    label: 'گۆڕینی دەنگ',
+                    label: tr('گۆڕینی دەنگ', 'Voice FX'),
                     show: Boolean(mySeat),
                     onClick: () => setIsVoiceChangerOpen(true),
                   },
@@ -1627,35 +1627,35 @@ export default function VoiceRoom() {
                   {
                     key: 'jackaroo',
                     emoji: '🎮',
-                    label: 'جاکۆرۆ',
+                    label: tr('جاکۆرۆ', 'Jackaroo'),
                     show: true,
                     onClick: () => setIsJackarooOpen(true),
                   },
                   {
                     key: 'invite',
                     emoji: '📨',
-                    label: 'بانگهێشت',
+                    label: tr('بانگهێشت', 'Invite'),
                     show: true,
                     onClick: () => setIsInviteModalOpen(true),
                   },
                   {
                     key: 'share',
                     emoji: '🔗',
-                    label: 'هاوبەشکردن',
+                    label: tr('هاوبەشکردن', 'Share'),
                     show: true,
                     onClick: () => handleShareRoom(),
                   },
                   {
                     key: 'leave-seat',
                     emoji: '🪑',
-                    label: 'هەستان لە کورسی',
+                    label: tr('هەستان لە کورسی', 'Leave Seat'),
                     show: Boolean(mySeat),
                     onClick: () => handleLeaveMySeat(),
                   },
                   {
                     key: 'leave-room',
                     emoji: '🚪',
-                    label: 'چوونەدەرەوە',
+                    label: tr('چوونەدەرەوە', 'Exit Room'),
                     show: true,
                     onClick: () => handleLeaveRoom(),
                   },
@@ -1748,7 +1748,7 @@ export default function VoiceRoom() {
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400">Seat #{selectedSeat.seatNo} · کرتە بکە بۆ پڕۆفایل</p>
+                    <p className="text-[11px] text-slate-400">Seat #{selectedSeat.seatNo} · {tr('کرتە بکە بۆ پڕۆفایل', 'Click for profile')}</p>
                   </div>
                 </div>
                 <button
@@ -1770,7 +1770,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.05] py-3 text-xs font-semibold text-white transition-colors hover:bg-white/[0.1]"
                     >
                       {selectedSeat.isMuted ? <Mic className="h-4 w-4 text-emerald-400" /> : <MicOff className="h-4 w-4 text-rose-400" />}
-                      {selectedSeat.isMuted ? 'کردنەوەی مایکەکەم' : 'بێدەنگکردنی مایکەکەم'}
+                      {selectedSeat.isMuted ? tr('کردنەوەی مایکەکەم', 'Unmute my mic') : tr('بێدەنگکردنی مایکەکەم', 'Mute my mic')}
                     </button>
 
                     <button
@@ -1778,7 +1778,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 py-3 text-xs font-semibold text-rose-300 transition-colors hover:bg-rose-500/20"
                     >
                       <PhoneOff className="h-4 w-4" />
-                      هەستان لەسەر کورسی
+                      {tr('هەستان لەسەر کورسی', 'Leave Seat')}
                     </button>
                   </>
                 ) : (
@@ -1787,7 +1787,7 @@ export default function VoiceRoom() {
                     {user.isAdmin && selectedSeat.userId && (
                       <div className="space-y-2 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3 mb-2">
                         <div className="flex items-center justify-between text-[10px] font-black text-amber-300">
-                          <span>🎙️ گۆڕینی دەنگی ئەندام (بێ مۆڵەت · ئەدمین)</span>
+                          <span>{tr('🎙️ گۆڕینی دەنگی ئەندام (بێ مۆڵەت · ئەدمین)', '🎙️ Change Member Voice (Admin Override)')}</span>
                           <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[8px] uppercase">
                             {selectedSeat.voiceEffect || 'normal'}
                           </span>
@@ -1795,9 +1795,9 @@ export default function VoiceRoom() {
                         <div className="grid grid-cols-3 gap-1.5">
                           {(
                             [
-                              { id: 'normal', label: '🎙️ ئاسایی' },
-                              { id: 'child', label: '👶 منداڵان' },
-                              { id: 'venom', label: '👹 ڤینۆم' },
+                              { id: 'normal', label: tr('🎙️ ئاسایی', '🎙️ Normal') },
+                              { id: 'child', label: tr('👶 منداڵان', '👶 Child') },
+                              { id: 'venom', label: tr('👹 ڤینۆم', '👹 Venom') },
                             ] as const
                           ).map((vOpt) => {
                             const isAct = (selectedSeat.voiceEffect || 'normal') === vOpt.id;
@@ -1811,7 +1811,7 @@ export default function VoiceRoom() {
                                     await setAdminForcedVoice(selectedSeat.userId!, vOpt.id);
                                     setIsActionSheetOpen(false);
                                   } catch (err: any) {
-                                    alert(err.message || 'نەتوانرا دەنگی ئەندام بگۆڕدرێت');
+                                    alert(err.message || tr('نەتوانرا دەنگی ئەندام بگۆڕدرێت', 'Failed to change voice'));
                                   }
                                 }}
                                 className={`rounded-xl py-2 text-[11px] font-black transition active:scale-95 ${
@@ -1833,7 +1833,7 @@ export default function VoiceRoom() {
                       <div className="space-y-2 border-b border-white/[0.08] pb-3 mb-2">
                         <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-400 px-1">
                           <Crown className="h-3 w-3" />
-                          <span>بەڕێوەبردنی خاوەن ژوور</span>
+                          <span>{tr('بەڕێوەبردنی خاوەن ژوور', 'Host Controls')}</span>
                         </div>
 
                         {/* Host Mute/Unmute Member Mic */}
@@ -1855,12 +1855,12 @@ export default function VoiceRoom() {
                           {selectedSeat.isMuted ? (
                             <>
                               <Mic className="h-4 w-4 text-emerald-400" />
-                              <span>کردنەوەی مایکی ئەندام</span>
+                              <span>{tr('کردنەوەی مایکی ئەندام', 'Unmute Member Mic')}</span>
                             </>
                           ) : (
                             <>
                               <MicOff className="h-4 w-4 text-rose-400" />
-                              <span>بێدەنگکردنی مایکی ئەندام</span>
+                              <span>{tr('بێدەنگکردنی مایکی ئەندام', 'Mute Member Mic')}</span>
                             </>
                           )}
                         </button>
@@ -1902,7 +1902,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.1]"
                     >
                       <UserIcon className="h-4 w-4 text-amber-400" />
-                      <span>بینینی پڕۆفایل (View Profile)</span>
+                      <span>{tr('بینینی پڕۆفایل (View Profile)', 'View Profile')}</span>
                     </button>
 
                     {/* Direct Message button for seated user */}
@@ -1921,7 +1921,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/15 py-3 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/25"
                     >
                       <MessageCircle className="h-4 w-4 text-cyan-400" />
-                      <span>ناردنی نامەی تایبەتی · Chat with {selectedSeat.username}</span>
+                      <span>{tr('ناردنی نامەی تایبەتی', 'Private Message')} · Chat with {selectedSeat.username}</span>
                     </button>
 
                     <button
@@ -1936,7 +1936,7 @@ export default function VoiceRoom() {
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 py-3 text-xs font-bold text-black shadow-md shadow-amber-500/20"
                     >
                       <Gift className="h-4 w-4" />
-                      ناردنی دیاری بۆ {selectedSeat.username}
+                      {tr('ناردنی دیاری بۆ', 'Send Gift to')} {selectedSeat.username}
                     </button>
                   </>
                 )}
@@ -1984,11 +1984,11 @@ export default function VoiceRoom() {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-white flex items-center gap-1.5">
-                      <span>گۆڕینی دەنگی VIP</span>
+                      <span>{tr('گۆڕینی دەنگی VIP', 'VIP Voice Changer')}</span>
                       <Crown className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
                     </h3>
                     <p className="text-[10px] text-slate-400">
-                      کاتێک مایکت کراوەیە دەنگت ڕاستەوخۆ دەگۆڕێت
+                      {tr('کاتێک مایکت کراوەیە دەنگت ڕاستەوخۆ دەگۆڕێت', 'Changes your live voice while speaking')}
                     </p>
                   </div>
                 </div>
@@ -2004,10 +2004,10 @@ export default function VoiceRoom() {
                 <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-center space-y-2">
                   <Crown className="mx-auto h-8 w-8 text-amber-400" />
                   <p className="text-xs font-black text-amber-300">
-                    ئەم تایبەتمەندییە تەنها بۆ ئەندامانی VIP بەردەستە!
+                    {tr('ئەم تایبەتمەندییە تەنها بۆ ئەندامانی VIP بەردەستە!', 'This feature is exclusive to VIP members!')}
                   </p>
                   <p className="text-[11px] text-slate-300 leading-relaxed">
-                    کاتێک ئەدمین نیشانەی VIP ـت پێ دەبەخشێت، دەتوانیت دەنگی خۆت لە کاتی قسەکردندا بگۆڕیت بۆ دەنگی منداڵان 👶 یان ڤینۆم 👹.
+                    {tr('کاتێک ئەدمین نیشانەی VIP ـت پێ دەبەخشێت، دەتوانیت دەنگی خۆت لە کاتی قسەکردندا بگۆڕیت بۆ دەنگی منداڵان 👶 یان ڤینۆم 👹.', 'When granted VIP status by an admin, you can change your live voice to Child 👶 or Venom 👹.')}
                   </p>
                 </div>
               ) : (
@@ -2017,22 +2017,22 @@ export default function VoiceRoom() {
                       {
                         id: 'normal',
                         icon: '🎙️',
-                        title: 'دەنگی ئاسایی (Normal)',
-                        desc: 'دەنگی سروشتی و ڕاستەقینەی خۆت',
+                        title: tr('دەنگی ئاسایی (Normal)', 'Normal Voice'),
+                        desc: tr('دەنگی سروشتی و ڕاستەقینەی خۆت', 'Your natural, authentic voice'),
                         border: 'border-emerald-400/50 bg-emerald-500/15',
                       },
                       {
                         id: 'child',
                         icon: '👶',
-                        title: 'دەنگی منداڵان (Child / Baby)',
-                        desc: 'دەنگێکی ناسک و خۆشی منداڵانە لە کاتی قسەکردن',
+                        title: tr('دەنگی منداڵان (Child / Baby)', 'Child / Baby Voice'),
+                        desc: tr('دەنگێکی ناسک و خۆشی منداڵانە لە کاتی قسەکردن', 'A sweet and cute baby voice while speaking'),
                         border: 'border-pink-400/60 bg-gradient-to-r from-pink-500/20 to-amber-500/15',
                       },
                       {
                         id: 'venom',
                         icon: '👹',
-                        title: 'دەنگی ڤینۆم (Venom Monster)',
-                        desc: 'دەنگی قووڵ و ترسناکی دێوی ڤینۆم بە نەڕەی دووانە',
+                        title: tr('دەنگی ڤینۆم (Venom Monster)', 'Venom Monster Voice'),
+                        desc: tr('دەنگی قووڵ و ترسناکی دێوی ڤینۆم بە نەڕەی دووانە', 'Deep and menacing demon voice with dual growl'),
                         border: 'border-purple-400/60 bg-gradient-to-r from-purple-900/40 to-rose-900/30',
                       },
                     ] as const
@@ -2070,7 +2070,7 @@ export default function VoiceRoom() {
                   {/* Self-Monitor Test Toggle */}
                   <div className="pt-2 border-t border-white/10 flex items-center justify-between">
                     <span className="text-[11px] text-slate-300 font-semibold">
-                      🎧 تاقیکردنەوەی دەنگی خۆم (گوێگرتن):
+                      🎧 {tr('تاقیکردنەوەی دەنگی خۆم (گوێگرتن):', 'Voice Self-Monitoring (Listen):')}
                     </span>
                     <button
                       type="button"
@@ -2081,7 +2081,7 @@ export default function VoiceRoom() {
                           : 'border border-white/15 bg-white/5 text-slate-300 hover:bg-white/10'
                       }`}
                     >
-                      {isSelfMonitoring ? 'چالاکە (گوێم لێیە)' : 'ناچالاکە'}
+                      {isSelfMonitoring ? tr('چالاکە (گوێم لێیە)', 'Active (Hearing)') : tr('ناچالاکە', 'Disabled')}
                     </button>
                   </div>
                 </div>

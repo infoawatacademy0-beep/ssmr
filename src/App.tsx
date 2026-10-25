@@ -1,7 +1,7 @@
 import { lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Ban, LogOut, Clock, AlertTriangle } from 'lucide-react';
-import { AuthProvider, useAuth, LanguageProvider } from './contexts';
+import { AuthProvider, useAuth, LanguageProvider, useLanguage } from './contexts';
 import LoadingScreen from './components/LoadingScreen';
 import Auth from './components/Auth';
 import { checkUserBanStatus } from './services';
@@ -35,15 +35,18 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   render() {
     if (this.state.hasError) {
+      const isEn = typeof window !== 'undefined' && localStorage.getItem('ssmr_language') === 'en';
       return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-center text-slate-100">
           <div className="w-full max-w-md rounded-3xl border border-rose-500/40 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-4">
               <AlertTriangle className="h-7 w-7" />
             </div>
-            <h2 className="text-base font-bold text-white mb-2">کێشەیەک ڕوویدا</h2>
+            <h2 className="text-base font-bold text-white mb-2">
+              {isEn ? 'Something went wrong' : 'کێشەیەک ڕوویدا'}
+            </h2>
             <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-              {this.state.error?.message || 'هەڵەیەکی چاوەڕواننەکراو لە بەرنامەکەدا ڕوویدا.'}
+              {this.state.error?.message || (isEn ? 'An unexpected error occurred in the application.' : 'هەڵەیەکی چاوەڕواننەکراو لە بەرنامەکەدا ڕوویدا.')}
             </p>
             <button
               onClick={() => {
@@ -52,7 +55,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
               }}
               className="rounded-2xl bg-violet-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-violet-600/30 transition hover:bg-violet-500 active:scale-95"
             >
-              دووبارە بارکردنەوە
+              {isEn ? 'Reload Application' : 'دووبارە بارکردنەوە'}
             </button>
           </div>
         </div>
@@ -88,6 +91,7 @@ function BannedNoticeScreen({
   remainingHours?: number;
   onLogout: () => void;
 }) {
+  const { tr } = useLanguage();
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-center text-slate-100">
       <div className="w-full max-w-md rounded-3xl border border-rose-500/40 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">
@@ -96,11 +100,11 @@ function BannedNoticeScreen({
         </div>
 
         <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-rose-300 border border-rose-500/30">
-          {isPermanent ? 'هەژمار ڕاگیرا' : 'ڕاگرتنی کاتی'}
+          {isPermanent ? tr('هەژمار ڕاگیرا', 'Account Suspended') : tr('ڕاگرتنی کاتی', 'Temporary Suspension')}
         </span>
 
         <h1 className="mt-3 font-display text-lg font-black text-white uppercase tracking-wider">
-          ڕێگەپێدراو نییە
+          {tr('ڕێگەپێدراو نییە', 'Access Restricted')}
         </h1>
 
         <p className="mt-2 text-xs text-slate-300 leading-relaxed">
@@ -110,7 +114,7 @@ function BannedNoticeScreen({
         {!isPermanent && remainingHours && (
           <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-bold text-amber-300">
             <Clock className="h-4 w-4" />
-            <span>ماوەی ماوە: نزیکەی {remainingHours} کاتژمێر</span>
+            <span>{tr('ماوەی ماوە: نزیکەی', 'Time remaining: approx')} {remainingHours} {tr('کاتژمێر', 'hours')}</span>
           </div>
         )}
 
@@ -120,7 +124,7 @@ function BannedNoticeScreen({
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 py-3 text-xs font-bold text-white transition hover:bg-slate-700 active:scale-95"
           >
             <LogOut className="h-4 w-4" />
-            <span>چوونەدەرەوە لە هەژمار</span>
+            <span>{tr('چوونەدەرەوە لە هەژمار', 'Sign out of account')}</span>
           </button>
         </div>
       </div>

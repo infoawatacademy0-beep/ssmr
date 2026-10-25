@@ -15,12 +15,12 @@ interface ReportModalProps {
 }
 
 const REPORT_REASONS = [
-  'هەراسانکردن یان ڕەفتاری نەشیاو',
-  'وتاری ڕق و جیاکاری',
-  'دەنگ یان ناوەڕۆکی نەشیاو',
-  'سپام، فێڵکردن یان داواکاری نەشیاو',
-  'خۆکردن بە کەسێکی تر',
-  'فێڵکردن لە یارییەکان',
+  { id: 'harassment', ku: 'هەراسانکردن یان ڕەفتاری نەشیاو', en: 'Harassment or inappropriate behavior' },
+  { id: 'hate_speech', ku: 'وتاری ڕق و جیاکاری', en: 'Hate speech or discrimination' },
+  { id: 'inappropriate_content', ku: 'دەنگ یان ناوەڕۆکی نەشیاو', en: 'Inappropriate audio or content' },
+  { id: 'spam_scam', ku: 'سپام، فێڵکردن یان داواکاری نەشیاو', en: 'Spam, scams or unwanted solicitation' },
+  { id: 'impersonation', ku: 'خۆکردن بە کەسێکی تر', en: 'Impersonation' },
+  { id: 'game_cheating', ku: 'فێڵکردن لە یارییەکان', en: 'Game cheating or exploitation' },
 ];
 
 export default function ReportModal({
@@ -32,7 +32,7 @@ export default function ReportModal({
   onClose,
 }: ReportModalProps) {
   const { tr } = useLanguage();
-  const [selectedReason, setSelectedReason] = useState(REPORT_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState(REPORT_REASONS[0].id);
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -43,12 +43,15 @@ export default function ReportModal({
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    const activeReason = REPORT_REASONS.find(r => r.id === selectedReason);
+    const reasonText = activeReason ? `${activeReason.ku} / ${activeReason.en}` : selectedReason;
+
     try {
       await submitReport(
         reporterUid,
         targetId,
         targetType,
-        selectedReason,
+        reasonText,
         details,
         reporterName,
       );
@@ -118,17 +121,17 @@ export default function ReportModal({
               <div className="space-y-1.5">
                 {REPORT_REASONS.map((reason) => (
                   <button
-                    key={reason}
+                    key={reason.id}
                     type="button"
-                    onClick={() => setSelectedReason(reason)}
+                    onClick={() => setSelectedReason(reason.id)}
                     className={`flex w-full items-center justify-between rounded-xl border p-2.5 text-left text-xs transition ${
-                      selectedReason === reason
+                      selectedReason === reason.id
                         ? 'border-rose-400/50 bg-rose-500/15 text-rose-200'
                         : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-white'
                     }`}
                   >
-                    <span>{tr(reason, reason)}</span>
-                    {selectedReason === reason && <span className="h-2 w-2 rounded-full bg-rose-400" />}
+                    <span>{tr(reason.ku, reason.en)}</span>
+                    {selectedReason === reason.id && <span className="h-2 w-2 rounded-full bg-rose-400" />}
                   </button>
                 ))}
               </div>

@@ -45,13 +45,26 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
    * Works with both keys ('nav.dashboard') and direct Kurdish phrases ('سەرەکی').
    */
   const t = (keyOrText: string, fallback?: string): string => {
+    if (!keyOrText) return '';
     if (language === 'ku') {
       return TRANSLATIONS.ku[keyOrText] ?? fallback ?? keyOrText;
     } else {
       // English mode: check key mapping first, then Kurdish-to-English dictionary
+      const trimmed = typeof keyOrText === 'string' ? keyOrText.trim() : '';
+
+      if (trimmed.startsWith('کۆینی پێویستت نییە!')) {
+        return trimmed
+          .replace('کۆینی پێویستت نییە! پێویستت بە', 'Not enough coins! You need')
+          .replace('کۆینە.', 'coins.');
+      }
+      if (trimmed.startsWith('نەتوانرا وێنەکە بەرزبکرێتەوە')) {
+        return trimmed.replace('نەتوانرا وێنەکە بەرزبکرێتەوە', 'Could not upload image');
+      }
+
       return (
         TRANSLATIONS.en[keyOrText] ??
         KURDISH_TO_ENGLISH_MAP[keyOrText] ??
+        KURDISH_TO_ENGLISH_MAP[trimmed] ??
         fallback ??
         keyOrText
       );

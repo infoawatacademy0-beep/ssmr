@@ -287,10 +287,11 @@ export function useVoiceRoom({
           }
           if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
             try {
+              const isEnLang = typeof localStorage !== 'undefined' && localStorage.getItem('ssmr_language') === 'en';
               navigator.mediaSession.metadata = new MediaMetadata({
-                title: 'مایک کراوەیە — ژووری دەنگی ڕاستەوخۆ',
-                artist: currentUser?.username || 'White House Live',
-                album: 'White House Voice Room',
+                title: isEnLang ? 'Mic Active — Live Voice Room' : 'مایک کراوەیە — ژووری دەنگی ڕاستەوخۆ',
+                artist: currentUser?.username || 'SSMR Live',
+                album: 'SSMR Voice Arena',
               });
               navigator.mediaSession.playbackState = 'playing';
               navigator.mediaSession.setActionHandler('play', () => {

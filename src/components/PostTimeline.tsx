@@ -231,7 +231,7 @@ export default function PostTimeline({
                           </h4>
                           {isAuthor && (
                             <span className="rounded-md bg-white/[0.06] px-1.5 py-0.2 text-[9px] font-semibold text-slate-400">
-                              تۆ
+                              {isEn ? 'You' : 'تۆ'}
                             </span>
                           )}
                         </div>

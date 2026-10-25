@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Crown, Gift, X, Sparkles, Star, Shield, MessageCircle, User as UserIcon, Flame } from 'lucide-react';
 import { getVipAvatarClass, type AudienceMember, type Seat, type User } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface AudienceGridProps {
   audience: AudienceMember[];
@@ -24,6 +25,7 @@ export default function AudienceGrid({
   onOpenPrivateChat,
   onOpenProfile,
 }: AudienceGridProps) {
+  const { tr } = useLanguage();
   const [selectedMember, setSelectedMember] = useState<AudienceMember | null>(null);
 
   // Filter out any user who is currently sitting on one of the 8 mic seats
@@ -36,7 +38,7 @@ export default function AudienceGrid({
       <div className="mx-4 mb-2 flex items-center justify-between gap-2 rounded-2xl border border-white/[0.06] bg-surface-900/40 px-3 py-2">
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
           <Users className="h-3.5 w-3.5 text-violet-400" />
-          <span className="uppercase tracking-wider">گوێگران</span>
+          <span className="uppercase tracking-wider">{tr('گوێگران', 'Audience')}</span>
           <span className="rounded-full bg-violet-500/20 px-1.5 py-0.2 text-[9px] font-black text-violet-300">
             {listeningAudience.length}
           </span>
@@ -45,7 +47,7 @@ export default function AudienceGrid({
         {/* Horizontal Avatars Stream */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none max-w-[210px] sm:max-w-[260px] py-0.5">
           {listeningAudience.length === 0 ? (
-            <span className="text-[10px] text-slate-500 italic">یەکەم گوێگری ئەم ژوورە بە</span>
+            <span className="text-[10px] text-slate-500 italic">{tr('یەکەم گوێگری ئەم ژوورە بە', 'Be the first listener')}</span>
           ) : (
             listeningAudience.map((member) => {
               const isVip = Boolean(
@@ -173,11 +175,11 @@ export default function AudienceGrid({
               {/* Badges preview */}
               <div className="my-3 flex items-center justify-center gap-1.5">
                 <span className="flex items-center gap-1 rounded-full bg-violet-500/15 border border-violet-500/20 px-2 py-0.5 text-[9px] font-bold text-violet-300">
-                  <Shield className="h-2.5 w-2.5" /> گوێگر
+                  <Shield className="h-2.5 w-2.5" /> {tr('گوێگر', 'Audience')}
                 </span>
                 {(selectedMember.isVerified || vipUsersMap[selectedMember.uid] || selectedMember.level >= 10) && (
                   <span className="flex items-center gap-1 rounded-full bg-amber-400/15 border border-amber-400/25 px-2 py-0.5 text-[9px] font-bold text-amber-300">
-                    <Sparkles className="h-2.5 w-2.5" /> ئەندامی VIP
+                    <Sparkles className="h-2.5 w-2.5" /> {tr('ئەندامی VIP', 'VIP Member')}
                   </span>
                 )}
               </div>
@@ -195,7 +197,7 @@ export default function AudienceGrid({
                     className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10 active:scale-95"
                   >
                     <UserIcon className="h-3.5 w-3.5 text-amber-400" />
-                    <span>بینینی پڕۆفایل (View Profile)</span>
+                    <span>{tr('بینینی پڕۆفایل (View Profile)', 'View Profile')}</span>
                   </button>
                 )}
 
@@ -216,7 +218,7 @@ export default function AudienceGrid({
                         className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-cyan-500/40 bg-cyan-500/15 py-2.5 text-xs font-bold text-cyan-300 transition hover:bg-cyan-500/25 active:scale-95"
                       >
                         <MessageCircle className="h-4 w-4 text-cyan-400" />
-                        <span>ناردنی نامە · Chat with {selectedMember.username}</span>
+                        <span>{tr('ناردنی نامە', 'Chat')} · Chat with {selectedMember.username}</span>
                       </button>
                     )}
 
@@ -233,7 +235,7 @@ export default function AudienceGrid({
                       className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/25 transition-transform active:scale-95"
                     >
                       <Gift className="h-4 w-4" />
-                      <span>ناردنی دیاری</span>
+                      <span>{tr('ناردنی دیاری', 'Send Gift')}</span>
                     </button>
                   </>
                 )}

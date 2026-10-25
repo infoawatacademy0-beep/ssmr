@@ -9,6 +9,7 @@ export interface DirectMessage {
   text?: string;
   imageUrl?: string;
   audioUrl?: string;
+  duration?: number;
   type: DirectMessageType;
   timestamp: number;
 }

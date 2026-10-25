@@ -284,7 +284,7 @@ export default function MusicPlayerPanel({
         });
       }
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا گۆرانییەکە لێبدرێت.');
+      alert(err.message || tr('نەتوانرا گۆرانییەکە لێبدرێت.', 'Failed to play song.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -311,7 +311,7 @@ export default function MusicPlayerPanel({
       setTrackUrl('');
       closeModal();
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا گۆرانییەکە پێبکرێت.');
+      alert(err.message || tr('نەتوانرا گۆرانییەکە پێبکرێت.', 'Failed to play song.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -332,7 +332,7 @@ export default function MusicPlayerPanel({
         await removeTrackFromQueue(roomId, songId);
       }
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا گۆرانییەکە بسڕدرێتەوە');
+      alert(err.message || tr('نەتوانرا گۆرانییەکە بسڕدرێتەوە', 'Failed to delete song.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -350,7 +350,7 @@ export default function MusicPlayerPanel({
       setIsSubmitting(true);
       await clearAllTracksFromQueue(roomId);
     } catch (err: any) {
-      alert(err.message || 'نەتوانرا گۆرانییەکان بسڕدرێنەوە');
+      alert(err.message || tr('نەتوانرا گۆرانییەکان بسڕدرێنەوە', 'Failed to clear playlist.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -373,7 +373,7 @@ export default function MusicPlayerPanel({
     // e.g. "Hasan Zirak - Aman Doctor.mp3" -> Artist: "Hasan Zirak", Title: "Aman Doctor"
     // e.g. "Zakaria_Bochi.mp3" -> Title: "Zakaria Bochi"
     const rawBaseName = file.name.replace(/\.[^/.]+$/, '').trim().replace(/[_]+/g, ' ');
-    let finalTitle = rawBaseName || 'گۆرانی نوێ';
+    let finalTitle = rawBaseName || tr('گۆرانی نوێ', 'New Song');
     let finalArtist = currentUser.username;
 
     if (rawBaseName.includes(' - ')) {
@@ -444,7 +444,7 @@ export default function MusicPlayerPanel({
       closeModal();
     } catch (err: any) {
       console.error('Audio upload error:', err);
-      alert(err.message || 'هەڵەیەک ڕوویدا لە کاتی بارکردنی گۆرانییەکە');
+      alert(err.message || tr('هەڵەیەک ڕوویدا لە کاتی بارکردنی گۆرانییەکە', 'Error occurred while uploading song.'));
     } finally {
       setIsUploading(false);
       setUploadProgress(0);

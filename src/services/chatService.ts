@@ -41,6 +41,7 @@ export function normalizeDirectMessages(rawMessages: unknown): DirectMessage[] {
       text: m.text ? String(m.text) : undefined,
       imageUrl: m.imageUrl ? String(m.imageUrl) : undefined,
       audioUrl: m.audioUrl ? String(m.audioUrl) : undefined,
+      duration: m.duration ? Number(m.duration) : undefined,
       type: (m.type as DirectMessageType) || 'text',
       timestamp: Number(m.timestamp) || Date.now(),
     }))
@@ -61,9 +62,10 @@ export async function sendDirectMessage(params: {
   text?: string;
   imageUrl?: string;
   audioUrl?: string;
+  duration?: number;
   type?: DirectMessageType;
 }): Promise<string> {
-  const { threadId, senderUid, senderName, senderAvatar, text, imageUrl, audioUrl } = params;
+  const { threadId, senderUid, senderName, senderAvatar, text, imageUrl, audioUrl, duration } = params;
 
   if (!threadId || !senderUid) {
     throw new Error('Thread ID and Sender UID are required.');
@@ -124,6 +126,9 @@ export async function sendDirectMessage(params: {
   }
   if (audioUrl) {
     messageData.audioUrl = audioUrl;
+  }
+  if (duration !== undefined && !isNaN(duration)) {
+    messageData.duration = Math.round(Number(duration));
   }
 
   // 1. Write the message node

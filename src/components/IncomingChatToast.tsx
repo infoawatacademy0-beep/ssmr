@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Bell, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
 import type { User, AppNotification } from '../types';
 import {
   subscribeToUserInbox,
@@ -34,6 +35,7 @@ export default function IncomingChatToast({
   onOpenChat,
 }: IncomingChatToastProps) {
   const navigate = useNavigate();
+  const { tr } = useLanguage();
   const [activeToast, setActiveToast] = useState<ToastBannerData | null>(null);
 
   const seenThreadTimestampsRef = useRef<Record<string, number>>({});
@@ -96,10 +98,10 @@ export default function IncomingChatToast({
               id: `dm-${thread.threadId}-${msgTs}`,
               kind: 'chat',
               senderUid: thread.recipientUid,
-              senderName: thread.recipientName || 'ئەندام',
+              senderName: thread.recipientName || tr('ئەندام', 'Member'),
               senderAvatar: thread.recipientAvatar || null,
-              messagePreview: thread.lastMessage || 'نامەیەکی نوێت بۆ هات 💬',
-              subtitle: 'نامەی تایبەتی نوێ · کلیک بکە بۆ وەڵامدانەوە',
+              messagePreview: thread.lastMessage || tr('نامەیەکی نوێت بۆ هات 💬', 'You received a new message 💬'),
+              subtitle: tr('نامەی تایبەتی نوێ · کلیک بکە بۆ وەڵامدانەوە', 'New direct message · Click to reply'),
             });
             break;
           }
@@ -141,7 +143,7 @@ export default function IncomingChatToast({
               senderName: n.senderName || n.title,
               senderAvatar: n.senderAvatar || null,
               messagePreview: n.body,
-              subtitle: n.title || 'ئاگادارکردنەوەی نوێ',
+              subtitle: n.title || tr('ئاگادارکردنەوەی نوێ', 'New notification'),
               roomId: n.roomId,
               notifId: n.id,
             });
@@ -233,7 +235,7 @@ export default function IncomingChatToast({
                   {activeToast.senderName}
                 </span>
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-2 py-0.5 text-[9px] font-bold text-amber-300">
-                  {activeToast.kind === 'chat' ? 'نامەی نوێ' : 'ئاگاداری'}
+                  {activeToast.kind === 'chat' ? tr('نامەی نوێ', 'New Message') : tr('ئاگاداری', 'Alert')}
                   <ArrowUpRight className="h-2.5 w-2.5" />
                 </span>
               </div>
@@ -253,7 +255,7 @@ export default function IncomingChatToast({
                 setActiveToast(null);
               }}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 transition hover:bg-white/15 hover:text-white"
-              title="داخستن"
+              title={tr("داخستن", "Dismiss")}
             >
               <X className="h-3.5 w-3.5" />
             </button>

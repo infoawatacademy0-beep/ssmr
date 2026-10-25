@@ -58,10 +58,10 @@ export default function HostControlsPanel({
     try {
       await updateRoomPassword(room.id, null);
       setPasswordInput('');
-      setPasswordSavedMsg('پاسۆرد لەسەر ژوورەکە لادرا!');
+      setPasswordSavedMsg(tr('پاسۆرد لەسەر ژوورەکە لادرا!', 'Room password removed!'));
       setTimeout(() => setPasswordSavedMsg(null), 2500);
     } catch (err: any) {
-      setActionError(err.message || 'نەتوانرا پاسۆرد لاببرێت');
+      setActionError(err.message || tr('نەتوانرا پاسۆرد لاببرێت', 'Failed to remove password'));
     } finally {
       setIsSavingPassword(false);
     }
@@ -74,11 +74,13 @@ export default function HostControlsPanel({
     try {
       await updateRoomPassword(room.id, passwordInput.trim() || null);
       setPasswordSavedMsg(
-        passwordInput.trim() ? 'پاسۆردی نوێ دانرا!' : 'پاسۆرد لەسەر ژوورەکە لادرا!',
+        passwordInput.trim()
+          ? tr('پاسۆردی نوێ دانرا!', 'New password set!')
+          : tr('پاسۆرد لەسەر ژوورەکە لادرا!', 'Room password removed!'),
       );
       setTimeout(() => setPasswordSavedMsg(null), 2500);
     } catch (err: any) {
-      setActionError(err.message || 'نەتوانرا پاسۆرد بگۆڕدرێت');
+      setActionError(err.message || tr('نەتوانرا پاسۆرد بگۆڕدرێت', 'Failed to update password'));
     } finally {
       setIsSavingPassword(false);
     }
@@ -87,14 +89,14 @@ export default function HostControlsPanel({
   const handleKick = async (seat: Seat) => {
     if (!seat.userId) return;
     if (seat.userId === currentUser.uid) {
-      setActionError('ناتوانیت خۆت لە کورسی خاوەن ژوور لابدەیت.');
+      setActionError(tr('ناتوانیت خۆت لە کورسی خاوەن ژوور لابدەیت.', 'Cannot evict host from seat.'));
       return;
     }
     setActionError(null);
     try {
       await kickUserFromSeat(room.id, seat.seatNo, currentUser.username);
     } catch (err: any) {
-      setActionError(err.message || 'نەتوانرا ئەندام لاربدرێت.');
+      setActionError(err.message || tr('نەتوانرا ئەندام لاربدرێت.', 'Failed to evict member.'));
     }
   };
 
@@ -103,7 +105,7 @@ export default function HostControlsPanel({
     try {
       await toggleSeatLock(room.id, seat.seatNo, !seat.isLocked);
     } catch (err: any) {
-      setActionError(err.message || 'نەتوانرا دۆخی قفڵی کورسی بگۆڕدرێت.');
+      setActionError(err.message || tr('نەتوانرا دۆخی قفڵی کورسی بگۆڕدرێت.', 'Failed to toggle seat lock.'));
     }
   };
 
@@ -112,7 +114,7 @@ export default function HostControlsPanel({
     try {
       await muteSeatByHost(room.id, seat.seatNo, !seat.isMuted);
     } catch (err: any) {
-      setActionError(err.message || 'نەتوانرا دۆخی بێدەنگی بگۆڕدرێت.');
+      setActionError(err.message || tr('نەتوانرا دۆخی بێدەنگی بگۆڕدرێت.', 'Failed to toggle mute state.'));
     }
   };
 
@@ -133,7 +135,7 @@ export default function HostControlsPanel({
       setAnnouncementSuccess(true);
       setTimeout(() => setAnnouncementSuccess(false), 2000);
     } catch (err: any) {
-      setActionError(err.message || 'نەتوانرا ئاگاداری بڵاوبکرێتەوە.');
+      setActionError(err.message || tr('نەتوانرا ئاگاداری بڵاوبکرێتەوە.', 'Failed to publish announcement.'));
     } finally {
       setIsAnnouncing(false);
     }
@@ -191,7 +193,7 @@ export default function HostControlsPanel({
                 try {
                   await clearRoomChat(room.id);
                 } catch (err: any) {
-                  setActionError(err.message || 'نەتوانرا چات بسڕدرێتەوە');
+                  setActionError(err.message || tr('نەتوانرا چات بسڕدرێتەوە', 'Failed to clear chat'));
                 }
               }}
               className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-center text-[11px] font-bold text-rose-300 transition hover:bg-rose-500/20 active:scale-95"
@@ -206,7 +208,7 @@ export default function HostControlsPanel({
                 try {
                   await closeJackarooGame(room.id);
                 } catch (err: any) {
-                  setActionError(err.message || 'نەتوانرا یاری هەڵبوەشێنرێتەوە');
+                  setActionError(err.message || tr('نەتوانرا یاری هەڵبوەشێنرێتەوە', 'Failed to close game'));
                 }
               }}
               disabled={!activeJackarooGame}
@@ -337,12 +339,12 @@ export default function HostControlsPanel({
                         </span>
                         {isOccupied && (
                           <span className="text-xs text-slate-300 font-medium">
-                            &bull; {isCurrentUser ? 'تۆ (خاوەن ژوور)' : seat.username}
+                            &bull; {isCurrentUser ? tr('تۆ (خاوەن ژوور)', 'You (Host)') : seat.username}
                           </span>
                         )}
                         {seat.isLocked && (
                           <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[8px] font-bold text-rose-300 uppercase">
-                            قفڵکراو
+                            {tr('قفڵکراو', 'Locked')}
                           </span>
                         )}
                       </div>
@@ -418,7 +420,7 @@ export default function HostControlsPanel({
               <div className="flex items-center gap-2 text-amber-400">
                 <Megaphone className="h-4 w-4" />
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                  ئاگاداری ژوور
+                  {tr('ئاگاداری ژوور', 'Room Announcement')}
                 </h4>
               </div>
               {announcementSuccess && (
