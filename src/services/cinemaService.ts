@@ -3,10 +3,12 @@ import {
   set,
   update,
   onValue,
+  get,
+  push,
   type Unsubscribe,
 } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { RoomCinemaState, StartCinemaPayload } from '../types';
+import type { RoomCinemaState, StartCinemaPayload, SavedCinemaMovie } from '../types';
 import { updateRoomSeatCount } from './roomService';
 
 /**
@@ -42,6 +44,18 @@ export async function startCinemaMode(
     await updateRoomSeatCount(roomId, safeSeats, payload.hostName);
   } catch (err) {
     console.warn('Failed to sync room seats in startCinemaMode:', err);
+  }
+
+  try {
+    await autoSaveToPlaylistIfMissing(
+      roomId,
+      cleanUrl,
+      cinemaData.title,
+      payload.hostUid,
+      payload.hostName,
+    );
+  } catch (err) {
+    console.warn('Failed to auto-save to cinema playlist:', err);
   }
 }
 
@@ -114,6 +128,18 @@ export async function setCinemaVideoUrl(
       console.warn('Failed to sync room seats in setCinemaVideoUrl:', err);
     }
   }
+
+  try {
+    await autoSaveToPlaylistIfMissing(
+      roomId,
+      cleanUrl,
+      title || 'فیلمی سینەمایی',
+      user.uid,
+      user.username,
+    );
+  } catch (err) {
+    console.warn('Failed to auto-save to cinema playlist:', err);
+  }
 }
 
 /**
@@ -180,4 +206,155 @@ export function subscribeToRoomCinema(
       seatCount: val.seatCount ? Number(val.seatCount) : 5,
     });
   });
+}
+
+/**
+ * Normalizes raw cinema playlist object into ordered SavedCinemaMovie[].
+ */
+export function normalizeCinemaPlaylist(raw: unknown): SavedCinemaMovie[] {
+  if (!raw || typeof raw !== 'object') return [];
+  return Object.entries(raw as Record<string, Partial<SavedCinemaMovie>>)
+    .map(([key, val]) => ({
+      id: key,
+      title: String(val?.title || 'فیلمی سینەمایی'),
+      url: String(val?.url || ''),
+      addedByUid: String(val?.addedByUid || ''),
+      addedByName: String(val?.addedByName || 'ئەندامێک'),
+      addedAt: Number(val?.addedAt) || Date.now(),
+      duration: val?.duration ? Number(val.duration) : undefined,
+    }))
+    .filter((m) => m.url.trim().length > 0)
+    .sort((a, b) => b.addedAt - a.addedAt); // Newest first
+}
+
+/**
+ * Automatically saves a movie URL & title to the room's playlist if not already present.
+ */
+async function autoSaveToPlaylistIfMissing(
+  roomId: string,
+  url: string,
+  title: string,
+  uid: string,
+  username: string,
+): Promise<void> {
+  const cleanUrl = url.trim();
+  if (!cleanUrl) return;
+
+  const playlistRef = ref(database, `rooms/${roomId}/cinemaPlaylist`);
+  const snap = await get(playlistRef);
+  if (snap.exists()) {
+    const list = Object.values(snap.val() as Record<string, Partial<SavedCinemaMovie>>);
+    const existing = list.find((m) => m?.url?.trim() === cleanUrl);
+    if (existing) return;
+  }
+
+  const newRef = push(playlistRef);
+  await set(newRef, {
+    id: newRef.key || `movie_${Date.now()}`,
+    title: (title || 'فیلمی سینەمایی').trim(),
+    url: cleanUrl,
+    addedByUid: uid,
+    addedByName: username,
+    addedAt: Date.now(),
+  });
+}
+
+/**
+ * Saves a new movie to the room's permanent cinema playlist.
+ */
+export async function saveCinemaMovie(
+  roomId: string,
+  movie: {
+    title: string;
+    url: string;
+    addedByUid: string;
+    addedByName: string;
+    duration?: number;
+  },
+): Promise<SavedCinemaMovie> {
+  const cleanUrl = movie.url.trim();
+  if (!cleanUrl) {
+    throw new Error('Video URL cannot be empty.');
+  }
+
+  const playlistRef = ref(database, `rooms/${roomId}/cinemaPlaylist`);
+  const newRef = push(playlistRef);
+  const movieId = newRef.key || `movie_${Date.now()}`;
+
+  const savedMovie: SavedCinemaMovie = {
+    id: movieId,
+    title: (movie.title || 'فیلمی بێ‌ناونیشان').trim(),
+    url: cleanUrl,
+    addedByUid: movie.addedByUid,
+    addedByName: movie.addedByName,
+    addedAt: Date.now(),
+    ...(movie.duration ? { duration: movie.duration } : {}),
+  };
+
+  await set(newRef, savedMovie);
+  return savedMovie;
+}
+
+/**
+ * Deletes a movie from the room's cinema playlist.
+ * Only room hosts or admins should call this.
+ */
+export async function deleteCinemaMovie(
+  roomId: string,
+  movieId: string,
+): Promise<void> {
+  const movieRef = ref(database, `rooms/${roomId}/cinemaPlaylist/${movieId}`);
+  await set(movieRef, null);
+}
+
+/**
+ * Subscribes in real-time to the room's saved cinema movies playlist.
+ */
+export function subscribeToCinemaPlaylist(
+  roomId: string,
+  onUpdate: (movies: SavedCinemaMovie[]) => void,
+): Unsubscribe {
+  const playlistRef = ref(database, `rooms/${roomId}/cinemaPlaylist`);
+  return onValue(playlistRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate([]);
+      return;
+    }
+    const list = normalizeCinemaPlaylist(snapshot.val());
+    onUpdate(list);
+  });
+}
+
+/**
+ * Switches the active cinema video to a saved movie.
+ * Can be called by any member in the room.
+ */
+export async function switchCinemaMovie(
+  roomId: string,
+  movie: SavedCinemaMovie,
+  user: { uid: string; username: string },
+  isCinemaActive: boolean = true,
+): Promise<void> {
+  if (isCinemaActive) {
+    await setCinemaVideoUrl(roomId, movie.url, movie.title, user);
+  } else {
+    await startCinemaMode(roomId, {
+      videoUrl: movie.url,
+      title: movie.title,
+      hostUid: user.uid,
+      hostName: user.username,
+      seatCount: 5,
+    });
+  }
+
+  try {
+    const { sendRoomMessage } = await import('./roomService');
+    await sendRoomMessage(roomId, {
+      senderId: 'system',
+      senderName: 'Cinema',
+      text: `🎬 ${user.username} فیلمەکەی دەستپێکرد / گۆڕی بۆ: ${movie.title}`,
+    });
+  } catch (err) {
+    console.warn('Could not broadcast movie switch message:', err);
+  }
 }

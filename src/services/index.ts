@@ -241,6 +241,11 @@ export {
   updateCinemaPlayback,
   updateCinemaSeatCount,
   subscribeToRoomCinema,
+  normalizeCinemaPlaylist,
+  saveCinemaMovie,
+  deleteCinemaMovie,
+  subscribeToCinemaPlaylist,
+  switchCinemaMovie,
 } from './cinemaService';
 
 

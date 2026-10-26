@@ -24,3 +24,13 @@ export interface StartCinemaPayload {
   hostName: string;
   seatCount?: number;
 }
+
+export interface SavedCinemaMovie {
+  id: string;
+  title: string;
+  url: string;
+  addedByUid: string;
+  addedByName: string;
+  addedAt: number;
+  duration?: number;
+}

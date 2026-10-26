@@ -41,6 +41,7 @@ import { SeatEmojiPickerModal } from './SeatEmojiSystem';
 import ChatAudioPlayer from './ChatAudioPlayer';
 import ChatThemeModal from './ChatThemeModal';
 import ImageLightboxModal from './ImageLightboxModal';
+import { renderTextWithLinks } from '../utils/linkify';
 
 interface PrivateChatProps {
   currentUser: User;
@@ -646,7 +647,7 @@ export default function PrivateChat({
                       )}
                       {!isEmojiOnly && msg.type === 'text' && (
                         <p className="text-xs leading-relaxed whitespace-pre-wrap font-sans break-words">
-                          {msg.text}
+                          {renderTextWithLinks(msg.text)}
                         </p>
                       )}
 
@@ -667,7 +668,7 @@ export default function PrivateChat({
                             </div>
                           </div>
                           {msg.text && (
-                            <p className="text-xs leading-relaxed whitespace-pre-wrap pt-0.5">{msg.text}</p>
+                            <p className="text-xs leading-relaxed whitespace-pre-wrap pt-0.5">{renderTextWithLinks(msg.text)}</p>
                           )}
                         </div>
                       )}

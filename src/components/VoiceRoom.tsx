@@ -113,6 +113,7 @@ import {
   AnimatedEmojiGraphic,
 } from './SeatEmojiSystem';
 import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
+import { renderTextWithLinks } from '../utils/linkify';
 
 /* ─────────────────────────────────────────────────────────────
    SSMR — Ultra-Premium Gamified Voice Chat Room & Arena
@@ -850,12 +851,10 @@ export default function VoiceRoom() {
           {cinemaState?.isActive ? (
             <button
               onClick={() => {
-                if (isHost || user.isAdmin) {
-                  setIsCinemaConfigModalOpen(true);
-                }
+                setIsCinemaConfigModalOpen(true);
               }}
               className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 px-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/25 animate-pulse"
-              title={tr('مۆدی سینەما چالاکە · کرتە بکە بۆ ڕێکخستن', 'Cinema Active · Click to manage')}
+              title={tr('مۆدی سینەما چالاکە · کرتە بکە بۆ قایمەی فیلمەکان و گۆڕینی فیلم', 'Cinema Active · Click for movie playlist & switch movie')}
             >
               <Film className="h-3.5 w-3.5" />
               <span>{tr('سینەما', 'Cinema')}</span>
@@ -1563,7 +1562,7 @@ export default function VoiceRoom() {
                       key={msg.id}
                       className="rounded-xl border border-violet-500/15 bg-violet-500/10 px-3 py-1.5 text-center text-[11px] text-violet-300 font-medium"
                     >
-                      {msg.text}
+                      {renderTextWithLinks(msg.text)}
                     </div>
                   );
                 }
@@ -1678,7 +1677,7 @@ export default function VoiceRoom() {
                             }
                           `}
                         >
-                          {msg.text}
+                          {renderTextWithLinks(msg.text)}
                         </div>
                       )}
                     </div>
@@ -2675,7 +2674,7 @@ export default function VoiceRoom() {
       </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────
-         MODAL 8: Cinema & Movie Mode Configuration Modal (Admin/Host)
+         MODAL 8: Cinema & Movie Mode Configuration Modal (Admin/Host/Members)
          ───────────────────────────────────────────────────────── */}
       <CinemaConfigModal
         roomId={room.id}
@@ -2683,6 +2682,7 @@ export default function VoiceRoom() {
         cinemaState={cinemaState}
         isOpen={isCinemaConfigModalOpen}
         onClose={() => setIsCinemaConfigModalOpen(false)}
+        isHost={isHost || Boolean(user.isAdmin)}
       />
 
       {/* ─────────────────────────────────────────────────────────

@@ -27,11 +27,21 @@ import {
   Clock,
   FastForward,
   X,
+  ListVideo,
+  Trash2,
 } from 'lucide-react';
-import type { RoomCinemaState, Seat, User, AudienceMember, ChatMessage } from '../types';
+import type { RoomCinemaState, Seat, User, AudienceMember, ChatMessage, SavedCinemaMovie } from '../types';
 import { getVipAvatarClass } from '../types';
-import { updateCinemaPlayback, updateCinemaSeatCount } from '../services';
+import {
+  updateCinemaPlayback,
+  updateCinemaSeatCount,
+  subscribeToCinemaPlaylist,
+  switchCinemaMovie,
+  deleteCinemaMovie,
+  saveCinemaMovie,
+} from '../services';
 import { useLanguage } from '../contexts';
+import { renderTextWithLinks } from '../utils/linkify';
 
 interface CinemaPlayerPanelProps {
   roomId: string;
@@ -127,6 +137,83 @@ export default function CinemaPlayerPanel({
   const prevIsPlayingRef = useRef<boolean>(cinemaState.isPlaying);
   const lastHandledUpdateRef = useRef<number>(0);
   const isInitialSyncRef = useRef<boolean>(true);
+
+  // Saved Movies Playlist State
+  const [isPlaylistDrawerOpen, setIsPlaylistDrawerOpen] = useState(false);
+  const [playlist, setPlaylist] = useState<SavedCinemaMovie[]>([]);
+  const [newMovieUrl, setNewMovieUrl] = useState('');
+  const [newMovieTitle, setNewMovieTitle] = useState('');
+  const [isSavingMovie, setIsSavingMovie] = useState(false);
+  const [playlistToast, setPlaylistToast] = useState<string | null>(null);
+
+  // Subscribe to room's saved cinema movies playlist
+  useEffect(() => {
+    const unsub = subscribeToCinemaPlaylist(roomId, (movies) => {
+      setPlaylist(movies);
+    });
+    return () => unsub();
+  }, [roomId]);
+
+  const handleSwitchMovieFromDrawer = async (movie: SavedCinemaMovie) => {
+    try {
+      await switchCinemaMovie(roomId, movie, {
+        uid: currentUser.uid,
+        username: currentUser.username,
+      });
+      setPlaylistToast(tr(`فیلمەکە گۆڕدرا بۆ: ${movie.title}`, `Switched to: ${movie.title}`));
+      setTimeout(() => setPlaylistToast(null), 3000);
+      setIsPlaylistDrawerOpen(false);
+    } catch (err: any) {
+      console.warn('Failed to switch movie:', err);
+    }
+  };
+
+  const handleDeleteMovieFromDrawer = async (movie: SavedCinemaMovie) => {
+    const isAdmin = Boolean(isHost || currentUser.isAdmin);
+    if (!isAdmin) return;
+    if (
+      !window.confirm(
+        tr(
+          `ئایا دڵنیایت لە سڕینەوەی فیلمی "${movie.title}" لە ژوورەکەدا؟`,
+          `Are you sure you want to delete "${movie.title}"?`,
+        ),
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteCinemaMovie(roomId, movie.id);
+      setPlaylistToast(tr('فیلمەکە سڕدرایەوە', 'Movie deleted'));
+      setTimeout(() => setPlaylistToast(null), 2500);
+    } catch (err: any) {
+      console.warn('Failed to delete movie:', err);
+    }
+  };
+
+  const handleAddNewMovieToRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUrl = newMovieUrl.trim().replace(/^['"<]+|['">]+$/g, '');
+    if (!cleanUrl) return;
+
+    setIsSavingMovie(true);
+    try {
+      const finalTitle = newMovieTitle.trim() || tr('فیلمی سینەمایی', 'Cinema Movie');
+      await saveCinemaMovie(roomId, {
+        title: finalTitle,
+        url: cleanUrl,
+        addedByUid: currentUser.uid,
+        addedByName: currentUser.username,
+      });
+      setNewMovieUrl('');
+      setNewMovieTitle('');
+      setPlaylistToast(tr('فیلمەکە پاشەکەوت کرا', 'Movie saved'));
+      setTimeout(() => setPlaylistToast(null), 2500);
+    } catch (err: any) {
+      console.warn('Failed to save movie:', err);
+    } finally {
+      setIsSavingMovie(false);
+    }
+  };
 
   // Broadcast toast notification whenever someone pauses playback
   useEffect(() => {
@@ -827,7 +914,7 @@ export default function CinemaPlayerPanel({
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs font-semibold text-white/95 line-clamp-2 leading-snug break-words">
-                    {activeChatToast.text}
+                    {renderTextWithLinks(activeChatToast.text)}
                   </p>
                 </div>
 
@@ -1235,7 +1322,21 @@ export default function CinemaPlayerPanel({
 
               {/* Right Header Action Icons */}
               <div className="flex items-center gap-1.5">
-                {isHost && (
+                <button
+                  onClick={() => setIsPlaylistDrawerOpen(true)}
+                  title={tr('قایمەی فیلمەکان و گۆڕینی فیلم', 'Movie Playlist & Switch Movie')}
+                  className="flex h-7 items-center gap-1.5 rounded-xl bg-black/60 border border-amber-400/40 px-2 text-xs font-bold text-amber-300 hover:bg-amber-500 hover:text-black transition shadow active:scale-95"
+                >
+                  <Film className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{tr('فیلمەکان', 'Movies')}</span>
+                  {playlist.length > 0 && (
+                    <span className="rounded-full bg-amber-400/25 px-1 text-[9px] font-black">
+                      {playlist.length}
+                    </span>
+                  )}
+                </button>
+
+                {(isHost || currentUser.isAdmin) && (
                   <button
                     onClick={onOpenConfigModal}
                     title={tr('ڕێکخستنی فیلم و لینکی فایەربەیس', 'Cinema & Movie Settings')}
@@ -1789,15 +1890,18 @@ export default function CinemaPlayerPanel({
             </div>
 
             <div className="flex items-center gap-2">
-              {isHost && (
-                <button
-                  onClick={onOpenConfigModal}
-                  className="flex items-center gap-1 rounded-xl bg-amber-500/15 border border-amber-400/30 px-2 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25 transition"
-                >
-                  <Film className="h-3 w-3" />
-                  <span>{tr('گۆڕینی فیلم', 'Change Movie')}</span>
-                </button>
-              )}
+              <button
+                onClick={() => setIsPlaylistDrawerOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/25 transition active:scale-95"
+              >
+                <Film className="h-3 w-3" />
+                <span>{tr('قایمەی فیلمەکان', 'Movie Playlist')}</span>
+                {playlist.length > 0 && (
+                  <span className="rounded-full bg-amber-400/25 px-1.5 py-0.2 text-[9px] font-black text-amber-300">
+                    {playlist.length}
+                  </span>
+                )}
+              </button>
 
               <span className="text-[10px] text-slate-500 font-semibold">
                 {tr('سەیرکردنی هاوبەش', 'Watch Party')}
@@ -1806,6 +1910,195 @@ export default function CinemaPlayerPanel({
           </div>
         </>
       )}
+
+      {/* In-Player Playlist Overlay (Works seamlessly in Fullscreen & Stage) */}
+      <AnimatePresence>
+        {isPlaylistDrawerOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsPlaylistDrawerOpen(false)}
+            className="absolute inset-0 z-[70] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-xl pointer-events-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative flex flex-col w-full max-w-lg max-h-[85vh] rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#160b13] via-[#0f0914] to-[#07040a] p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.9),0_0_30px_rgba(245,158,11,0.2)] text-white overflow-hidden"
+            >
+              {/* Glow Bar */}
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600" />
+
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-black shadow">
+                    <Film className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="font-display text-sm font-black text-white">
+                        {tr('قایمەی فیلمە پاشەکەوتکراوەکان', 'Saved Movies Playlist')}
+                      </h3>
+                      <span className="rounded-full bg-amber-400/20 px-2 py-0.2 text-[9px] font-black text-amber-300">
+                        {playlist.length}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      {tr(
+                        'هەموو ئەندامێک دەتوانێت فیلم بگۆڕێت · تەنها ئەدمین دەتوانێت بیسڕێتەوە',
+                        'Members can switch movies · Only admin can delete',
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsPlaylistDrawerOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.05] text-slate-400 hover:bg-white/10 hover:text-white transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {playlistToast && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 animate-in fade-in">
+                  <Check className="h-3.5 w-3.5" />
+                  <span>{playlistToast}</span>
+                </div>
+              )}
+
+              {/* Playlist Scroll Area */}
+              <div className="flex-1 overflow-y-auto my-3 pr-1 space-y-2">
+                {playlist.length === 0 ? (
+                  <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+                    <Film className="h-8 w-8 text-slate-600 mx-auto mb-1.5" />
+                    <p className="text-xs font-bold text-slate-300">
+                      {tr('هیچ فیلمێک پاشەکەوت نەکراوە', 'No movies saved in this room yet')}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      {tr('دەتوانیت لە خوارەوە بەستەری فیلم زیاد بکەیت', 'You can add a movie link below')}
+                    </p>
+                  </div>
+                ) : (
+                  playlist.map((movie) => {
+                    const isCurrentlyPlaying = Boolean(
+                      cinemaState?.isActive &&
+                      cinemaState.videoUrl &&
+                      cinemaState.videoUrl.trim() === movie.url.trim(),
+                    );
+
+                    return (
+                      <div
+                        key={movie.id}
+                        className={`flex items-center justify-between gap-3 rounded-2xl border p-2.5 transition ${
+                          isCurrentlyPlaying
+                            ? 'border-emerald-500/50 bg-gradient-to-r from-emerald-950/40 to-slate-900/60 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                            : 'border-white/[0.08] bg-white/[0.03] hover:border-amber-400/30 hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-bold text-xs text-white truncate max-w-[200px] sm:max-w-xs">
+                              {movie.title}
+                            </h4>
+                            {isCurrentlyPlaying && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.2 text-[8px] font-black text-emerald-300 shrink-0">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                                {tr('پەخش دەکرێت', 'Playing')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[9px] text-slate-400 truncate mt-0.5">
+                            {tr('زیادکراوە لەلایەن', 'By')}: <span className="text-slate-300 font-semibold">{movie.addedByName}</span>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            disabled={isCurrentlyPlaying}
+                            onClick={() => handleSwitchMovieFromDrawer(movie)}
+                            className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-black transition active:scale-95 ${
+                              isCurrentlyPlaying
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default'
+                                : 'bg-gradient-to-r from-amber-400 to-yellow-400 text-black shadow hover:brightness-110'
+                            }`}
+                          >
+                            <Play className="h-3 w-3 fill-current" />
+                            <span>{isCurrentlyPlaying ? tr('چالاکە', 'Active') : tr('پەخشکردن', 'Play')}</span>
+                          </button>
+
+                          {(isHost || currentUser.isAdmin) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMovieFromDrawer(movie)}
+                              title={tr('سڕینەوە (تەنها ئەدمین)', 'Delete (Admin only)')}
+                              className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/[0.04] text-slate-400 hover:bg-rose-600 hover:text-white transition"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Bottom Quick-Add Movie Section */}
+              <form onSubmit={handleAddNewMovieToRoom} className="pt-2 border-t border-white/[0.08] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
+                    <Plus className="h-3 w-3 text-amber-400" />
+                    <span>{tr('زیادکردنی فیلم بۆ قایمەی ژوور', 'Add Movie to Room')}</span>
+                  </span>
+                  {(isHost || currentUser.isAdmin) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPlaylistDrawerOpen(false);
+                        onOpenConfigModal();
+                      }}
+                      className="text-[10px] text-amber-300 hover:underline font-bold"
+                    >
+                      {tr('ڕێکخستنە پێشکەوتووەکان...', 'Advanced Settings...')}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    required
+                    value={newMovieUrl}
+                    onChange={(e) => setNewMovieUrl(e.target.value)}
+                    placeholder={tr('بەستەری فیلم (https://...mp4)', 'Video URL (https://...mp4)')}
+                    className="flex-1 rounded-xl border border-white/10 bg-black/60 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                  />
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={newMovieTitle}
+                    onChange={(e) => setNewMovieTitle(e.target.value)}
+                    placeholder={tr('ناوی فیلم', 'Title')}
+                    className="w-24 sm:w-32 rounded-xl border border-white/10 bg-black/60 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingMovie || !newMovieUrl.trim()}
+                    className="rounded-xl bg-amber-400 text-black px-3 py-1.5 text-xs font-black hover:bg-amber-300 transition disabled:opacity-40"
+                  >
+                    + {tr('پاشەکەوت', 'Save')}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
