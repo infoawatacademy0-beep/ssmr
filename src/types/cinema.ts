@@ -8,9 +8,12 @@ export interface RoomCinemaState {
   title: string;
   isPlaying: boolean;
   currentTime: number;
+  duration?: number;
   lastUpdated: number;
   updatedByUid: string;
   updatedByName: string;
+  pausedByName?: string;
+  pausedByUid?: string;
   seatCount?: number;
 }
 

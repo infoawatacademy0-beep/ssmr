@@ -54,14 +54,28 @@ export async function updateCinemaPlayback(
   isPlaying: boolean,
   currentTime: number,
   user?: { uid: string; username: string },
+  duration?: number,
+  pausedByName?: string | null,
 ): Promise<void> {
   const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
-  await update(cinemaRef, {
+  const updates: Record<string, any> = {
     isPlaying,
     currentTime: Math.max(0, currentTime),
     lastUpdated: Date.now(),
+    ...(duration !== undefined && duration > 0 ? { duration } : {}),
     ...(user ? { updatedByUid: user.uid, updatedByName: user.username } : {}),
-  });
+  };
+
+  if (!isPlaying) {
+    const pauseName = pausedByName || user?.username || 'ئەندامێک';
+    updates.pausedByName = pauseName;
+    if (user?.uid) updates.pausedByUid = user.uid;
+  } else {
+    updates.pausedByName = null;
+    updates.pausedByUid = null;
+  }
+
+  await update(cinemaRef, updates);
 }
 
 /**
@@ -158,9 +172,12 @@ export function subscribeToRoomCinema(
       title: String(val.title || 'فیلمی سینەمایی'),
       isPlaying: Boolean(val.isPlaying),
       currentTime: Number(val.currentTime) || 0,
+      duration: val.duration ? Number(val.duration) : undefined,
       lastUpdated: Number(val.lastUpdated) || Date.now(),
       updatedByUid: String(val.updatedByUid || ''),
       updatedByName: String(val.updatedByName || ''),
+      pausedByName: val.pausedByName ? String(val.pausedByName) : (!val.isPlaying && val.updatedByName ? String(val.updatedByName) : undefined),
+      pausedByUid: val.pausedByUid ? String(val.pausedByUid) : (!val.isPlaying && val.updatedByUid ? String(val.updatedByUid) : undefined),
       seatCount: val.seatCount ? Number(val.seatCount) : 5,
     });
   });
