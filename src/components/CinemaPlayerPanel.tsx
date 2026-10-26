@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ref, onValue } from 'firebase/database';
+import { database } from '../config/firebase';
 import {
   Play,
   Pause,
@@ -29,6 +31,9 @@ import {
   X,
   ListVideo,
   Trash2,
+  Zap,
+  MoreVertical,
+  Wifi,
 } from 'lucide-react';
 import type { RoomCinemaState, Seat, User, AudienceMember, ChatMessage, SavedCinemaMovie } from '../types';
 import { getVipAvatarClass } from '../types';
@@ -145,6 +150,42 @@ export default function CinemaPlayerPanel({
   const [newMovieTitle, setNewMovieTitle] = useState('');
   const [isSavingMovie, setIsSavingMovie] = useState(false);
   const [playlistToast, setPlaylistToast] = useState<string | null>(null);
+
+  // Top Section Menu & Network MS (Ping) State
+  const [isTopMenuOpen, setIsTopMenuOpen] = useState(false);
+  const [pingMs, setPingMs] = useState<number>(38);
+
+  // Measure real-time network latency (Ping in ms)
+  useEffect(() => {
+    let isMounted = true;
+    const measurePing = async () => {
+      try {
+        const start = performance.now();
+        await fetch(`${window.location.origin}/favicon.ico?_p=${Date.now()}`, {
+          method: 'HEAD',
+          cache: 'no-store',
+        });
+        if (!isMounted) return;
+        const latency = Math.round(performance.now() - start);
+        setPingMs(Math.max(12, Math.min(999, latency)));
+      } catch {
+        if (!isMounted) return;
+        const nav = navigator as any;
+        if (nav.connection?.rtt) {
+          setPingMs(nav.connection.rtt);
+        } else {
+          setPingMs(45);
+        }
+      }
+    };
+
+    measurePing();
+    const interval = setInterval(measurePing, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Subscribe to room's saved cinema movies playlist
   useEffect(() => {
@@ -412,6 +453,34 @@ export default function CinemaPlayerPanel({
     }
   }, [cinemaState.videoUrl]);
 
+  // ─────────────────────────────────────────────────────────────
+  // VIDEO PLAYBACK & EXPLICIT SYNC HANDLER
+  // ─────────────────────────────────────────────────────────────
+  const serverOffsetRef = useRef<number>(0);
+
+  // Synchronize system clock with Firebase server time offset
+  useEffect(() => {
+    const offsetRef = ref(database, '.info/serverTimeOffset');
+    const unsub = onValue(offsetRef, (snap) => {
+      serverOffsetRef.current = Number(snap.val()) || 0;
+    });
+    return () => unsub();
+  }, []);
+
+  // Compute exact expected playback position on initial sync or explicit seek/action
+  const getExpectedLiveTime = useCallback((): number => {
+    if (!cinemaState.isPlaying) {
+      return cinemaState.currentTime || 0;
+    }
+    const now = Date.now() + serverOffsetRef.current;
+    const elapsedSec = Math.max(0, (now - (cinemaState.lastUpdated || now)) / 1000);
+    const target = (cinemaState.currentTime || 0) + elapsedSec;
+    if (effectiveDuration > 0 && target >= effectiveDuration) {
+      return effectiveDuration;
+    }
+    return target;
+  }, [cinemaState.isPlaying, cinemaState.currentTime, cinemaState.lastUpdated, effectiveDuration]);
+
   // Synchronize video playback with Firebase Realtime Database
   useEffect(() => {
     const video = videoRef.current;
@@ -423,7 +492,6 @@ export default function CinemaPlayerPanel({
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
-          // If browser autoplay policy blocks unmuted playback, play muted and show unmute pill
           video.muted = true;
           setIsMuted(true);
           video.play().then(() => {
@@ -437,38 +505,45 @@ export default function CinemaPlayerPanel({
       video.pause();
     }
 
-    // 2. Playback Position & Drift Synchronization
-    const expectedTime =
-      cinemaState.currentTime +
-      (cinemaState.isPlaying ? (Date.now() - cinemaState.lastUpdated) / 1000 : 0);
-
+    // 2. Position synchronization: ONLY on initial load or explicit user action (Seek/Change Movie)
+    // NEVER jump or skip video during normal playback so users with slow internet don't lose any scenes!
     const isExplicitAction =
       isInitialSyncRef.current ||
       cinemaState.lastUpdated !== lastHandledUpdateRef.current;
-
-    const drift = Math.abs(video.currentTime - expectedTime);
 
     if (isExplicitAction) {
       lastHandledUpdateRef.current = cinemaState.lastUpdated;
       isInitialSyncRef.current = false;
 
-      // Only seek on explicit action if position changed meaningfully or paused
-      if ((drift > 1.8 || !cinemaState.isPlaying) && Number.isFinite(expectedTime)) {
-        video.currentTime = expectedTime;
-        if (!isSeeking) {
-          setCurrentTime(expectedTime);
-        }
-      }
-    } else {
-      // During continuous smooth playback: NEVER interrupt or jerk video unless drift is severe (> 7.0s)
-      if (drift > 7.0 && Number.isFinite(expectedTime)) {
+      const expectedTime = getExpectedLiveTime();
+      if (Number.isFinite(expectedTime)) {
         video.currentTime = expectedTime;
         if (!isSeeking) {
           setCurrentTime(expectedTime);
         }
       }
     }
-  }, [cinemaState.isPlaying, cinemaState.currentTime, cinemaState.lastUpdated, cinemaState.videoUrl, isSeeking]);
+  }, [cinemaState.isPlaying, cinemaState.currentTime, cinemaState.lastUpdated, cinemaState.videoUrl, isSeeking, getExpectedLiveTime]);
+
+  // Periodic Ground-Truth Sync from Host (Every 25 seconds)
+  useEffect(() => {
+    if (!isHost || !cinemaState.isPlaying || !cinemaState.videoUrl) return;
+
+    const interval = setInterval(() => {
+      const vid = videoRef.current;
+      if (vid && !vid.paused && vid.currentTime > 0) {
+        updateCinemaPlayback(
+          roomId,
+          true,
+          vid.currentTime,
+          { uid: currentUser.uid, username: currentUser.username },
+          effectiveDuration,
+        ).catch(() => {});
+      }
+    }, 25000);
+
+    return () => clearInterval(interval);
+  }, [isHost, cinemaState.isPlaying, cinemaState.videoUrl, roomId, currentUser, effectiveDuration]);
 
   // Handle video metadata loaded (duration detection and Host Firebase sync)
   const handleLoadedMetadata = () => {
@@ -726,6 +801,253 @@ export default function CinemaPlayerPanel({
     return () => clearTimeout(hideTimer);
   }, [showControls]);
 
+  // ─────────────────────────────────────────────────────────────
+  // SLEEK CONSOLIDATED TOP OPTIONS MENU
+  // Unclutters the top header into a single dropdown menu
+  // ─────────────────────────────────────────────────────────────
+  const renderOptionsMenu = (isFs: boolean) => (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsTopMenuOpen((prev) => !prev);
+        }}
+        className={`flex ${
+          isFs ? 'h-8 w-8 rounded-xl' : 'h-7 w-7 rounded-xl'
+        } items-center justify-center border transition shadow backdrop-blur ${
+          isTopMenuOpen
+            ? 'bg-amber-400 text-black border-amber-300 font-bold scale-105'
+            : 'bg-black/75 border-white/20 text-white hover:bg-white/20'
+        }`}
+        title={tr('مێنیوی سینەما و بژاردەکان', 'Cinema Options Menu')}
+      >
+        <MoreVertical className={isFs ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+      </button>
+
+      <AnimatePresence>
+        {isTopMenuOpen && (
+          <>
+            {/* Overlay Backdrop to dismiss on click outside */}
+            <div
+              className="fixed inset-0 z-40 bg-black/20"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsTopMenuOpen(false);
+              }}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -6 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute top-9 sm:top-10 end-0 z-50 w-64 max-w-[85vw] rounded-2xl bg-slate-900/95 border border-white/20 p-2 shadow-2xl backdrop-blur-2xl text-white select-none pointer-events-auto"
+            >
+              {/* Header title */}
+              <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/10 mb-1">
+                <span className="text-[11px] font-black text-amber-300 uppercase tracking-wider">
+                  {tr('مێنیوی سینەما', 'Cinema Menu')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsTopMenuOpen(false)}
+                  className="text-white/40 hover:text-white transition p-0.5"
+                  title={tr('داخستن', 'Close')}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-0.5">
+                {/* 1. Saved Movies Playlist */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTopMenuOpen(false);
+                    setIsPlaylistDrawerOpen(true);
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Film className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>{tr('قایمەی فیلمەکان', 'Saved Movies')}</span>
+                  </div>
+                  {playlist.length > 0 && (
+                    <span className="rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 text-[10px] font-black">
+                      {playlist.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* 2. Admin Cinema Settings */}
+                {(isHost || currentUser.isAdmin) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTopMenuOpen(false);
+                      onOpenConfigModal();
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Settings className="h-4 w-4 text-amber-400 shrink-0" />
+                      <span>{tr('ڕێکخستنی سینەما', 'Cinema Settings')}</span>
+                    </div>
+                    <span className="rounded bg-rose-600/90 px-1.5 py-0.5 text-[9px] font-black uppercase text-white shadow">
+                      ADMIN
+                    </span>
+                  </button>
+                )}
+
+                {/* 3. Room Voices Toggle */}
+                {onToggleSpeakerMute && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleUserGestureAudioUnlock();
+                      onToggleSpeakerMute();
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isSpeakerMuted ? (
+                        <VolumeX className="h-4 w-4 text-rose-400 shrink-0" />
+                      ) : (
+                        <Volume2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      )}
+                      <span>{tr('دەنگی قسەکەرانی ژوور', 'Room Voices')}</span>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        isSpeakerMuted
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      }`}
+                    >
+                      {isSpeakerMuted ? tr('بێدەنگ', 'Muted') : tr('کراوە', 'ON')}
+                    </span>
+                  </button>
+                )}
+
+                {/* 4. Movie Audio Toggle */}
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                >
+                  <div className="flex items-center gap-2.5">
+                    {isMuted ? (
+                      <VolumeX className="h-4 w-4 text-rose-400 shrink-0" />
+                    ) : (
+                      <Volume2 className="h-4 w-4 text-amber-400 shrink-0" />
+                    )}
+                    <span>{tr('دەنگی فیلمەکە', 'Movie Sound')}</span>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      isMuted
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                    }`}
+                  >
+                    {isMuted ? tr('بێدەنگ', 'Muted') : tr('کراوە', 'ON')}
+                  </span>
+                </button>
+
+                {/* 5. Aspect Fit / Fill Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsObjectCover((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Maximize2 className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>{tr('شێوازی قەبارەی شاشە', 'Screen Fit')}</span>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      isObjectCover
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : 'bg-white/10 text-slate-300 border border-white/20'
+                    }`}
+                  >
+                    {isObjectCover ? tr('پڕکردنەوە (Fill)', 'Fill') : tr('گونجاندن (Fit)', 'Fit')}
+                  </span>
+                </button>
+
+                {/* 6. Landscape 90° Rotate */}
+                <button
+                  type="button"
+                  onClick={() => setIsRotatedLandscape((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <RotateCw className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>{tr('سوڕاندنی ٩٠ پلە', 'Rotate 90°')}</span>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      isRotatedLandscape
+                        ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                        : 'bg-white/10 text-slate-300 border border-white/20'
+                    }`}
+                  >
+                    {isRotatedLandscape ? tr('چالاکە', 'ON') : tr('ناچالاکە', 'OFF')}
+                  </span>
+                </button>
+
+                {/* 7. Chat Notification Toasts */}
+                <button
+                  type="button"
+                  onClick={() => setIsChatToastEnabled((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>{tr('ئاگاداری نامەکانی چات', 'Chat Popups')}</span>
+                  </div>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      isChatToastEnabled
+                        ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                        : 'bg-white/10 text-slate-400 border border-white/20'
+                    }`}
+                  >
+                    {isChatToastEnabled ? tr('چالاکە', 'ON') : tr('داخراو', 'OFF')}
+                  </span>
+                </button>
+
+                {/* 8. Leave Seat (if user is currently seated) */}
+                {mySeat && onLeaveMySeat && (
+                  <div className="pt-1 mt-1 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTopMenuOpen(false);
+                        onLeaveMySeat(mySeat.seatNo);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/15 transition active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <LogOut className="h-4 w-4 shrink-0" />
+                        <span>{tr('جێهێشتنی کورسی', 'Leave Seat')}</span>
+                      </div>
+                      <span className="text-[10px] text-rose-400/70">
+                        {tr(`کورسی ${mySeat.seatNo}`, `Seat ${mySeat.seatNo}`)}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
   return (
     <div
       ref={containerRef}
@@ -855,6 +1177,7 @@ export default function CinemaPlayerPanel({
           )}
         </AnimatePresence>
 
+
         {/* Browser Audio Autoplay Unblock Banner */}
         {(audioBlockedNotice || audioAutoplayBlocked) && (
           <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
@@ -968,117 +1291,61 @@ export default function CinemaPlayerPanel({
                 </div>
               </div>
 
-              {/* Right Action Icons: Microphone + Rotations + Movie Sound + Exit */}
+              {/* Right Action Icons: MS Latency + Mic Pill (if seated) + Options Menu + Exit Fullscreen */}
               <div className="flex items-center gap-2">
-                {/* 1-Tap Microphone Pill & Status in Fullscreen */}
-                {mySeat ? (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleUserGestureAudioUnlock();
-                        onToggleMyMute();
-                      }}
-                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black shadow-lg transition active:scale-95 ${
-                        !mySeat.isMuted
-                          ? 'bg-emerald-500 text-black border border-emerald-300 shadow-emerald-500/40 animate-pulse'
-                          : 'bg-rose-600/90 text-white border border-rose-400 hover:bg-rose-500'
-                      }`}
-                      title={!mySeat.isMuted ? tr('بێدەنگکردنی مایک', 'Mute Mic') : tr('کردنەوەی مایک', 'Unmute Mic')}
-                    >
-                      {!mySeat.isMuted ? (
-                        <>
-                          <Mic className="h-3.5 w-3.5 stroke-[3]" />
-                          <span className="hidden xs:inline">{tr('مایک: کراوە', 'Mic: ON')}</span>
-                        </>
-                      ) : (
-                        <>
-                          <MicOff className="h-3.5 w-3.5 stroke-[2.5]" />
-                          <span className="hidden xs:inline">{tr('مایک: داخراو', 'Mic: OFF')}</span>
-                        </>
-                      )}
-                    </button>
-                    {onLeaveMySeat && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onLeaveMySeat(mySeat.seatNo);
-                        }}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/70 border border-white/20 text-rose-300 hover:bg-rose-600 hover:text-white transition shadow"
-                        title={tr('جێهێشتنی کورسی', 'Leave Seat')}
-                      >
-                        <LogOut className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ) : null}
+                {/* Real-time MS Latency Indicator (Ping) */}
+                <div
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/75 border border-white/20 backdrop-blur text-[11px] font-mono font-bold shadow-lg select-none"
+                  title={tr(`خێرایی هێڵی ئینتەرنێت (پینگ): ${pingMs}ms`, `Network Latency (Ping): ${pingMs}ms`)}
+                >
+                  <Wifi className={`h-3.5 w-3.5 ${pingMs < 80 ? 'text-emerald-400' : pingMs < 180 ? 'text-amber-400' : 'text-rose-400'}`} />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full animate-pulse"
+                    style={{ backgroundColor: pingMs < 80 ? '#34d399' : pingMs < 180 ? '#fbbf24' : '#f43f5e' }}
+                  />
+                  <span className={pingMs < 80 ? 'text-emerald-400' : pingMs < 180 ? 'text-amber-300' : 'text-rose-400'}>
+                    {pingMs}
+                    <span className="text-[9px] font-sans text-white/60 ml-0.5">ms</span>
+                  </span>
+                </div>
 
-                {/* Room Voice (Speaker) Toggle */}
-                {onToggleSpeakerMute && (
+                {/* 1-Tap Microphone Pill & Status in Fullscreen */}
+                {mySeat && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleUserGestureAudioUnlock();
-                      onToggleSpeakerMute();
+                      onToggleMyMute();
                     }}
-                    className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow ${
-                      isSpeakerMuted
-                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-400'
-                        : 'bg-black/70 border-white/20 text-slate-300 hover:text-white'
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black shadow-lg transition active:scale-95 ${
+                      !mySeat.isMuted
+                        ? 'bg-emerald-500 text-black border border-emerald-300 shadow-emerald-500/40 animate-pulse'
+                        : 'bg-rose-600/90 text-white border border-rose-400 hover:bg-rose-500'
                     }`}
-                    title={isSpeakerMuted ? tr('کردنەوەی دەنگی هاوڕێیان', 'Unmute Room Voices') : tr('بێدەنگکردنی دەنگی هاوڕێیان', 'Mute Room Voices')}
+                    title={!mySeat.isMuted ? tr('بێدەنگکردنی مایک', 'Mute Mic') : tr('کردنەوەی مایک', 'Unmute Mic')}
                   >
-                    {isSpeakerMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    {!mySeat.isMuted ? (
+                      <>
+                        <Mic className="h-3.5 w-3.5 stroke-[3]" />
+                        <span className="hidden xs:inline">{tr('مایک: کراوە', 'Mic: ON')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <MicOff className="h-3.5 w-3.5 stroke-[2.5]" />
+                        <span className="hidden xs:inline">{tr('مایک: داخراو', 'Mic: OFF')}</span>
+                      </>
+                    )}
                   </button>
                 )}
 
-                <button
-                  onClick={() => setIsRotatedLandscape((prev) => !prev)}
-                  title={tr('سوڕاندنی ٩٠ پلە', 'Rotate 90°')}
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow ${
-                    isRotatedLandscape
-                      ? 'bg-amber-400 text-black border-amber-300 font-bold'
-                      : 'bg-black/70 border-white/20 text-white hover:bg-white/20'
-                  }`}
-                >
-                  <RotateCw className="h-4 w-4" />
-                </button>
+                {/* Sleek Consolidated Options Menu Dropdown */}
+                {renderOptionsMenu(true)}
 
-                <button
-                  onClick={() => setIsChatToastEnabled((prev) => !prev)}
-                  title={isChatToastEnabled ? tr('بێدەنگکردنی ئاگاداری نامەکان', 'Mute Chat Notifications') : tr('چالاککردنی ئاگاداری نامەکان', 'Enable Chat Notifications')}
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow ${
-                    isChatToastEnabled
-                      ? 'bg-amber-400/25 border-amber-400/60 text-amber-300'
-                      : 'bg-black/70 border-white/20 text-slate-500 hover:text-white'
-                  }`}
-                >
-                  <MessageSquare className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={() => setIsObjectCover((prev) => !prev)}
-                  title={isObjectCover ? tr('پڕکردنەوەی شاشە', 'Fit') : tr('تەواوی شاشە', 'Fill')}
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow ${
-                    isObjectCover
-                      ? 'bg-rose-600 text-white border-rose-400'
-                      : 'bg-black/70 border-white/20 text-white hover:bg-white/20'
-                  }`}
-                >
-                  <Maximize2 className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={handleToggleMute}
-                  title={isMuted ? tr('کردنەوەی دەنگی فیلمەکە', 'Unmute Movie Sound') : tr('بێدەنگکردنی دەنگی فیلمەکە', 'Mute Movie Sound')}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/70 border border-white/20 text-white hover:bg-white/20 transition shadow"
-                >
-                  {isMuted ? <VolumeX className="h-4 w-4 text-rose-400" /> : <Volume2 className="h-4 w-4" />}
-                </button>
-
+                {/* Exit Fullscreen */}
                 <button
                   onClick={exitLandscapeFullscreen}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/70 border border-white/20 text-white hover:bg-rose-600 transition shadow"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/75 border border-white/20 text-white hover:bg-rose-600 transition shadow"
+                  title={tr('دەرچوون لە شاشەی گەورە', 'Exit Fullscreen')}
                 >
                   <Minimize2 className="h-4 w-4" />
                 </button>
@@ -1324,31 +1591,26 @@ export default function CinemaPlayerPanel({
                 </h3>
               </div>
 
-              {/* Right Header Action Icons */}
+              {/* Right Header Action Icons: MS Ping + Options Menu + Fullscreen */}
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setIsPlaylistDrawerOpen(true)}
-                  title={tr('قایمەی فیلمەکان و گۆڕینی فیلم', 'Movie Playlist & Switch Movie')}
-                  className="flex h-7 items-center gap-1.5 rounded-xl bg-black/60 border border-amber-400/40 px-2 text-xs font-bold text-amber-300 hover:bg-amber-500 hover:text-black transition shadow active:scale-95"
+                {/* Real-time MS Ping Latency Indicator */}
+                <div
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 border border-white/15 backdrop-blur text-[10px] font-mono font-bold shadow-md select-none"
+                  title={tr(`خێرایی هێڵی ئینتەرنێت (پینگ): ${pingMs}ms`, `Network Latency (Ping): ${pingMs}ms`)}
                 >
-                  <Film className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{tr('فیلمەکان', 'Movies')}</span>
-                  {playlist.length > 0 && (
-                    <span className="rounded-full bg-amber-400/25 px-1 text-[9px] font-black">
-                      {playlist.length}
-                    </span>
-                  )}
-                </button>
+                  <Wifi className={`h-2.5 w-2.5 ${pingMs < 80 ? 'text-emerald-400' : pingMs < 180 ? 'text-amber-400' : 'text-rose-400'}`} />
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: pingMs < 80 ? '#34d399' : pingMs < 180 ? '#fbbf24' : '#f43f5e' }}
+                  />
+                  <span className={pingMs < 80 ? 'text-emerald-400' : pingMs < 180 ? 'text-amber-300' : 'text-rose-400'}>
+                    {pingMs}
+                    <span className="text-[8px] font-sans text-white/60 ml-0.5">ms</span>
+                  </span>
+                </div>
 
-                {(isHost || currentUser.isAdmin) && (
-                  <button
-                    onClick={onOpenConfigModal}
-                    title={tr('ڕێکخستنی فیلم و لینکی فایەربەیس', 'Cinema & Movie Settings')}
-                    className="flex h-7 w-7 items-center justify-center rounded-xl bg-black/60 border border-white/20 text-white hover:bg-amber-500 hover:text-black transition shadow"
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                {/* Sleek Consolidated Options Menu */}
+                {renderOptionsMenu(false)}
 
                 <button
                   onClick={handleToggleFullscreen}
@@ -1432,7 +1694,7 @@ export default function CinemaPlayerPanel({
                 </div>
 
                 {/* Center: Exact Time Display & Paused Name */}
-                <div className="flex items-center gap-1 min-w-0 shrink">
+                <div className="flex items-center gap-1.5 min-w-0 shrink">
                   <div className="flex items-center gap-0.5 font-mono text-[10px] sm:text-xs font-bold text-amber-300 whitespace-nowrap">
                     <span>{formatTime(currentTime)}</span>
                     <span className="text-white/40">/</span>
