@@ -40,6 +40,7 @@ import {
   Minimize2,
   Film,
   ArrowLeftRight,
+  MoreVertical,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, useLanguage } from '../contexts';
@@ -201,8 +202,9 @@ export default function VoiceRoom() {
   const [isAssignSeatModalOpen, setIsAssignSeatModalOpen] = useState(false);
   const [assignUserSearch, setAssignUserSearch] = useState('');
 
-  // Copied link toast
+  // Copied link toast & Top Header Menu state
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isTopHeaderMenuOpen, setIsTopHeaderMenuOpen] = useState(false);
 
   // Room Report Modal state
   const [isRoomReportOpen, setIsRoomReportOpen] = useState(false);
@@ -826,7 +828,7 @@ export default function VoiceRoom() {
           </div>
         </div>
 
-        {/* Right Side: Action Buttons (No text overflow, mobile friendly) */}
+        {/* Right Side: Action Buttons (Organized & Sleek) */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Live Audience Counter */}
           <div
@@ -837,129 +839,247 @@ export default function VoiceRoom() {
             <span className="text-[11px] text-white">{audience.length}</span>
           </div>
 
-          {/* Invite Button */}
+          {/* Invite Friends Button (Directly accessible) */}
           <button
             onClick={() => setIsInviteModalOpen(true)}
-            className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/20"
+            className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/20 active:scale-95"
             title={tr('بانگهێشتکردنی هاوڕێیان', 'Invite Friends')}
           >
             <UserPlus className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{tr('بانگهێشت', 'Invite')}</span>
           </button>
 
-          {/* Cinema & Movie Mode Button */}
-          {cinemaState?.isActive ? (
+          {/* Cinema Active Pill (Only when cinema is currently broadcasting) */}
+          {cinemaState?.isActive && (
             <button
-              onClick={() => {
-                setIsCinemaConfigModalOpen(true);
-              }}
+              onClick={() => setIsCinemaConfigModalOpen(true)}
               className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 px-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/25 animate-pulse"
               title={tr('مۆدی سینەما چالاکە · کرتە بکە بۆ قایمەی فیلمەکان و گۆڕینی فیلم', 'Cinema Active · Click for movie playlist & switch movie')}
             >
               <Film className="h-3.5 w-3.5" />
-              <span>{tr('سینەما', 'Cinema')}</span>
-            </button>
-          ) : (isHost || user.isAdmin) ? (
-            <button
-              onClick={() => setIsCinemaConfigModalOpen(true)}
-              className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 px-2.5 text-xs font-bold text-rose-300 transition-colors hover:bg-rose-500/20 active:scale-95"
-              title={tr('مۆدی سینەما و سەیرکردنی فیلم', 'Cinema & Movie Mode')}
-            >
-              <Film className="h-3.5 w-3.5 text-rose-400" />
               <span className="hidden xs:inline">{tr('سینەما', 'Cinema')}</span>
             </button>
-          ) : null}
+          )}
 
-          {/* Music Player Button (For Host & Members) */}
-          {(true) && (
+          {/* Sleek Top Header Options Menu (⋮) */}
+          <div className="relative">
             <button
-              onClick={async () => {
-                if (!musicState.isMusicModeActive && !musicState.isPlaying) {
-                  await setMusicModeActive(room.id, true).catch(console.error);
-                  setIsMusicPanelVisible(true);
-                } else {
-                  setIsMusicPanelVisible((v) => !v);
-                }
-              }}
-              className={`flex h-8 w-8 items-center justify-center rounded-xl border text-xs font-bold transition-colors ${
-                isMusicPanelVisible || musicState.isPlaying || musicState.isMusicModeActive
-                  ? 'border-violet-400 bg-violet-500/25 text-violet-200'
-                  : 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20'
+              type="button"
+              onClick={() => setIsTopHeaderMenuOpen((prev) => !prev)}
+              className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow-sm ${
+                isTopHeaderMenuOpen
+                  ? 'border-amber-400 bg-amber-400 text-black font-bold scale-105'
+                  : 'border-white/[0.08] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white'
               }`}
-              title={tr('مۆدی گۆرانی (Music Mode)', 'Music Mode')}
+              title={tr('مێنیوی ژوور و بەشەکان', 'Room Options Menu')}
             >
-              <Music className="h-3.5 w-3.5" />
+              <MoreVertical className="h-4 w-4" />
             </button>
-          )}
 
-          {/* Quick 1-Click Remove Password Button in Header (when room has password) */}
-          {(isHost || user.isAdmin) && room.isPrivate && room.password && (
-            <button
-              onClick={async () => {
-                try {
-                  await updateRoomPassword(room.id, null);
-                } catch (err: any) {
-                  alert(err.message || tr('نەتوانرا پاسۆرد لاببرێت', 'Failed to remove password'));
-                }
-              }}
-              className="flex h-8 items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-2 text-[10px] font-black text-rose-300 transition-colors hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300"
-              title={tr('کرتە بکە بۆ لابردنی پاسۆردی ژوورەکە (Remove Room Password)', 'Remove Room Password')}
-            >
-              <Lock className="h-3 w-3" />
-              <span className="hidden xs:inline">{tr('لابردنی پاسۆرد', 'Remove Password')}</span>
-            </button>
-          )}
+            <AnimatePresence>
+              {isTopHeaderMenuOpen && (
+                <>
+                  {/* Backdrop to dismiss menu on click outside */}
+                  <div
+                    className="fixed inset-0 z-40 bg-black/25"
+                    onClick={() => setIsTopHeaderMenuOpen(false)}
+                  />
 
-          {/* Host Controls Button */}
-          {(isHost || user.isAdmin) && (
-            <button
-              onClick={() => setIsHostControlsOpen(true)}
-              className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-amber-500/40 bg-amber-500/10 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500/20"
-              title="Host Controls"
-            >
-              <Shield className="h-3.5 w-3.5 text-amber-400" />
-              <span className="hidden sm:inline">{tr('پانێڵ', 'Controls')}</span>
-            </button>
-          )}
+                  {/* Dropdown Menu Card */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -6 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-10 end-0 z-50 w-60 max-w-[85vw] rounded-2xl bg-surface-900/95 border border-white/15 p-2 shadow-2xl backdrop-blur-2xl text-white select-none pointer-events-auto flex flex-col gap-0.5"
+                  >
+                    {/* Menu Header */}
+                    <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/10 mb-1">
+                      <span className="text-[11px] font-black text-amber-300 uppercase tracking-wider">
+                        {tr('مێنیوی ژوور', 'Room Menu')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsTopHeaderMenuOpen(false)}
+                        className="text-white/40 hover:text-white transition p-0.5"
+                        title={tr('داخستن', 'Close')}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
 
-          {/* Delete Whole Room (Host / Admin) */}
-          {(isHost || user.isAdmin) && (
-            <button
-              onClick={async () => {
-                if (!window.confirm(tr('ئایا دڵنیایت دەتەوێت ژوورەکە بە تەواوی بسڕیتەوە؟', 'Are you sure you want to permanently delete this room?'))) return;
-                try {
-                  await deleteRoom(room.id);
-                  navigate('/');
-                } catch (err: any) {
-                  alert(err.message || tr('نەتوانرا ژوورەکە بسڕدرێتەوە', 'Failed to delete room'));
-                }
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/40 bg-rose-500/15 text-rose-300 transition-colors hover:bg-rose-500/30"
-              title={tr('سڕینەوەی ژوورەکە (Delete Room)', 'Delete Room')}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
+                    {/* 1. Report Room (Accessible for all users/audience) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTopHeaderMenuOpen(false);
+                        setIsRoomReportOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-rose-300 hover:bg-rose-500/15 hover:text-rose-200 transition active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0" />
+                        <span>{tr('ڕاپۆرتکردنی ئەم ژوورە', 'Report Room')}</span>
+                      </div>
+                    </button>
 
-          {/* Share Button */}
-          <button
-            onClick={handleShareRoom}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-300 transition-colors hover:bg-white/[0.08]"
-            title={tr('کۆپیکردنی بەستەری ژوور', 'Copy Room Link')}
-          >
-            {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Share2 className="h-3.5 w-3.5" />}
-          </button>
+                    {/* 2. Cinema & Movie Mode (Host or Admin) */}
+                    {(isHost || user.isAdmin) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTopHeaderMenuOpen(false);
+                          setIsCinemaConfigModalOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Film className="h-4 w-4 text-rose-400 shrink-0" />
+                          <span>{tr('مۆدی سینەما و فیلم', 'Cinema Mode')}</span>
+                        </div>
+                        {cinemaState?.isActive ? (
+                          <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-black">
+                            LIVE
+                          </span>
+                        ) : (
+                          <span className="rounded bg-rose-600/30 text-rose-300 px-1.5 py-0.5 text-[9px] font-black">
+                            PRO
+                          </span>
+                        )}
+                      </button>
+                    )}
 
-          {/* Report Room Button */}
-          <button
-            onClick={() => setIsRoomReportOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-slate-400 transition-colors hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"
-            title={tr('ڕاپۆرتکردنی ئەم ژوورە', 'Report Room')}
-          >
-            <ShieldAlert className="h-3.5 w-3.5" />
-          </button>
+                    {/* 3. Music Player Mode Toggle */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsTopHeaderMenuOpen(false);
+                        if (!musicState.isMusicModeActive && !musicState.isPlaying) {
+                          await setMusicModeActive(room.id, true).catch(console.error);
+                          setIsMusicPanelVisible(true);
+                        } else {
+                          setIsMusicPanelVisible((v) => !v);
+                        }
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Music className="h-4 w-4 text-violet-400 shrink-0" />
+                        <span>{tr('مۆدی گۆرانی و موزیک', 'Music Mode')}</span>
+                      </div>
+                      {(isMusicPanelVisible || musicState.isPlaying || musicState.isMusicModeActive) && (
+                        <span className="rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 px-1.5 py-0.5 text-[9px] font-black">
+                          ON
+                        </span>
+                      )}
+                    </button>
 
-          {/* Leave Button - Safely vacates seat before exiting */}
+                    {/* 4. Host Controls Panel (Host or Admin) */}
+                    {(isHost || user.isAdmin) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTopHeaderMenuOpen(false);
+                          setIsHostControlsOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Shield className="h-4 w-4 text-amber-400 shrink-0" />
+                          <span>{tr('پانێڵی بەڕێوەبردن', 'Host Controls')}</span>
+                        </div>
+                        <span className="rounded bg-amber-500/20 text-amber-300 px-1.5 py-0.5 text-[9px] font-black">
+                          PANEL
+                        </span>
+                      </button>
+                    )}
+
+                    {/* 5. Quick Remove Password Button (Host/Admin when room has password) */}
+                    {(isHost || user.isAdmin) && room.isPrivate && room.password && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsTopHeaderMenuOpen(false);
+                          try {
+                            await updateRoomPassword(room.id, null);
+                          } catch (err: any) {
+                            alert(err.message || tr('نەتوانرا پاسۆرد لاببرێت', 'Failed to remove password'));
+                          }
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-amber-300 hover:bg-amber-500/15 transition active:scale-98"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Lock className="h-4 w-4 text-amber-400 shrink-0" />
+                          <span>{tr('لابردنی پاسۆردی ژوور', 'Remove Password')}</span>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* 6. Copy Room Link */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleShareRoom();
+                        setTimeout(() => setIsTopHeaderMenuOpen(false), 800);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        {copiedLink ? (
+                          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                        ) : (
+                          <Share2 className="h-4 w-4 text-sky-400 shrink-0" />
+                        )}
+                        <span>{tr('کۆپیکردنی لینکی ژوور', 'Copy Room Link')}</span>
+                      </div>
+                      {copiedLink && (
+                        <span className="text-[10px] text-emerald-400 font-bold">
+                          {tr('کۆپی کرا', 'Copied')}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* 7. Delete Whole Room (Host or Admin) */}
+                    {(isHost || user.isAdmin) && (
+                      <div className="pt-1 mt-0.5 border-t border-white/10">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setIsTopHeaderMenuOpen(false);
+                            if (
+                              !window.confirm(
+                                tr(
+                                  'ئایا دڵنیایت دەتەوێت ژوورەکە بە تەواوی بسڕیتەوە؟',
+                                  'Are you sure you want to permanently delete this room?',
+                                ),
+                              )
+                            ) {
+                              return;
+                            }
+                            try {
+                              await deleteRoom(room.id);
+                              navigate('/');
+                            } catch (err: any) {
+                              alert(err.message || tr('نەتوانرا ژوورەکە بسڕدرێتەوە', 'Failed to delete room'));
+                            }
+                          }}
+                          className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/20 transition active:scale-98"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Trash2 className="h-4 w-4 shrink-0" />
+                            <span>{tr('سڕینەوەی ژوورەکە', 'Delete Room')}</span>
+                          </div>
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Leave Room Button - Safely vacates seat before exiting */}
           <button
             onClick={handleLeaveRoom}
             disabled={isLeaving}
