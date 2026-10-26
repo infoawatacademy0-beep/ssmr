@@ -39,6 +39,7 @@ import {
   Maximize2,
   Minimize2,
   Film,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, useLanguage } from '../contexts';
@@ -83,6 +84,8 @@ import {
   subscribeToSeatEmojis,
   subscribeToRoomCinema,
   updateRoomSeatCount,
+  moveUserToSeat,
+  assignUserToSeat,
 } from '../services';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import JackarooGamePanel from './JackarooGamePanel';
@@ -193,6 +196,9 @@ export default function VoiceRoom() {
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [vipModalSeat, setVipModalSeat] = useState<Seat | null>(null);
   const [isVipModalOpen, setIsVipModalOpen] = useState(false);
+  const [isMoveSeatModalOpen, setIsMoveSeatModalOpen] = useState(false);
+  const [isAssignSeatModalOpen, setIsAssignSeatModalOpen] = useState(false);
+  const [assignUserSearch, setAssignUserSearch] = useState('');
 
   // Copied link toast
   const [copiedLink, setCopiedLink] = useState(false);
@@ -465,8 +471,8 @@ export default function VoiceRoom() {
     if (!room || !user) return;
 
     if (!seat.userId) {
-      // Check VIP / Platinum seat reservation
-      if (seat.isPlatinum || seat.isVip) {
+      // Check VIP / Platinum / Iron seat reservation (Admins & Host can sit on ANY seat!)
+      if (!user.isAdmin && !isHost && (seat.isPlatinum || seat.isIron || seat.isVip)) {
         if (seat.vipAssignedUserId || seat.vipAssignedName) {
           const matchesUid = Boolean(seat.vipAssignedUserId && seat.vipAssignedUserId === user.uid);
           const matchesName = Boolean(
@@ -477,7 +483,7 @@ export default function VoiceRoom() {
           // Strictly reserved: ONLY this designated person can take this seat!
           if (!matchesUid && !matchesName) {
             const targetLabel = seat.vipAssignedName || 'بەکارهێنەری دیاریکراو';
-            const tierLabel = seat.isPlatinum ? 'پلاتینیۆمە (Platinum)' : 'VIP';
+            const tierLabel = seat.isPlatinum ? 'پلاتینیۆمە (Platinum)' : seat.isIron ? 'ئاسنە (Iron)' : 'VIP';
             alert(tr(
               `ئەم کورسییە بە تایبەت ${tierLabel} و تەنها بۆ (${targetLabel}) دانراوە! هیچ کەسێکی تر ناتوانێت دابنیشێت لەسەری.`,
               `This seat is ${tierLabel} and exclusively reserved for (${targetLabel})! Nobody else can take this seat.`,
@@ -1137,12 +1143,16 @@ export default function VoiceRoom() {
               let avatarBorderClass = 'border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-violet-500/50 hover:bg-white/[0.04]';
               if (seat.isPlatinum) {
                 avatarBorderClass = 'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/25 via-blue-950/40 to-black shadow-[0_0_24px_rgba(6,182,212,0.65)] ring-1 ring-cyan-400/50';
+              } else if (seat.isIron) {
+                avatarBorderClass = 'border-2 border-slate-300 bg-gradient-to-b from-slate-400/25 via-zinc-800/40 to-black shadow-[0_0_18px_rgba(203,213,225,0.6)] ring-1 ring-slate-400/50';
               } else if (seat.isVip) {
                 avatarBorderClass = 'border-2 border-amber-400/90 bg-gradient-to-b from-amber-500/15 via-amber-950/30 to-black/60 shadow-[0_0_18px_rgba(245,158,11,0.45)]';
               }
               if (isOccupied) {
                 if (seat.isPlatinum) {
                   avatarBorderClass = 'border-2 border-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.85)] ring-2 ring-cyan-400/60';
+                } else if (seat.isIron) {
+                  avatarBorderClass = 'border-2 border-slate-300 shadow-[0_0_20px_rgba(203,213,225,0.8)] ring-2 ring-slate-400/60';
                 } else if (isSeatVip || seat.isVip) {
                   avatarBorderClass = getVipAvatarClass(
                     true,
@@ -1226,13 +1236,20 @@ export default function VoiceRoom() {
                             </div>
                           )}
 
-                          {/* VIP / Platinum Badge on Seat Profile Icon */}
+                          {/* VIP / Platinum / Iron Badge on Seat Profile Icon */}
                           {seat.isPlatinum ? (
                             <div
                               title="Platinum Reserved"
                               className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-400 via-sky-300 to-white shadow-[0_0_12px_rgba(6,182,212,0.9)] z-20"
                             >
                               <Diamond className="h-3 w-3 text-cyan-950 fill-cyan-950" strokeWidth={2.5} />
+                            </div>
+                          ) : seat.isIron ? (
+                            <div
+                              title="Iron Reserved"
+                              className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-slate-300 via-zinc-400 to-slate-100 shadow-[0_0_12px_rgba(203,213,225,0.9)] z-20"
+                            >
+                              <Shield className="h-3 w-3 text-black fill-black" strokeWidth={2.5} />
                             </div>
                           ) : isSeatVip ? (
                             <div
@@ -1296,6 +1313,11 @@ export default function VoiceRoom() {
                               <Diamond className="h-6 w-6 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]" strokeWidth={2.2} />
                               <span className="text-[8px] font-black uppercase tracking-wider text-cyan-300 mt-0.5">PLATINUM</span>
                             </div>
+                          ) : seat.isIron ? (
+                            <div className="flex flex-col items-center justify-center text-slate-200 transition-transform group-hover:scale-110">
+                              <Shield className="h-6 w-6 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]" strokeWidth={2.2} />
+                              <span className="text-[8px] font-black uppercase tracking-wider text-slate-200 mt-0.5">IRON</span>
+                            </div>
                           ) : seat.isVip ? (
                             <div className="flex flex-col items-center justify-center text-amber-300 transition-transform group-hover:scale-110">
                               <Crown className="h-6 w-6 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_#f59e0b]" strokeWidth={2.2} />
@@ -1311,10 +1333,12 @@ export default function VoiceRoom() {
                     </div>
                   </div>
 
-                  {/* Seat Title / Colored Username + VIP / Platinum Icon */}
+                  {/* Seat Title / Colored Username + VIP / Platinum / Iron Icon */}
                   <div className="mt-1.5 flex items-center justify-center gap-0.5 max-w-full px-1">
                     {seat.isPlatinum ? (
                       <Diamond className="h-2.5 w-2.5 shrink-0 text-cyan-400 fill-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.8)]" />
+                    ) : seat.isIron ? (
+                      <Shield className="h-2.5 w-2.5 shrink-0 text-slate-300 fill-slate-300 drop-shadow-[0_0_4px_rgba(203,213,225,0.8)]" />
                     ) : (isSeatVip || seat.isVip) ? (
                       <Crown className="h-2.5 w-2.5 shrink-0 text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_#f59e0b]" />
                     ) : null}
@@ -1324,6 +1348,8 @@ export default function VoiceRoom() {
                           ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
                           : seat.isPlatinum
                           ? 'text-cyan-300 font-black'
+                          : seat.isIron
+                          ? 'text-slate-200 font-black'
                           : seat.isVip
                           ? 'text-amber-300 font-black'
                           : 'text-slate-500 font-medium'
@@ -1331,7 +1357,7 @@ export default function VoiceRoom() {
                       title={
                         isOccupied
                           ? seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
-                          : seat.vipAssignedName || (seat.isPlatinum ? `Platinum #${seat.seatNo}` : seat.isVip ? `VIP #${seat.seatNo}` : `${tr('کورسی', 'Seat')} ${seat.seatNo}`)
+                          : seat.vipAssignedName || (seat.isPlatinum ? `Platinum #${seat.seatNo}` : seat.isIron ? `Iron #${seat.seatNo}` : seat.isVip ? `VIP #${seat.seatNo}` : `${tr('کورسی', 'Seat')} ${seat.seatNo}`)
                       }
                     >
                       {isOccupied
@@ -1340,6 +1366,8 @@ export default function VoiceRoom() {
                         ? seat.vipAssignedName
                         : seat.isPlatinum
                         ? `Platinum #${seat.seatNo}`
+                        : seat.isIron
+                        ? `Iron #${seat.seatNo}`
                         : seat.isVip
                         ? `VIP #${seat.seatNo}`
                         : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
@@ -1920,6 +1948,8 @@ export default function VoiceRoom() {
                       selectedSeat.userId
                         ? selectedSeat.isPlatinum
                           ? 'border-2 border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.6)] overflow-hidden'
+                          : selectedSeat.isIron
+                          ? 'border-2 border-slate-300 shadow-[0_0_12px_rgba(203,213,225,0.6)] overflow-hidden'
                           : selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])
                           ? getVipAvatarClass(
                               true,
@@ -1928,6 +1958,8 @@ export default function VoiceRoom() {
                           : 'bg-violet-600 overflow-hidden'
                         : selectedSeat.isPlatinum
                         ? 'border-2 border-cyan-300 bg-cyan-500/20 shadow-[0_0_14px_rgba(6,182,212,0.6)]'
+                        : selectedSeat.isIron
+                        ? 'border-2 border-slate-300 bg-slate-500/20 shadow-[0_0_14px_rgba(203,213,225,0.6)]'
                         : selectedSeat.isVip
                         ? 'border-2 border-amber-400 bg-amber-500/20 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
                         : 'bg-slate-800'
@@ -1946,6 +1978,8 @@ export default function VoiceRoom() {
                         )
                       ) : selectedSeat.isPlatinum ? (
                         <Diamond className="h-5 w-5 text-cyan-300 fill-cyan-400" />
+                      ) : selectedSeat.isIron ? (
+                        <Shield className="h-5 w-5 text-slate-300 fill-slate-300" />
                       ) : selectedSeat.isVip ? (
                         <Crown className="h-5 w-5 text-amber-400 fill-amber-400" />
                       ) : (
@@ -1955,6 +1989,10 @@ export default function VoiceRoom() {
                     {selectedSeat.isPlatinum ? (
                       <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
                         <Diamond className="h-2.5 w-2.5 text-cyan-950 fill-cyan-950" />
+                      </span>
+                    ) : selectedSeat.isIron ? (
+                      <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]">
+                        <Shield className="h-2.5 w-2.5 text-black fill-black" />
                       </span>
                     ) : (selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) && (
                       <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
@@ -1971,6 +2009,10 @@ export default function VoiceRoom() {
                           ? selectedSeat.vipAssignedName
                             ? `💎 ${selectedSeat.vipAssignedName}`
                             : `💎 Platinum #${selectedSeat.seatNo}`
+                          : selectedSeat.isIron
+                          ? selectedSeat.vipAssignedName
+                            ? `🛡️ ${selectedSeat.vipAssignedName}`
+                            : `🛡️ Iron #${selectedSeat.seatNo}`
                           : selectedSeat.vipAssignedName
                           ? `👑 ${selectedSeat.vipAssignedName}`
                           : selectedSeat.isVip
@@ -1981,6 +2023,11 @@ export default function VoiceRoom() {
                         <span className="inline-flex items-center gap-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.2 text-[9px] font-black text-cyan-300">
                           <Diamond className="h-2.5 w-2.5 text-cyan-300 fill-cyan-400" />
                           Platinum
+                        </span>
+                      ) : selectedSeat.isIron ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-500/20 border border-slate-400/40 px-1.5 py-0.2 text-[9px] font-black text-slate-300">
+                          <Shield className="h-2.5 w-2.5 text-slate-300 fill-slate-300" />
+                          Iron
                         </span>
                       ) : (selectedSeat.isVip || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) ? (
                         <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.2 text-[9px] font-black text-amber-300">
@@ -1993,7 +2040,7 @@ export default function VoiceRoom() {
                       {selectedSeat.userId
                         ? `Seat #${selectedSeat.seatNo} · ${tr('کرتە بکە بۆ پڕۆفایل', 'Click for profile')}`
                         : selectedSeat.vipAssignedName
-                        ? `${selectedSeat.isPlatinum ? tr('تایبەت کراوە بۆ پلاتینیۆم:', 'Strictly reserved for Platinum:') : tr('تەرخانکراوە بۆ:', 'Reserved for:')} ${selectedSeat.vipAssignedName}`
+                        ? `${selectedSeat.isPlatinum ? tr('تایبەت کراوە بۆ پلاتینیۆم:', 'Strictly reserved for Platinum:') : selectedSeat.isIron ? tr('تایبەت کراوە بۆ ئاسن:', 'Strictly reserved for Iron:') : tr('تەرخانکراوە بۆ:', 'Reserved for:')} ${selectedSeat.vipAssignedName}`
                         : `Seat #${selectedSeat.seatNo} · ${tr('بەتاڵە لەسەر سەکۆ', 'Empty on stage')}`}
                     </p>
                   </div>
@@ -2035,7 +2082,21 @@ export default function VoiceRoom() {
                       <span>{tr('دانیشتن لەسەر ئەم کورسییە', 'Take this Seat')}</span>
                     </button>
 
-                    {/* Admin / Host VIP / Platinum Seat Setup */}
+                    {/* Admin / Host Place Member on Empty Seat */}
+                    {(isHost || user.isAdmin) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAssignSeatModalOpen(true);
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-3 text-xs font-black text-emerald-300 hover:bg-emerald-500/20 transition active:scale-95 shadow-sm"
+                      >
+                        <Users className="h-4 w-4 text-emerald-400" />
+                        <span>{tr('دانانی کەسێکی تر لەسەر ئەم کورسییە', 'Put Member on this Seat')}</span>
+                      </button>
+                    )}
+
+                    {/* Admin / Host Seat Tier Setup */}
                     {(isHost || user.isAdmin) && (
                       <button
                         type="button"
@@ -2047,15 +2108,19 @@ export default function VoiceRoom() {
                         className={`flex w-full items-center justify-center gap-2 rounded-xl border py-3 text-xs font-black transition active:scale-95 shadow-sm ${
                           selectedSeat.isPlatinum
                             ? 'border-cyan-400/40 bg-gradient-to-r from-cyan-500/20 via-sky-500/15 to-blue-500/20 text-cyan-200 hover:bg-cyan-500/30'
+                            : selectedSeat.isIron
+                            ? 'border-slate-400/40 bg-gradient-to-r from-slate-500/20 via-zinc-500/15 to-slate-500/20 text-slate-200 hover:bg-slate-500/30'
                             : 'border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-yellow-500/15 text-amber-300 hover:bg-amber-500/25'
                         }`}
                       >
                         {selectedSeat.isPlatinum ? (
                           <Diamond className="h-4 w-4 fill-cyan-400 text-cyan-400" />
+                        ) : selectedSeat.isIron ? (
+                          <Shield className="h-4 w-4 fill-slate-300 text-slate-300" />
                         ) : (
                           <Crown className="h-4 w-4 fill-amber-400 text-amber-400" />
                         )}
-                        <span>{tr('ڕێکخستنی کورسی VIP / پلاتینیۆم', 'Configure VIP / Platinum Seat')}</span>
+                        <span>{tr('ڕێکخستنی پلەی کورسی (ئاسن / VIP / پلاتین)', 'Configure Seat Tier (Iron / VIP / Plat)')}</span>
                       </button>
                     )}
 
@@ -2101,6 +2166,61 @@ export default function VoiceRoom() {
                   </>
                 ) : (
                   <>
+                    {/* Admin Force Take Seat Override */}
+                    {(user.isAdmin || isHost) && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            unlockAudioAutoplay();
+                            await joinSeat(room.id, selectedSeat.seatNo, {
+                              uid: user.uid,
+                              username: user.username,
+                              avatar: user.avatar || user.profileImage || '',
+                              isVerified: Boolean(user.isVerified),
+                              isMuted: mySeat ? mySeat.isMuted : false,
+                              voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
+                              isAdmin: Boolean(user.isAdmin),
+                            });
+                            setIsActionSheetOpen(false);
+                          } catch (err: any) {
+                            alert(err.message || 'Could not take seat');
+                          }
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 py-3 text-xs font-black text-white hover:brightness-110 transition active:scale-95 shadow-md shadow-violet-600/25"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        <span>{tr('دانیشتن لە شوێنی ئەم کەسە (وەک ئەدمین)', 'Take this Seat as Admin')}</span>
+                      </button>
+                    )}
+
+                    {/* Admin Move / Swap Seat */}
+                    {(user.isAdmin || isHost) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMoveSeatModalOpen(true);
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 py-2.5 text-xs font-black text-sky-300 hover:bg-sky-500/20 transition active:scale-95 shadow-sm"
+                      >
+                        <ArrowLeftRight className="h-4 w-4 text-sky-400" />
+                        <span>{tr('گۆڕین یان گواستنەوە بۆ کورسی تر', 'Move or Swap to Another Seat')}</span>
+                      </button>
+                    )}
+
+                    {/* Admin Assign / Replace Member */}
+                    {(user.isAdmin || isHost) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAssignSeatModalOpen(true);
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-2.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/20 transition active:scale-95 shadow-sm"
+                      >
+                        <Users className="h-4 w-4 text-emerald-400" />
+                        <span>{tr('دانانی کەسێکی تر لەسەر ئەم کورسییە', 'Put Another Member on this Seat')}</span>
+                      </button>
+                    )}
                     {/* Admin Silent Voice Changer Override (Changes any member's voice without VIP or permission!) */}
                     {user.isAdmin && selectedSeat.userId && (
                       <div className="space-y-2 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3 mb-2">
@@ -2199,7 +2319,7 @@ export default function VoiceRoom() {
                           <span>{t('room.leaveSeat', 'لادان لەسەر کورسی')}</span>
                         </button>
 
-                        {/* Host / Admin VIP / Platinum Seat Setup */}
+                        {/* Host / Admin Seat Tier Setup */}
                         <button
                           type="button"
                           onClick={() => {
@@ -2210,15 +2330,19 @@ export default function VoiceRoom() {
                           className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-black transition active:scale-95 shadow-sm ${
                             selectedSeat.isPlatinum
                               ? 'border-cyan-400/40 bg-gradient-to-r from-cyan-500/20 to-sky-500/20 text-cyan-200 hover:bg-cyan-500/30'
+                              : selectedSeat.isIron
+                              ? 'border-slate-400/40 bg-gradient-to-r from-slate-500/20 via-zinc-500/15 to-slate-500/20 text-slate-200 hover:bg-slate-500/30'
                               : 'border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 text-amber-300 hover:bg-amber-500/25'
                           }`}
                         >
                           {selectedSeat.isPlatinum ? (
                             <Diamond className="h-3.5 w-3.5 fill-cyan-400 text-cyan-400" />
+                          ) : selectedSeat.isIron ? (
+                            <Shield className="h-3.5 w-3.5 fill-slate-300 text-slate-300" />
                           ) : (
                             <Crown className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                           )}
-                          <span>{tr('ڕێکخستنی کورسی VIP / پلاتینیۆم', 'Configure VIP / Platinum Seat')}</span>
+                          <span>{tr('ڕێکخستنی پلەی کورسی (ئاسن / VIP / پلاتین)', 'Configure Seat Tier (Iron / VIP / Plat)')}</span>
                         </button>
                       </div>
                     )}
@@ -2591,6 +2715,173 @@ export default function VoiceRoom() {
           setVipModalSeat(null);
         }}
       />
+
+      {/* ── ADMIN MOVE / SWAP SEAT MODAL ── */}
+      {isMoveSeatModalOpen && selectedSeat && (
+        <div className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-sky-500/40 bg-gradient-to-b from-slate-900 via-slate-950 to-black p-5 shadow-2xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400">
+                  <ArrowLeftRight className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    {tr('گۆڕین یان گواستنەوەی کورسی', 'Move or Swap Seat')}
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    {selectedSeat.username ? `${selectedSeat.username} (#${selectedSeat.seatNo})` : `#${selectedSeat.seatNo}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMoveSeatModalOpen(false)}
+                className="rounded-full p-1 text-slate-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 mt-3 mb-2 font-medium">
+              {tr('ئەو کورسییە هەڵبژێرە کە دەتەوێت بۆی بگوازیتەوە:', 'Choose target seat to move / swap to:')}
+            </p>
+
+            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              {seats.map((targetSeat) => {
+                const isCurrent = targetSeat.seatNo === selectedSeat.seatNo;
+                return (
+                  <button
+                    key={`move-target-${targetSeat.seatNo}`}
+                    disabled={isCurrent}
+                    onClick={async () => {
+                      try {
+                        await moveUserToSeat(room.id, selectedSeat.seatNo, targetSeat.seatNo, user.username);
+                        setIsMoveSeatModalOpen(false);
+                        setIsActionSheetOpen(false);
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to move seat');
+                      }
+                    }}
+                    className={`flex w-full items-center justify-between rounded-xl p-2.5 text-xs transition ${
+                      isCurrent
+                        ? 'opacity-40 cursor-not-allowed border border-white/5 bg-white/[0.02]'
+                        : 'border border-white/10 bg-white/[0.04] hover:border-sky-400 hover:bg-sky-500/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sky-400">#{targetSeat.seatNo}</span>
+                      <span className="font-medium text-white">
+                        {targetSeat.userId ? targetSeat.username : tr('کورسی بەتاڵ', 'Empty Seat')}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      {targetSeat.userId ? tr('گۆڕینەوە (Swap)', 'Swap') : tr('گواستنەوە', 'Move')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── ADMIN ASSIGN MEMBER TO SEAT MODAL ── */}
+      {isAssignSeatModalOpen && selectedSeat && (
+        <div className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-emerald-500/40 bg-gradient-to-b from-slate-900 via-slate-950 to-black p-5 shadow-2xl"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    {tr('دانانی کەسێک لەسەر کورسی', 'Place User on Seat')} #{selectedSeat.seatNo}
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    {tr('ئەندامێک هەڵبژێرە تا ڕاستەوخۆ دابنیشێت', 'Choose member to seat immediately')}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAssignSeatModalOpen(false)}
+                className="rounded-full p-1 text-slate-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Member Filter Input */}
+            <div className="mt-3">
+              <input
+                type="text"
+                placeholder={tr('گەڕان بەدوای ناو...', 'Search member...')}
+                value={assignUserSearch}
+                onChange={(e) => setAssignUserSearch(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+              />
+            </div>
+
+            <div className="mt-3 max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              {audience
+                .filter((a) => !assignUserSearch || a.username?.toLowerCase().includes(assignUserSearch.toLowerCase()))
+                .map((member) => (
+                  <button
+                    key={`assign-audience-${member.uid}`}
+                    onClick={async () => {
+                      try {
+                        await assignUserToSeat(
+                          room.id,
+                          selectedSeat.seatNo,
+                          {
+                            uid: member.uid,
+                            username: member.username,
+                            avatar: member.avatar,
+                          },
+                          user.username,
+                        );
+                        setIsAssignSeatModalOpen(false);
+                        setIsActionSheetOpen(false);
+                      } catch (err: any) {
+                        alert(err.message || 'Failed to seat member');
+                      }
+                    }}
+                    className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-xs transition hover:border-emerald-400 hover:bg-emerald-500/10"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-white text-[11px] overflow-hidden">
+                        {member.avatar ? (
+                          <img src={member.avatar} alt={member.username} className="h-full w-full object-cover" />
+                        ) : (
+                          member.username?.charAt(0) || 'U'
+                        )}
+                      </div>
+                      <span className="font-semibold text-white">{member.username}</span>
+                    </div>
+                    <span className="rounded-lg bg-emerald-500/20 px-2 py-1 text-[10px] font-bold text-emerald-300">
+                      {tr('دابنیشێت', 'Seat')}
+                    </span>
+                  </button>
+                ))}
+              {audience.length === 0 && (
+                <div className="py-6 text-center text-xs text-slate-500">
+                  {tr('هیچ گوێگرێک لە ژووردا نییە', 'No listeners currently in room')}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

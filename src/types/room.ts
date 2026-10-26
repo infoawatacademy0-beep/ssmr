@@ -20,7 +20,7 @@ export type VoiceEffectMode = 'normal' | 'child' | 'venom';
 /**
  * Seat in the 8-seat audio grid.
  */
-export type SeatTier = 'standard' | 'vip' | 'platinum';
+export type SeatTier = 'standard' | 'iron' | 'vip' | 'platinum';
 
 export interface Seat {
   seatNo: number; // 1 to 16
@@ -35,6 +35,7 @@ export interface Seat {
   voiceEffect?: VoiceEffectMode;
   isVip?: boolean;
   isPlatinum?: boolean;
+  isIron?: boolean;
   seatTier?: SeatTier;
   vipAssignedName?: string | null;
   vipAssignedUserId?: string | null;

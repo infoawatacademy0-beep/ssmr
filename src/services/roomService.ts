@@ -66,8 +66,9 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
     if (!rawSeat) return defaultSeat;
 
     const isPlatinum = Boolean(rawSeat.isPlatinum || rawSeat.seatTier === 'platinum');
-    const isVip = Boolean(rawSeat.isVip || isPlatinum);
-    const seatTier: SeatTier = isPlatinum ? 'platinum' : isVip ? 'vip' : 'standard';
+    const isIron = Boolean(rawSeat.isIron || rawSeat.seatTier === 'iron');
+    const isVip = Boolean(rawSeat.seatTier === 'vip' || (rawSeat.isVip && !isPlatinum && !isIron));
+    const seatTier: SeatTier = isPlatinum ? 'platinum' : isIron ? 'iron' : isVip ? 'vip' : 'standard';
 
     return {
       seatNo: index + 1,
@@ -80,6 +81,7 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
       voiceEffect: (rawSeat.voiceEffect as VoiceEffectMode) || 'normal',
       isVip,
       isPlatinum,
+      isIron,
       seatTier,
       vipAssignedName: rawSeat.vipAssignedName || null,
       vipAssignedUserId: rawSeat.vipAssignedUserId || null,
@@ -234,16 +236,30 @@ export async function joinSeat(
       throw new Error(`Target seat ${seatNo} does not exist.`);
     }
 
-    if (targetSeat.isLocked) {
+    if (targetSeat.isLocked && !user.isAdmin) {
       throw new Error(`Seat ${seatNo} is locked by host.`);
     }
 
     if (targetSeat.userId && targetSeat.userId !== user.uid) {
-      throw new Error(`Seat ${seatNo} is already occupied.`);
+      if (!user.isAdmin) {
+        throw new Error(`Seat ${seatNo} is already occupied.`);
+      }
+      // If admin takes an occupied seat, displace the current occupant to admin's previous seat (if admin was on stage)
+      if (previousSeatIndex !== -1 && previousSeatIndex !== targetIndex) {
+        seats[previousSeatIndex] = {
+          ...seats[previousSeatIndex],
+          userId: targetSeat.userId,
+          username: targetSeat.username,
+          avatar: targetSeat.avatar,
+          isVerified: targetSeat.isVerified,
+          isMuted: targetSeat.isMuted,
+          voiceEffect: targetSeat.voiceEffect,
+        };
+      }
     }
 
-    // Check VIP / Platinum seat reservation
-    if (targetSeat.isPlatinum || targetSeat.isVip) {
+    // Check VIP / Platinum / Iron seat reservation (Admins can sit anywhere!)
+    if (!user.isAdmin && (targetSeat.isPlatinum || targetSeat.isVip || targetSeat.isIron)) {
       if (targetSeat.vipAssignedUserId || targetSeat.vipAssignedName) {
         const matchesUid = Boolean(targetSeat.vipAssignedUserId && targetSeat.vipAssignedUserId === user.uid);
         const matchesName = Boolean(
@@ -254,7 +270,7 @@ export async function joinSeat(
         // Strict reservation: ONLY this specific designated user can take this seat!
         if (!matchesUid && !matchesName) {
           const targetLabel = targetSeat.vipAssignedName || 'بەکارهێنەری دیاریکراو';
-          const tierLabel = targetSeat.isPlatinum ? 'پلاتینیۆمە (Platinum)' : 'VIP';
+          const tierLabel = targetSeat.isPlatinum ? 'پلاتینیۆمە (Platinum)' : targetSeat.isIron ? 'ئاسنە (Iron)' : 'VIP';
           throw new Error(`ئەم کورسییە بە تایبەت ${tierLabel} و تەنها بۆ (${targetLabel}) دانراوە! کەسی تر ناتوانێت دابنیشێت.`);
         }
       }
@@ -272,7 +288,8 @@ export async function joinSeat(
       voiceEffect: preservedVoiceEffect,
       isVip: targetSeat.isVip || false,
       isPlatinum: targetSeat.isPlatinum || false,
-      seatTier: targetSeat.seatTier || (targetSeat.isPlatinum ? 'platinum' : targetSeat.isVip ? 'vip' : 'standard'),
+      isIron: targetSeat.isIron || false,
+      seatTier: targetSeat.seatTier || (targetSeat.isPlatinum ? 'platinum' : targetSeat.isIron ? 'iron' : targetSeat.isVip ? 'vip' : 'standard'),
       vipAssignedName: targetSeat.vipAssignedName || null,
       vipAssignedUserId: targetSeat.vipAssignedUserId || null,
     };
@@ -314,7 +331,8 @@ export async function leaveSeat(
         isLocked: prevSeat.isLocked || false,
         isVip: prevSeat.isVip || false,
         isPlatinum: prevSeat.isPlatinum || false,
-        seatTier: prevSeat.seatTier || (prevSeat.isPlatinum ? 'platinum' : prevSeat.isVip ? 'vip' : 'standard'),
+        isIron: prevSeat.isIron || false,
+        seatTier: prevSeat.seatTier || (prevSeat.isPlatinum ? 'platinum' : prevSeat.isIron ? 'iron' : prevSeat.isVip ? 'vip' : 'standard'),
         vipAssignedName: prevSeat.vipAssignedName || null,
         vipAssignedUserId: prevSeat.vipAssignedUserId || null,
       };
@@ -610,7 +628,8 @@ export async function kickUserFromSeat(
         isLocked: prevSeat.isLocked || false,
         isVip: prevSeat.isVip || false,
         isPlatinum: prevSeat.isPlatinum || false,
-        seatTier: prevSeat.seatTier || (prevSeat.isPlatinum ? 'platinum' : prevSeat.isVip ? 'vip' : 'standard'),
+        isIron: prevSeat.isIron || false,
+        seatTier: prevSeat.seatTier || (prevSeat.isPlatinum ? 'platinum' : prevSeat.isIron ? 'iron' : prevSeat.isVip ? 'vip' : 'standard'),
         vipAssignedName: prevSeat.vipAssignedName || null,
         vipAssignedUserId: prevSeat.vipAssignedUserId || null,
       };
@@ -643,8 +662,10 @@ export async function setSeatVipConfig(
   const seatsRef = ref(database, `rooms/${roomId}/seats`);
 
   const isPlatinum = tierOrIsVip === 'platinum';
-  const isVip = tierOrIsVip === 'vip' || tierOrIsVip === true || isPlatinum;
-  const seatTier: SeatTier = isPlatinum ? 'platinum' : isVip ? 'vip' : 'standard';
+  const isIron = tierOrIsVip === 'iron';
+  const isVip = tierOrIsVip === 'vip' || tierOrIsVip === true;
+  const seatTier: SeatTier = isPlatinum ? 'platinum' : isIron ? 'iron' : isVip ? 'vip' : 'standard';
+  const hasSpecial = isPlatinum || isIron || isVip;
 
   await runTransaction(seatsRef, (currentSeatsData) => {
     const seats = normalizeSeats(currentSeatsData);
@@ -654,9 +675,10 @@ export async function setSeatVipConfig(
       ...seats[targetIndex],
       isVip,
       isPlatinum,
+      isIron,
       seatTier,
-      vipAssignedName: (isVip || isPlatinum) && assignedName ? assignedName.trim() : null,
-      vipAssignedUserId: (isVip || isPlatinum) && assignedUserId ? assignedUserId.trim() : null,
+      vipAssignedName: hasSpecial && assignedName ? assignedName.trim() : null,
+      vipAssignedUserId: hasSpecial && assignedUserId ? assignedUserId.trim() : null,
     };
     return seats;
   });
@@ -666,12 +688,137 @@ export async function setSeatVipConfig(
     let actionText = '';
     if (isPlatinum) {
       actionText = `[Platinum Seat] کورسی #${seatNo} بە شێوەی پلاتینیۆم (Platinum) دیاریکرا${cleanName ? ` تەنها بۆ (${cleanName})` : ''} لەلایەن ${hostName}.`;
+    } else if (isIron) {
+      actionText = `[Iron Seat] کورسی #${seatNo} بە پلەی ئاسن (Iron) دیاریکرا${cleanName ? ` تەنها بۆ (${cleanName})` : ''} لەلایەن ${hostName}.`;
     } else if (isVip) {
       actionText = `[VIP Seat] کورسی #${seatNo} وەک کورسی VIP دیاریکرا${cleanName ? ` بە ناوی (${cleanName})` : ''} لەلایەن ${hostName}.`;
     } else {
       actionText = `[Seat Setup] تایبەتمەندی تایبەت لەسەر کورسی #${seatNo} لادرا لەلایەن ${hostName}.`;
     }
     await sendRoomMessage(roomId, 'System', actionText);
+  }
+}
+
+/**
+ * Admin/Host Control: Moves a user from one seat to another or swaps two seats.
+ */
+export async function moveUserToSeat(
+  roomId: string,
+  fromSeatNo: number,
+  toSeatNo: number,
+  adminName?: string,
+): Promise<void> {
+  if (fromSeatNo === toSeatNo) return;
+  const fromIndex = fromSeatNo - 1;
+  const toIndex = toSeatNo - 1;
+  const seatsRef = ref(database, `rooms/${roomId}/seats`);
+
+  let movedUsername = '';
+  await runTransaction(seatsRef, (currentSeatsData) => {
+    const seats = normalizeSeats(currentSeatsData);
+    const sourceSeat = seats[fromIndex];
+    const targetSeat = seats[toIndex];
+    if (!sourceSeat || !targetSeat) return seats;
+
+    movedUsername = sourceSeat.username || 'User';
+
+    const tempUser = {
+      userId: sourceSeat.userId,
+      username: sourceSeat.username,
+      avatar: sourceSeat.avatar,
+      isVerified: sourceSeat.isVerified,
+      isMuted: sourceSeat.isMuted,
+      voiceEffect: sourceSeat.voiceEffect,
+    };
+
+    seats[toIndex] = {
+      ...targetSeat,
+      userId: tempUser.userId,
+      username: tempUser.username,
+      avatar: tempUser.avatar,
+      isVerified: tempUser.isVerified,
+      isMuted: tempUser.isMuted,
+      voiceEffect: tempUser.voiceEffect,
+    };
+
+    seats[fromIndex] = {
+      ...sourceSeat,
+      userId: targetSeat.userId,
+      username: targetSeat.username,
+      avatar: targetSeat.avatar,
+      isVerified: targetSeat.isVerified,
+      isMuted: targetSeat.isMuted,
+      voiceEffect: targetSeat.voiceEffect,
+    };
+
+    return seats;
+  });
+
+  if (adminName && movedUsername) {
+    await sendRoomMessage(
+      roomId,
+      'System',
+      `[Admin Action] ${movedUsername} لە کورسی #${fromSeatNo} گوازرایەوە بۆ کورسی #${toSeatNo} لەلایەن ${adminName}.`,
+    );
+  }
+}
+
+/**
+ * Admin/Host Control: Directly assigns/places any user onto a designated seat.
+ */
+export async function assignUserToSeat(
+  roomId: string,
+  targetSeatNo: number,
+  targetUser: {
+    uid: string;
+    username: string;
+    avatar?: string;
+    isVerified?: boolean;
+    voiceEffect?: VoiceEffectMode;
+    isMuted?: boolean;
+  },
+  adminName?: string,
+): Promise<void> {
+  const targetIndex = targetSeatNo - 1;
+  const seatsRef = ref(database, `rooms/${roomId}/seats`);
+
+  await runTransaction(seatsRef, (currentSeatsData) => {
+    const seats = normalizeSeats(currentSeatsData);
+    if (!seats[targetIndex]) return seats;
+
+    // If targetUser was seated elsewhere in this room, free their previous seat
+    for (let i = 0; i < seats.length; i++) {
+      if (seats[i].userId === targetUser.uid && i !== targetIndex) {
+        seats[i] = {
+          ...seats[i],
+          userId: null,
+          username: null,
+          avatar: null,
+          isMuted: false,
+        };
+      }
+    }
+
+    const currentTarget = seats[targetIndex];
+    seats[targetIndex] = {
+      ...currentTarget,
+      userId: targetUser.uid,
+      username: targetUser.username,
+      avatar: targetUser.avatar || '',
+      isVerified: Boolean(targetUser.isVerified),
+      isMuted: targetUser.isMuted ?? false,
+      voiceEffect: targetUser.voiceEffect ?? 'normal',
+    };
+
+    return seats;
+  });
+
+  if (adminName) {
+    await sendRoomMessage(
+      roomId,
+      'System',
+      `[Admin Action] ${targetUser.username} لەسەر کورسی #${targetSeatNo} داندرا لەلایەن ${adminName}.`,
+    );
   }
 }
 

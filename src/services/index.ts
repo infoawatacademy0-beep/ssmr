@@ -28,6 +28,8 @@ export {
   updateRoomPassword,
   updateRoomSeatCount,
   setSeatVipConfig,
+  moveUserToSeat,
+  assignUserToSeat,
   sendSeatEmoji,
   subscribeToSeatEmojis,
 } from './roomService';

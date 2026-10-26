@@ -8,6 +8,7 @@ import {
   User as UserIcon,
   Sparkles,
   Diamond,
+  Shield,
   Search,
   CheckCircle2,
   ShieldCheck,
@@ -51,12 +52,14 @@ export default function VipSeatModal({
     if (seat) {
       const tier: SeatTier = seat.isPlatinum || seat.seatTier === 'platinum'
         ? 'platinum'
+        : seat.isIron || seat.seatTier === 'iron'
+        ? 'iron'
         : seat.isVip || seat.seatTier === 'vip' || seat.vipAssignedName
         ? 'vip'
         : 'standard';
 
       setSelectedTier(tier);
-      setAssignedName(seat.vipAssignedName || (seat.username && seat.isVip ? seat.username : ''));
+      setAssignedName(seat.vipAssignedName || (seat.username && (seat.isVip || seat.isPlatinum || seat.isIron) ? seat.username : ''));
       setAssignedUserId(seat.vipAssignedUserId || null);
     }
   }, [seat, isOpen]);
@@ -101,8 +104,9 @@ export default function VipSeatModal({
   if (!isOpen || !seat) return null;
 
   const isPlatinum = selectedTier === 'platinum';
+  const isIron = selectedTier === 'iron';
   const isVip = selectedTier === 'vip';
-  const isSpecial = isPlatinum || isVip;
+  const isSpecial = isPlatinum || isIron || isVip;
 
   const handleSelectUser = (userItem: { uid: string; username: string }) => {
     setAssignedName(userItem.username);
@@ -157,6 +161,8 @@ export default function VipSeatModal({
           className={`relative w-full max-w-md overflow-hidden rounded-3xl border p-5 shadow-2xl transition-colors duration-300 ${
             isPlatinum
               ? 'border-cyan-400/60 bg-gradient-to-b from-slate-900 via-slate-950 to-black shadow-cyan-500/25'
+              : isIron
+              ? 'border-slate-400/60 bg-gradient-to-b from-slate-900 via-slate-950 to-black shadow-slate-400/20'
               : isVip
               ? 'border-amber-500/50 bg-gradient-to-b from-slate-900 via-slate-950 to-black shadow-amber-500/20'
               : 'border-white/10 bg-slate-950 shadow-black'
@@ -167,6 +173,11 @@ export default function VipSeatModal({
             <>
               <div className="absolute -top-16 -left-16 h-40 w-40 rounded-full bg-cyan-500/25 blur-3xl pointer-events-none" />
               <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-blue-500/25 blur-3xl pointer-events-none" />
+            </>
+          ) : isIron ? (
+            <>
+              <div className="absolute -top-16 -left-16 h-36 w-36 rounded-full bg-slate-400/20 blur-3xl pointer-events-none" />
+              <div className="absolute -top-16 -right-16 h-36 w-36 rounded-full bg-zinc-500/20 blur-3xl pointer-events-none" />
             </>
           ) : isVip ? (
             <>
@@ -182,6 +193,8 @@ export default function VipSeatModal({
                 className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-lg transition-colors ${
                   isPlatinum
                     ? 'bg-gradient-to-tr from-cyan-400 via-sky-300 to-white text-black shadow-cyan-400/30'
+                    : isIron
+                    ? 'bg-gradient-to-tr from-slate-300 via-zinc-300 to-slate-100 text-black shadow-slate-400/30'
                     : isVip
                     ? 'bg-gradient-to-tr from-amber-500 to-yellow-300 text-black shadow-amber-500/30'
                     : 'bg-slate-800 text-slate-300'
@@ -189,17 +202,21 @@ export default function VipSeatModal({
               >
                 {isPlatinum ? (
                   <Diamond className="h-6 w-6 fill-black stroke-black" />
+                ) : isIron ? (
+                  <Shield className="h-6 w-6 fill-black stroke-black" />
                 ) : (
                   <Crown className="h-6 w-6 fill-black stroke-black" />
                 )}
               </div>
               <div>
                 <h3 className="text-sm font-black text-white flex items-center gap-1.5">
-                  <span>{isPlatinum ? tr('ڕێکخستنی کورسی پلاتینیۆم', 'Platinum Seat Setup') : isVip ? tr('ڕێکخستنی کورسی VIP', 'VIP Seat Setup') : tr('ڕێکخستنی کورسی سەکۆ', 'Stage Seat Setup')}</span>
+                  <span>{isPlatinum ? tr('ڕێکخستنی کورسی پلاتینیۆم', 'Platinum Seat Setup') : isIron ? tr('ڕێکخستنی کورسی ئاسن', 'Iron Seat Setup') : isVip ? tr('ڕێکخستنی کورسی VIP', 'VIP Seat Setup') : tr('ڕێکخستنی کورسی سەکۆ', 'Stage Seat Setup')}</span>
                   <span
                     className={`rounded-lg px-2 py-0.5 text-[11px] font-black border ${
                       isPlatinum
                         ? 'bg-cyan-400/20 text-cyan-300 border-cyan-400/40'
+                        : isIron
+                        ? 'bg-slate-400/20 text-slate-300 border-slate-400/40'
                         : isVip
                         ? 'bg-amber-400/20 text-amber-300 border-amber-400/40'
                         : 'bg-white/10 text-slate-300 border-white/10'
@@ -211,6 +228,8 @@ export default function VipSeatModal({
                 <p className="text-[10px] text-slate-400">
                   {isPlatinum
                     ? tr('تەنها ئەو کەسەی دەستنیشانی دەکەیت دەتوانێت دابنیشێت', 'Only the assigned person can take this seat')
+                    : isIron
+                    ? tr('تەنها ئەو کەسەی دەستنیشانی دەکەیت دەتوانێت دابنیشێت', 'Reserved exclusively for assigned Iron user')
                     : tr('دیاریکردنی جۆری کورسی و نووسینی ناو لەسەری', 'Configure seat tier & write person name')}
                 </p>
               </div>
@@ -230,64 +249,104 @@ export default function VipSeatModal({
             </div>
           )}
 
-          {/* Seat Tier Selection Tabs (Standard, Gold VIP, Platinum) */}
+          {/* Seat Tier Selection Tabs (Standard, Iron, Gold VIP, Platinum) */}
           <div className="mt-3.5 space-y-1.5">
             <span className="text-[11px] font-black text-slate-300">
               {tr('جۆری کورسی هەڵبژێرە:', 'Select Seat Tier:')}
             </span>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               {/* Standard */}
               <button
                 type="button"
                 onClick={() => setSelectedTier('standard')}
-                className={`flex flex-col items-center justify-center rounded-2xl border p-2.5 transition active:scale-95 ${
+                className={`flex flex-col items-center justify-center rounded-2xl border p-2 transition active:scale-95 ${
                   selectedTier === 'standard'
                     ? 'border-white/30 bg-white/10 text-white shadow-md'
                     : 'border-white/5 bg-white/[0.02] text-slate-400 hover:bg-white/5'
                 }`}
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-800 text-slate-400 mb-1">
-                  <UserIcon className="h-4 w-4" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-800 text-slate-400 mb-1">
+                  <UserIcon className="h-3.5 w-3.5" />
                 </div>
-                <span className="text-xs font-black">{tr('ئاسایی', 'Standard')}</span>
-                <span className="text-[9px] text-slate-500">{tr('بۆ هەمووان', 'Open')}</span>
+                <span className="text-[11px] font-black">{tr('ئاسایی', 'Normal')}</span>
+                <span className="text-[8px] text-slate-500">{tr('کراوە', 'Open')}</span>
+              </button>
+
+              {/* Iron */}
+              <button
+                type="button"
+                onClick={() => setSelectedTier('iron')}
+                className={`flex flex-col items-center justify-center rounded-2xl border p-2 transition active:scale-95 ${
+                  selectedTier === 'iron'
+                    ? 'border-slate-300 bg-slate-400/20 text-slate-200 shadow-md shadow-slate-400/25'
+                    : 'border-white/5 bg-white/[0.02] text-slate-400 hover:bg-white/5'
+                }`}
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-tr from-slate-400 to-zinc-300 text-black mb-1">
+                  <Shield className="h-3.5 w-3.5 fill-black stroke-black" />
+                </div>
+                <span className="text-[11px] font-black text-slate-200">{tr('ئاسن', 'Iron')}</span>
+                <span className="text-[8px] text-slate-400">{tr('پلەی ئاسن', 'Shield')}</span>
               </button>
 
               {/* VIP Gold */}
               <button
                 type="button"
                 onClick={() => setSelectedTier('vip')}
-                className={`flex flex-col items-center justify-center rounded-2xl border p-2.5 transition active:scale-95 ${
+                className={`flex flex-col items-center justify-center rounded-2xl border p-2 transition active:scale-95 ${
                   selectedTier === 'vip'
                     ? 'border-amber-400 bg-amber-500/20 text-amber-300 shadow-md shadow-amber-500/20'
                     : 'border-white/5 bg-white/[0.02] text-slate-400 hover:bg-white/5'
                 }`}
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-400 text-black mb-1">
-                  <Crown className="h-4 w-4 fill-black" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-400 text-black mb-1">
+                  <Crown className="h-3.5 w-3.5 fill-black" />
                 </div>
-                <span className="text-xs font-black text-amber-300">{tr('VIP زێڕین', 'VIP Gold')}</span>
-                <span className="text-[9px] text-amber-400/80">{tr('تاجی زێڕین', 'Crown')}</span>
+                <span className="text-[11px] font-black text-amber-300">{tr('VIP', 'VIP')}</span>
+                <span className="text-[8px] text-amber-400/80">{tr('تاج', 'Crown')}</span>
               </button>
 
               {/* Platinum */}
               <button
                 type="button"
                 onClick={() => setSelectedTier('platinum')}
-                className={`flex flex-col items-center justify-center rounded-2xl border p-2.5 transition active:scale-95 ${
+                className={`flex flex-col items-center justify-center rounded-2xl border p-2 transition active:scale-95 ${
                   selectedTier === 'platinum'
                     ? 'border-cyan-300 bg-cyan-500/25 text-cyan-200 shadow-lg shadow-cyan-500/30'
                     : 'border-white/5 bg-white/[0.02] text-slate-400 hover:bg-white/5'
                 }`}
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-cyan-400 to-sky-200 text-black mb-1">
-                  <Diamond className="h-4 w-4 fill-black stroke-black" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-tr from-cyan-400 to-sky-200 text-black mb-1">
+                  <Diamond className="h-3.5 w-3.5 fill-black stroke-black" />
                 </div>
-                <span className="text-xs font-black text-cyan-300">{tr('پلاتینیۆم', 'Platinum')}</span>
-                <span className="text-[9px] text-cyan-400/90">{tr('تایبەت تەنها', 'Exclusive')}</span>
+                <span className="text-[11px] font-black text-cyan-300">{tr('پلاتین', 'Plat')}</span>
+                <span className="text-[8px] text-cyan-400/90">{tr('ئەڵماس', 'Diamond')}</span>
               </button>
             </div>
           </div>
+
+          {/* Iron Restriction Banner */}
+          {isIron && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-2.5 rounded-2xl border border-slate-400/40 bg-gradient-to-r from-slate-500/15 via-zinc-500/10 to-slate-500/15 p-2.5 flex items-start gap-2 text-slate-200"
+            >
+              <Shield className="h-4 w-4 shrink-0 text-slate-300 fill-slate-400/40 mt-0.5" />
+              <div className="text-[11px] leading-relaxed">
+                <span className="font-black text-slate-100">{tr('تایبەتمەندی پلەی ئاسن:', 'Iron Tier Exclusive:')} </span>
+                {assignedName
+                  ? tr(
+                      `ئەم کورسییە بە پلەی ئاسن (Iron) بۆ (${assignedName}) دانراوە و تەنها ئەو دەتوانێت دابنیشێت لەسەری!`,
+                      `Reserved for (${assignedName}) as Iron tier. Only they can take this seat!`,
+                    )
+                  : tr(
+                      'تکایە لە خوارەوە کەسێک هەڵبژێرە تاوەکو کورسییەکە بە پلەی ئاسن بۆ ئەو قفڵ ببێت.',
+                      'Please select a user below so the Iron seat is reserved for them.',
+                    )}
+              </div>
+            </motion.div>
+          )}
 
           {/* Platinum / VIP Restriction Banner */}
           {isPlatinum && (

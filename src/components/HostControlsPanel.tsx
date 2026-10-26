@@ -457,6 +457,11 @@ export default function HostControlsPanel({
                             <Diamond className="h-2.5 w-2.5 text-cyan-300 fill-cyan-400" />
                             Platinum{seat.vipAssignedName ? `: ${seat.vipAssignedName}` : ''}
                           </span>
+                        ) : seat.isIron ? (
+                          <span className="rounded bg-gradient-to-r from-slate-500/20 to-zinc-500/20 border border-slate-400/40 px-1.5 py-0.5 text-[8px] font-black text-slate-300 flex items-center gap-0.5 shadow-sm">
+                            <Shield className="h-2.5 w-2.5 text-slate-300 fill-slate-300" />
+                            Iron{seat.vipAssignedName ? `: ${seat.vipAssignedName}` : ''}
+                          </span>
                         ) : seat.isVip ? (
                           <span className="rounded bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/40 px-1.5 py-0.5 text-[8px] font-black text-amber-300 flex items-center gap-0.5 shadow-sm">
                             <Crown className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
@@ -473,6 +478,8 @@ export default function HostControlsPanel({
                           ? tr('لەلایەن خاوەن ژوورەوە قفڵکراوە - ناتوانرێت دابنیشیت', 'Locked by host - cannot sit')
                           : seat.isPlatinum && seat.vipAssignedName
                           ? `${tr('تایبەت کراوە بۆ پلاتینیۆم:', 'Strictly reserved for Platinum:')} ${seat.vipAssignedName}`
+                          : seat.isIron && seat.vipAssignedName
+                          ? `${tr('تایبەت کراوە بۆ ئاسن:', 'Strictly reserved for Iron:')} ${seat.vipAssignedName}`
                           : seat.isVip && seat.vipAssignedName
                           ? `${tr('تەرخانکراوە بۆ VIP:', 'Reserved for VIP:')} ${seat.vipAssignedName}`
                           : tr('بەتاڵە - کراوەیە بۆ هەموو گوێگران', 'Open for all listeners')}
@@ -482,17 +489,19 @@ export default function HostControlsPanel({
 
                   {/* Seat Controls */}
                   <div className="flex items-center gap-1.5">
-                    {/* VIP / Platinum Seat Configuration Button */}
+                    {/* VIP / Platinum / Iron Seat Configuration Button */}
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedVipSeat(seat);
                         setIsVipModalOpen(true);
                       }}
-                      title={tr('ڕێکخستنی کورسی VIP / پلاتینیۆم', 'Configure VIP / Platinum Seat')}
+                      title={tr('ڕێکخستنی پلەی کورسی', 'Configure Seat Tier')}
                       className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-black transition active:scale-95 ${
                         seat.isPlatinum
                           ? 'bg-gradient-to-r from-cyan-400 to-sky-300 text-cyan-950 shadow-md shadow-cyan-400/30'
+                          : seat.isIron
+                          ? 'bg-gradient-to-r from-slate-300 to-zinc-400 text-black shadow-md shadow-slate-400/30'
                           : seat.isVip
                           ? 'bg-amber-400 text-black shadow-md shadow-amber-400/25'
                           : 'border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
@@ -500,10 +509,12 @@ export default function HostControlsPanel({
                     >
                       {seat.isPlatinum ? (
                         <Diamond className="h-3 w-3 fill-cyan-950 text-cyan-950" />
+                      ) : seat.isIron ? (
+                        <Shield className="h-3 w-3 fill-black text-black" />
                       ) : (
                         <Crown className={`h-3 w-3 ${seat.isVip ? 'fill-black' : 'fill-amber-400'}`} />
                       )}
-                      <span>{seat.isPlatinum ? 'Platinum' : 'VIP'}</span>
+                      <span>{seat.isPlatinum ? 'Platinum' : seat.isIron ? 'Iron' : 'VIP'}</span>
                     </button>
 
                     {isOccupied && !isCurrentUser && (

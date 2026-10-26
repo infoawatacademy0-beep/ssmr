@@ -11,6 +11,7 @@ import {
   Plus,
   Crown,
   Diamond,
+  Shield,
   Mic,
   MicOff,
   Film,
@@ -1226,6 +1227,9 @@ export default function CinemaPlayerPanel({
                   if (seat.isPlatinum) {
                     avatarBorderClass =
                       'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/20 via-blue-950/40 to-black/80 shadow-[0_0_15px_rgba(6,182,212,0.6)] ring-1 ring-cyan-400/50';
+                  } else if (seat.isIron) {
+                    avatarBorderClass =
+                      'border-2 border-slate-300 bg-gradient-to-b from-slate-400/20 via-zinc-800/40 to-black/80 shadow-[0_0_12px_rgba(203,213,225,0.6)] ring-1 ring-slate-400/50';
                   } else if (seat.isVip) {
                     avatarBorderClass =
                       'border-2 border-amber-400/80 bg-gradient-to-b from-amber-500/20 via-amber-950/30 to-black/60 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
@@ -1234,6 +1238,9 @@ export default function CinemaPlayerPanel({
                     if (seat.isPlatinum) {
                       avatarBorderClass =
                         'border-2 border-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400/50';
+                    } else if (seat.isIron) {
+                      avatarBorderClass =
+                        'border-2 border-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.8)] ring-2 ring-slate-400/50';
                     } else if (isSeatVip) {
                       avatarBorderClass = getVipAvatarClass(
                         true,
@@ -1296,10 +1303,14 @@ export default function CinemaPlayerPanel({
                                 )}
                               </div>
 
-                              {/* VIP / Platinum Badge */}
+                              {/* VIP / Platinum / Iron Badge */}
                               {seat.isPlatinum ? (
                                 <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
                                   <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                                </span>
+                              ) : seat.isIron ? (
+                                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]">
+                                  <Shield className="h-2.5 w-2.5 text-black fill-black" />
                                 </span>
                               ) : isSeatVip ? (
                                 <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
@@ -1326,6 +1337,14 @@ export default function CinemaPlayerPanel({
                               <Diamond className="h-4 w-4 sm:h-5 sm:w-5 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
                               <span className="text-[8px] font-black text-cyan-300">
                                 PLATINUM
+                              </span>
+                            </div>
+                          ) : seat.isIron ? (
+                            /* Iron Seat Cushion */
+                            <div className="flex flex-col items-center justify-center text-slate-200 group-hover:scale-105 transition">
+                              <Shield className="h-4 w-4 sm:h-5 sm:w-5 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]" />
+                              <span className="text-[8px] font-black text-slate-200">
+                                IRON
                               </span>
                             </div>
                           ) : seat.isVip ? (
@@ -1355,6 +1374,8 @@ export default function CinemaPlayerPanel({
                                 ? `font-black ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
                                 : seat.isPlatinum
                                 ? 'text-cyan-300 font-black'
+                                : seat.isIron
+                                ? 'text-slate-200 font-black'
                                 : seat.isVip
                                 ? 'text-amber-300 font-black'
                                 : 'text-rose-300/60 font-semibold'
@@ -1368,6 +1389,10 @@ export default function CinemaPlayerPanel({
                               ? seat.vipAssignedName
                                 ? `💎 ${seat.vipAssignedName}`
                                 : `💎 Platinum #${seat.seatNo}`
+                              : seat.isIron
+                              ? seat.vipAssignedName
+                                ? `🛡️ ${seat.vipAssignedName}`
+                                : `🛡️ Iron #${seat.seatNo}`
                               : seat.vipAssignedName
                               ? `👑 ${seat.vipAssignedName}`
                               : seat.isVip
@@ -1381,11 +1406,13 @@ export default function CinemaPlayerPanel({
                               <span className={`rounded border px-1 py-0.2 text-[8px] font-black ${
                                 seat.isPlatinum
                                   ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300'
+                                  : seat.isIron
+                                  ? 'bg-slate-500/20 border-slate-400/40 text-slate-200'
                                   : isSeatVip
                                   ? 'bg-black/60 border-white/10 text-amber-300'
                                   : 'bg-black/60 border-white/10 text-amber-300'
                               }`}>
-                                {seat.isPlatinum ? 'PL' : isSeatVip ? 'V5' : `Lv.${index + 1}`}
+                                {seat.isPlatinum ? 'PL' : seat.isIron ? 'IR' : isSeatVip ? 'V5' : `Lv.${index + 1}`}
                               </span>
                             </div>
                           )}
