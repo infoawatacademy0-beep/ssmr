@@ -265,6 +265,7 @@ async function autoSaveToPlaylistIfMissing(
 export async function saveCinemaMovie(
   roomId: string,
   movie: {
+    id?: string;
     title: string;
     url: string;
     addedByUid: string;
@@ -278,20 +279,22 @@ export async function saveCinemaMovie(
   }
 
   const playlistRef = ref(database, `rooms/${roomId}/cinemaPlaylist`);
-  const newRef = push(playlistRef);
-  const movieId = newRef.key || `movie_${Date.now()}`;
+  const newRef = movie.id
+    ? ref(database, `rooms/${roomId}/cinemaPlaylist/${movie.id}`)
+    : push(playlistRef);
+  const movieId = movie.id || newRef.key || `movie_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
   const savedMovie: SavedCinemaMovie = {
     id: movieId,
     title: (movie.title || 'فیلمی بێ‌ناونیشان').trim(),
     url: cleanUrl,
-    addedByUid: movie.addedByUid,
-    addedByName: movie.addedByName,
+    addedByUid: movie.addedByUid || 'admin',
+    addedByName: movie.addedByName || 'Admin',
     addedAt: Date.now(),
     ...(movie.duration ? { duration: movie.duration } : {}),
   };
 
-  await set(newRef, savedMovie);
+  await set(ref(database, `rooms/${roomId}/cinemaPlaylist/${movieId}`), savedMovie);
   return savedMovie;
 }
 
@@ -349,11 +352,12 @@ export async function switchCinemaMovie(
 
   try {
     const { sendRoomMessage } = await import('./roomService');
-    await sendRoomMessage(roomId, {
-      senderId: 'system',
-      senderName: 'Cinema',
-      text: `🎬 ${user.username} فیلمەکەی دەستپێکرد / گۆڕی بۆ: ${movie.title}`,
-    });
+    await sendRoomMessage(
+      roomId,
+      'system',
+      'Cinema',
+      `🎬 ${user.username} فیلمەکەی دەستپێکرد / گۆڕی بۆ: ${movie.title}`,
+    );
   } catch (err) {
     console.warn('Could not broadcast movie switch message:', err);
   }

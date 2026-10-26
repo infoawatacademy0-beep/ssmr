@@ -160,6 +160,8 @@ export default function CinemaPlayerPanel({
         uid: currentUser.uid,
         username: currentUser.username,
       });
+      localStorage.setItem('ssmr_last_cinema_url', movie.url);
+      localStorage.setItem('ssmr_last_cinema_title', movie.title);
       setPlaylistToast(tr(`فیلمەکە گۆڕدرا بۆ: ${movie.title}`, `Switched to: ${movie.title}`));
       setTimeout(() => setPlaylistToast(null), 3000);
       setIsPlaylistDrawerOpen(false);
@@ -204,9 +206,11 @@ export default function CinemaPlayerPanel({
         addedByUid: currentUser.uid,
         addedByName: currentUser.username,
       });
+      localStorage.setItem('ssmr_last_cinema_url', cleanUrl);
+      localStorage.setItem('ssmr_last_cinema_title', finalTitle);
       setNewMovieUrl('');
       setNewMovieTitle('');
-      setPlaylistToast(tr('فیلمەکە پاشەکەوت کرا', 'Movie saved'));
+      setPlaylistToast(tr('فیلمەکە بە سەرکەوتوویی پاشەکەوت کرا', 'Movie saved'));
       setTimeout(() => setPlaylistToast(null), 2500);
     } catch (err: any) {
       console.warn('Failed to save movie:', err);
