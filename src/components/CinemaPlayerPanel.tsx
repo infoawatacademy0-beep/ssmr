@@ -125,6 +125,8 @@ export default function CinemaPlayerPanel({
   const [isSeeking, setIsSeeking] = useState(false);
   const [pauseToastUser, setPauseToastUser] = useState<string | null>(null);
   const prevIsPlayingRef = useRef<boolean>(cinemaState.isPlaying);
+  const lastHandledUpdateRef = useRef<number>(0);
+  const isInitialSyncRef = useRef<boolean>(true);
 
   // Broadcast toast notification whenever someone pauses playback
   useEffect(() => {
@@ -307,20 +309,13 @@ export default function CinemaPlayerPanel({
     }
   };
 
-  const handleQuickTakeSeat = () => {
-    handleUserGestureAudioUnlock();
-    const emptySeat = cinemaSeats.find((s) => !s.userId) || seats.find((s) => !s.userId);
-    if (emptySeat) {
-      onSeatClick(emptySeat);
-    } else {
-      alert(tr('هیچ کورسیەکی بەتاڵ بەردەست نییە!', 'No empty seat available!'));
-    }
-  };
 
   // Reset error when videoUrl changes and reload media
   useEffect(() => {
     setVideoError(false);
     setAudioBlockedNotice(false);
+    isInitialSyncRef.current = true;
+    lastHandledUpdateRef.current = 0;
     if (videoRef.current) {
       videoRef.current.load();
     }
@@ -331,7 +326,7 @@ export default function CinemaPlayerPanel({
     const video = videoRef.current;
     if (!video || !cinemaState.videoUrl) return;
 
-    // Check play / pause
+    // 1. Play / Pause Synchronization
     if (cinemaState.isPlaying && video.paused) {
       handleUserGestureAudioUnlock();
       const playPromise = video.play();
@@ -351,16 +346,35 @@ export default function CinemaPlayerPanel({
       video.pause();
     }
 
-    // Check drift time
+    // 2. Playback Position & Drift Synchronization
     const expectedTime =
       cinemaState.currentTime +
       (cinemaState.isPlaying ? (Date.now() - cinemaState.lastUpdated) / 1000 : 0);
 
+    const isExplicitAction =
+      isInitialSyncRef.current ||
+      cinemaState.lastUpdated !== lastHandledUpdateRef.current;
+
     const drift = Math.abs(video.currentTime - expectedTime);
-    if ((drift > 1.2 || !cinemaState.isPlaying) && Number.isFinite(expectedTime)) {
-      video.currentTime = expectedTime;
-      if (!isSeeking) {
-        setCurrentTime(expectedTime);
+
+    if (isExplicitAction) {
+      lastHandledUpdateRef.current = cinemaState.lastUpdated;
+      isInitialSyncRef.current = false;
+
+      // Only seek on explicit action if position changed meaningfully or paused
+      if ((drift > 1.8 || !cinemaState.isPlaying) && Number.isFinite(expectedTime)) {
+        video.currentTime = expectedTime;
+        if (!isSeeking) {
+          setCurrentTime(expectedTime);
+        }
+      }
+    } else {
+      // During continuous smooth playback: NEVER interrupt or jerk video unless drift is severe (> 7.0s)
+      if (drift > 7.0 && Number.isFinite(expectedTime)) {
+        video.currentTime = expectedTime;
+        if (!isSeeking) {
+          setCurrentTime(expectedTime);
+        }
       }
     }
   }, [cinemaState.isPlaying, cinemaState.currentTime, cinemaState.lastUpdated, cinemaState.videoUrl, isSeeking]);
@@ -612,14 +626,14 @@ export default function CinemaPlayerPanel({
     };
   }, [isFullscreen]);
 
-  // Auto-hide controls in fullscreen after 3.5s
+  // Auto-hide controls after 3.5s of inactivity in both standard and fullscreen modes
   useEffect(() => {
-    if (!isFullscreen || !showControls) return;
+    if (!showControls) return;
     const hideTimer = setTimeout(() => {
       setShowControls(false);
     }, 3500);
     return () => clearTimeout(hideTimer);
-  }, [isFullscreen, showControls]);
+  }, [showControls]);
 
   return (
     <div
@@ -664,18 +678,14 @@ export default function CinemaPlayerPanel({
           ───────────────────────────────────────────────────────────── */}
       <div
         onClick={() => {
-          if (isFullscreen) {
-            setShowControls((prev) => !prev);
-          }
+          setShowControls((prev) => !prev);
         }}
         onMouseEnter={() => setShowControls(true)}
-        onMouseLeave={() => {
-          if (!isFullscreen) setShowControls(false);
-        }}
+        onMouseLeave={() => setShowControls(false)}
         className={`relative overflow-hidden bg-black select-none transition-all duration-300 ${
           isFullscreen
             ? 'h-full w-full flex items-center justify-center cursor-pointer'
-            : 'w-full aspect-video rounded-2xl sm:rounded-3xl border-2 border-rose-950/80 shadow-[0_10px_35px_rgba(0,0,0,0.9),0_0_25px_rgba(225,29,72,0.2)] group'
+            : 'w-full aspect-video rounded-2xl sm:rounded-3xl border-2 border-rose-950/80 shadow-[0_10px_35px_rgba(0,0,0,0.9),0_0_25px_rgba(225,29,72,0.2)] group cursor-pointer'
         }`}
       >
         {/* Cinema Screen Backlight / Ambient Glow */}
@@ -720,24 +730,14 @@ export default function CinemaPlayerPanel({
           />
         </div>
 
-        {/* Center Screen "Paused by User" Badge */}
-        {!cinemaState.isPlaying && (cinemaState.pausedByName || cinemaState.updatedByName) && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-2.5 rounded-2xl bg-black/90 border border-amber-400/80 px-4 py-2.5 shadow-[0_0_35px_rgba(245,158,11,0.5)] backdrop-blur-md">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400 text-black shadow-lg shrink-0">
-                <Pause className="h-4 w-4 fill-black" />
-              </div>
-              <div className="flex flex-col text-start">
-                <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">
-                  {tr('فیلمەکە وەستێنراوە', 'Movie Paused')}
-                </span>
-                <span className="text-xs sm:text-sm font-black text-white">
-                  {tr('لەلایەن:', 'By:')}{' '}
-                  <span className="text-amber-400 underline decoration-amber-400/60 font-extrabold">
-                    {cinemaState.pausedByName || cinemaState.updatedByName}
-                  </span>
-                </span>
-              </div>
+        {/* Subtle Pause Status Pill (When controls are hidden) */}
+        {!cinemaState.isPlaying && (cinemaState.pausedByName || cinemaState.updatedByName) && !showControls && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-in fade-in duration-200">
+            <div className="flex items-center gap-1.5 rounded-full bg-black/80 border border-amber-400/50 px-3 py-1 shadow-lg backdrop-blur-md">
+              <Pause className="h-3 w-3 fill-amber-400 text-amber-400 shrink-0" />
+              <span className="text-[10px] font-bold text-white">
+                {tr('وەستێنراوە لەلایەن:', 'Paused by:')} <strong className="text-amber-400">{cinemaState.pausedByName || cinemaState.updatedByName}</strong>
+              </span>
             </div>
           </div>
         )}
@@ -920,19 +920,7 @@ export default function CinemaPlayerPanel({
                       </button>
                     )}
                   </div>
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleQuickTakeSeat();
-                    }}
-                    className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 px-3 py-1.5 text-xs font-black text-black shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition"
-                    title={tr('وەرگرتنی مایک بۆ قسەکردن', 'Take Mic to Speak')}
-                  >
-                    <Mic className="h-3.5 w-3.5 stroke-[3]" />
-                    <span>{tr('وەرگرتنی مایک', 'Take Mic')}</span>
-                  </button>
-                )}
+                ) : null}
 
                 {/* Room Voice (Speaker) Toggle */}
                 {onToggleSpeakerMute && (
@@ -1269,15 +1257,14 @@ export default function CinemaPlayerPanel({
 
             {/* Bottom Playback & Timeline Control Bar */}
             <div
-              className={`absolute bottom-2 inset-x-2 sm:inset-x-3 z-30 flex flex-col gap-1.5 rounded-2xl bg-black/85 border border-white/15 px-3 py-2 backdrop-blur-md transition-opacity duration-200 shadow-2xl ${
-                showControls
-                  ? 'opacity-100 pointer-events-auto'
-                  : 'opacity-0 pointer-events-none sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto'
+              onClick={(e) => e.stopPropagation()}
+              className={`absolute bottom-0 inset-x-0 z-30 flex flex-col justify-end bg-gradient-to-t from-black/95 via-black/75 to-transparent pt-6 pb-1.5 px-2 transition-all duration-300 pointer-events-auto ${
+                showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
               }`}
             >
-              {/* Timeline Scrubber */}
-              <div className="relative w-full flex items-center group/timeline h-4 cursor-pointer">
-                <div className="relative h-1.5 w-full rounded-full bg-white/20 overflow-hidden group-hover/timeline:h-2.5 transition-all">
+              {/* Ultra-slim Timeline Scrubber */}
+              <div className="relative w-full flex items-center group/timeline h-2.5 mb-1 cursor-pointer">
+                <div className="relative h-1 w-full rounded-full bg-white/20 overflow-hidden group-hover/timeline:h-2 transition-all">
                   <div
                     className="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-amber-300 rounded-full transition-all duration-100"
                     style={{
@@ -1302,88 +1289,88 @@ export default function CinemaPlayerPanel({
                 />
               </div>
 
-              {/* Controls Row */}
-              <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-                {/* Left: Play/Pause + Rewind 10s + Forward 10s + Pauser Name */}
-                <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+              {/* Single Compact Controls Row (Strictly No Wrap) */}
+              <div className="flex items-center justify-between gap-1 w-full text-white flex-nowrap">
+                {/* Left: Play/Pause + Rewind 10s + Forward 10s */}
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={handleTogglePlayPause}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-400 text-black hover:bg-amber-300 transition active:scale-95 shadow shrink-0"
+                    className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-amber-400 text-black hover:bg-amber-300 active:scale-90 transition shadow shrink-0"
                     title={cinemaState.isPlaying ? tr('وەستاندن', 'Pause') : tr('لێدان', 'Play')}
                   >
                     {cinemaState.isPlaying ? (
-                      <Pause className="h-3.5 w-3.5 fill-black" />
+                      <Pause className="h-3 w-3 fill-black" />
                     ) : (
-                      <Play className="h-3.5 w-3.5 fill-black ml-0.5" />
+                      <Play className="h-3 w-3 fill-black ml-0.5" />
                     )}
                   </button>
 
                   {/* Rewind 10s */}
                   <button
                     onClick={() => handleSeekRelative(-10)}
-                    className="flex items-center gap-0.5 h-7 px-1.5 sm:px-2 rounded-lg bg-white/10 hover:bg-white/20 text-white hover:text-amber-300 transition text-[11px] font-bold active:scale-95 shadow shrink-0"
+                    className="flex items-center justify-center h-6 px-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white hover:text-amber-300 active:scale-90 transition text-[10px] font-mono shrink-0 shadow-sm"
                     title={tr('١٠ چرکە بۆ دواوە', 'Rewind 10s')}
                   >
-                    <RotateCcw className="h-3 w-3" />
-                    <span className="font-mono text-[10px]">-10s</span>
+                    <RotateCcw className="h-2.5 w-2.5 mr-0.5" />
+                    <span>-10</span>
                   </button>
 
                   {/* Forward 10s */}
                   <button
                     onClick={() => handleSeekRelative(10)}
-                    className="flex items-center gap-0.5 h-7 px-1.5 sm:px-2 rounded-lg bg-white/10 hover:bg-white/20 text-white hover:text-amber-300 transition text-[11px] font-bold active:scale-95 shadow shrink-0"
+                    className="flex items-center justify-center h-6 px-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white hover:text-amber-300 active:scale-90 transition text-[10px] font-mono shrink-0 shadow-sm"
                     title={tr('١٠ چرکە بۆ پێشەوە', 'Forward 10s')}
                   >
-                    <span className="font-mono text-[10px]">+10s</span>
-                    <RotateCw className="h-3 w-3" />
+                    <span>+10</span>
+                    <RotateCw className="h-2.5 w-2.5 ml-0.5" />
                   </button>
-
-                  {/* Who paused indicator */}
-                  {!cinemaState.isPlaying && (cinemaState.pausedByName || cinemaState.updatedByName) && (
-                    <div className="flex items-center gap-1 text-[10px] font-black text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-lg shadow-sm">
-                      <Pause className="h-2.5 w-2.5 fill-amber-300 shrink-0" />
-                      <span className="text-amber-200/90">{tr('ڕاگیراوە:', 'Paused:')}</span>
-                      <span className="text-white underline font-extrabold">{cinemaState.pausedByName || cinemaState.updatedByName}</span>
-                    </div>
-                  )}
                 </div>
 
-                {/* Center: Exact Time Display & Minute Summary for Viewers */}
-                <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-amber-300 bg-white/5 px-2.5 py-1 rounded-xl border border-white/10 shadow-inner">
-                  <Clock className="h-3 w-3 text-amber-400 shrink-0" />
-                  <span>{formatTime(currentTime)}</span>
-                  <span className="text-white/40 font-sans">/</span>
-                  <span className="text-slate-300">
-                    {effectiveDuration > 0 ? formatTime(effectiveDuration) : '--:--'}
-                  </span>
-                  {effectiveDuration > 0 && (
-                    <span className="hidden xs:inline-block text-[9px] text-amber-200/90 font-sans font-bold bg-amber-500/20 px-1.5 py-0.2 rounded-full mr-1">
-                      {getMinutesSummary(currentTime, effectiveDuration)}
+                {/* Center: Exact Time Display & Paused Name */}
+                <div className="flex items-center gap-1 min-w-0 shrink">
+                  <div className="flex items-center gap-0.5 font-mono text-[10px] sm:text-xs font-bold text-amber-300 whitespace-nowrap">
+                    <span>{formatTime(currentTime)}</span>
+                    <span className="text-white/40">/</span>
+                    <span className="text-slate-300">
+                      {effectiveDuration > 0 ? formatTime(effectiveDuration) : '--:--'}
+                    </span>
+                  </div>
+
+                  {!cinemaState.isPlaying && (cinemaState.pausedByName || cinemaState.updatedByName) && (
+                    <span className="hidden sm:inline-block text-[9px] text-amber-200 font-bold bg-amber-500/20 px-1.5 py-0.5 rounded truncate max-w-[100px]">
+                      {cinemaState.pausedByName || cinemaState.updatedByName}
                     </span>
                   )}
                 </div>
 
-                {/* Right: Personal Volume + Fullscreen */}
-                <div className="flex items-center gap-1.5">
+                {/* Right: Sound volume toggle & Fullscreen toggle */}
+                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                   <button
                     onClick={handleToggleMute}
                     className="p-1 text-slate-300 hover:text-white transition"
                     title={isMuted ? tr('دەنگ بکەرەوە', 'Unmute') : tr('بێدەنگکردن', 'Mute')}
                   >
-                    {isMuted ? <VolumeX className="h-4 w-4 text-rose-400" /> : <Volume2 className="h-4 w-4" />}
+                    {isMuted ? <VolumeX className="h-3.5 w-3.5 text-rose-400" /> : <Volume2 className="h-3.5 w-3.5" />}
                   </button>
 
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={isMuted ? 0 : volume}
-                    onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                    className="w-14 sm:w-20 accent-amber-400 cursor-pointer h-1 rounded bg-slate-700"
-                  />
+                  <button
+                    onClick={handleToggleFullscreen}
+                    className="p-1 text-slate-300 hover:text-white transition"
+                    title={isFullscreen ? tr('دەرچوون', 'Exit') : tr('تەواوی شاشە', 'Fullscreen')}
+                  >
+                    {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                  </button>
                 </div>
               </div>
+
+              {/* Mobile sub-indicator if paused */}
+              {!cinemaState.isPlaying && (cinemaState.pausedByName || cinemaState.updatedByName) && (
+                <div className="sm:hidden flex items-center justify-center gap-1 mt-0.5 text-[9px] font-bold text-amber-300/90">
+                  <Pause className="h-2 w-2 fill-amber-300" />
+                  <span>{tr('ڕاگیراوە لەلایەن:', 'Paused by:')}</span>
+                  <span className="text-white font-extrabold underline">{cinemaState.pausedByName || cinemaState.updatedByName}</span>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1485,19 +1472,7 @@ export default function CinemaPlayerPanel({
                       </button>
                     )}
                   </div>
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleQuickTakeSeat();
-                    }}
-                    className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 px-2.5 py-1 text-xs font-black text-black shadow-md hover:scale-105 active:scale-95 transition"
-                    title={tr('دانیشتن لەسەر مایک بۆ قسەکردن', 'Take Seat to Speak')}
-                  >
-                    <Mic className="h-3.5 w-3.5 stroke-[3]" />
-                    <span>{tr('وەرگرتنی مایک', 'Take Mic')}</span>
-                  </button>
-                )}
+                ) : null}
 
                 {/* Room Voice (Speaker) Mute Toggle */}
                 {onToggleSpeakerMute && (

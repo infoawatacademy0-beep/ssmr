@@ -128,7 +128,6 @@ export async function updateCinemaSeatCount(
   const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
   await update(cinemaRef, {
     seatCount: cleanCount,
-    lastUpdated: Date.now(),
     ...(user ? { updatedByUid: user.uid, updatedByName: user.username } : {}),
   });
 
