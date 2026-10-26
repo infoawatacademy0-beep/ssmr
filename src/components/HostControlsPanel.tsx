@@ -16,9 +16,13 @@ import {
   Gamepad2,
   Music,
   Film,
+  Users,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import type { Room, Seat, User, JackarooGame } from '../types';
 import { useLanguage } from '../contexts';
+import VipSeatModal from './VipSeatModal';
 import {
   kickUserFromSeat,
   toggleSeatLock,
@@ -27,6 +31,7 @@ import {
   clearRoomChat,
   closeJackarooGame,
   updateRoomPassword,
+  updateRoomSeatCount,
 } from '../services';
 
 interface HostControlsPanelProps {
@@ -56,6 +61,22 @@ export default function HostControlsPanel({
   const [passwordInput, setPasswordInput] = useState(room.password || '');
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordSavedMsg, setPasswordSavedMsg] = useState<string | null>(null);
+  const [isUpdatingSeats, setIsUpdatingSeats] = useState(false);
+  const [selectedVipSeat, setSelectedVipSeat] = useState<Seat | null>(null);
+  const [isVipModalOpen, setIsVipModalOpen] = useState(false);
+
+  const handleSetSeatCount = async (count: number) => {
+    if (isUpdatingSeats) return;
+    setIsUpdatingSeats(true);
+    setActionError(null);
+    try {
+      await updateRoomSeatCount(room.id, count, currentUser.username);
+    } catch (err: any) {
+      setActionError(err.message || tr('شکستی هێنا لە گۆڕینی ژمارەی کورسییەکان', 'Failed to update seat count'));
+    } finally {
+      setIsUpdatingSeats(false);
+    }
+  };
 
   const handleRemovePassword = async () => {
     setIsSavingPassword(true);
@@ -308,12 +329,74 @@ export default function HostControlsPanel({
             </form>
           </div>
 
+          {/* Seat Capacity Stepper & Presets */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-black text-white flex items-center gap-1.5">
+                  <Users className="h-4 w-4 text-amber-400" />
+                  {tr("ژمارەی کورسییەکانی ژوور", "Room Seat Capacity")}
+                </span>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {room.seats.filter((s) => s.userId).length} / {room.seats.length} {tr("قسەکەرانی چالاک لەسەر سەکۆ", "Active Speakers on Stage")}
+                </p>
+              </div>
+
+              {/* Stepper +/- */}
+              <div className="flex items-center rounded-xl border border-white/10 bg-black/60 p-1">
+                <button
+                  type="button"
+                  disabled={isUpdatingSeats || room.seats.length <= 1}
+                  onClick={() => handleSetSeatCount(room.seats.length - 1)}
+                  title={tr('کەمکردنەوەی کورسی', 'Decrease Seat')}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-rose-600 transition font-black text-sm active:scale-95 disabled:opacity-30"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <span className="px-3 text-xs font-black text-amber-300 min-w-[28px] text-center">
+                  {room.seats.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={isUpdatingSeats || room.seats.length >= 16}
+                  onClick={() => handleSetSeatCount(room.seats.length + 1)}
+                  title={tr('زیادکردنی کورسی', 'Increase Seat')}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-emerald-600 transition font-black text-sm active:scale-95 disabled:opacity-30"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-slate-800/80">
+              <span className="text-[10px] font-bold text-slate-500 mr-1">
+                {tr("دیاریکراوەکان:", "Presets:")}
+              </span>
+              {[2, 4, 6, 8, 10, 12, 16].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  disabled={isUpdatingSeats}
+                  onClick={() => handleSetSeatCount(num)}
+                  className={`rounded-xl px-2.5 py-1 text-[11px] font-black transition active:scale-95 ${
+                    room.seats.length === num
+                      ? 'bg-amber-400 text-black shadow-md shadow-amber-400/30'
+                      : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  {num} {tr('کورسی', 'Seats')}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
-              {tr("کۆنترۆڵی کورسییەکان (٨ شوێن)", "Seat Controls (8 Seats)")}
+              {tr("لیستی کورسییەکان", "Seat List")} ({room.seats.length} {tr("شوێن", "Seats")})
             </span>
             <span className="text-[10px] text-slate-500">
-              {room.seats.filter((s) => s.userId).length}/8 ' + tr('قسەکەرانی چالاک', 'Active Speakers')
+              {room.seats.filter((s) => s.userId).length} / {room.seats.length} {tr('قسەکەرانی چالاک', 'Active Speakers')}
             </span>
           </div>
 
@@ -368,6 +451,12 @@ export default function HostControlsPanel({
                             {tr('قفڵکراو', 'Locked')}
                           </span>
                         )}
+                        {seat.isVip && (
+                          <span className="rounded bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/40 px-1.5 py-0.5 text-[8px] font-black text-amber-300 flex items-center gap-0.5 shadow-sm">
+                            <Crown className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
+                            VIP{seat.vipAssignedName ? `: ${seat.vipAssignedName}` : ''}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[10px] text-slate-500">
                         {isOccupied
@@ -376,6 +465,8 @@ export default function HostControlsPanel({
                             : tr('مایک: چالاک', 'Mic: Active')
                           : seat.isLocked
                           ? tr('لەلایەن خاوەن ژوورەوە قفڵکراوە - ناتوانرێت دابنیشیت', 'Locked by host - cannot sit')
+                          : seat.isVip && seat.vipAssignedName
+                          ? `${tr('تەرخانکراوە بۆ VIP:', 'Reserved for VIP:')} ${seat.vipAssignedName}`
                           : tr('بەتاڵە - کراوەیە بۆ هەموو گوێگران', 'Open for all listeners')}
                       </p>
                     </div>
@@ -383,6 +474,24 @@ export default function HostControlsPanel({
 
                   {/* Seat Controls */}
                   <div className="flex items-center gap-1.5">
+                    {/* VIP Seat Configuration Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedVipSeat(seat);
+                        setIsVipModalOpen(true);
+                      }}
+                      title={tr('ڕێکخستنی کورسی VIP', 'Configure VIP Seat')}
+                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-black transition active:scale-95 ${
+                        seat.isVip
+                          ? 'bg-amber-400 text-black shadow-md shadow-amber-400/25'
+                          : 'border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                      }`}
+                    >
+                      <Crown className={`h-3 w-3 ${seat.isVip ? 'fill-black' : 'fill-amber-400'}`} />
+                      <span>VIP</span>
+                    </button>
+
                     {isOccupied && !isCurrentUser && (
                       <>
                         <button
@@ -471,6 +580,21 @@ export default function HostControlsPanel({
           </div>
         </div>
       </motion.div>
+
+      {/* VIP Seat Configuration Modal */}
+      <VipSeatModal
+        isOpen={isVipModalOpen}
+        roomId={room.id}
+        seat={selectedVipSeat}
+        currentUser={currentUser}
+        audienceMembers={room.seats
+          .filter((s) => s.userId && s.username)
+          .map((s) => ({ uid: s.userId!, username: s.username! }))}
+        onClose={() => {
+          setIsVipModalOpen(false);
+          setSelectedVipSeat(null);
+        }}
+      />
     </div>
   );
 }

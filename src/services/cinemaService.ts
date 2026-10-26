@@ -7,6 +7,7 @@ import {
 } from 'firebase/database';
 import { database } from '../config/firebase';
 import type { RoomCinemaState, StartCinemaPayload } from '../types';
+import { updateRoomSeatCount } from './roomService';
 
 /**
  * Starts or updates cinema / movie mode in a voice room.
@@ -21,6 +22,7 @@ export async function startCinemaMode(
     throw new Error('Video URL cannot be empty.');
   }
 
+  const safeSeats = Math.max(1, Math.min(16, payload.seatCount || 5));
   const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
   const cinemaData: RoomCinemaState = {
     isActive: true,
@@ -31,10 +33,16 @@ export async function startCinemaMode(
     lastUpdated: Date.now(),
     updatedByUid: payload.hostUid,
     updatedByName: payload.hostName,
-    seatCount: Math.max(1, Math.min(12, payload.seatCount || 5)),
+    seatCount: safeSeats,
   };
 
   await set(cinemaRef, cinemaData);
+
+  try {
+    await updateRoomSeatCount(roomId, safeSeats, payload.hostName);
+  } catch (err) {
+    console.warn('Failed to sync room seats in startCinemaMode:', err);
+  }
 }
 
 /**
@@ -71,6 +79,7 @@ export async function setCinemaVideoUrl(
     throw new Error('Video URL cannot be empty.');
   }
 
+  const cleanSeatCount = seatCount ? Math.max(1, Math.min(16, seatCount)) : undefined;
   const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
   await update(cinemaRef, {
     isActive: true,
@@ -81,8 +90,16 @@ export async function setCinemaVideoUrl(
     lastUpdated: Date.now(),
     updatedByUid: user.uid,
     updatedByName: user.username,
-    ...(seatCount ? { seatCount: Math.max(1, Math.min(12, seatCount)) } : {}),
+    ...(cleanSeatCount !== undefined ? { seatCount: cleanSeatCount } : {}),
   });
+
+  if (cleanSeatCount !== undefined) {
+    try {
+      await updateRoomSeatCount(roomId, cleanSeatCount, user.username);
+    } catch (err) {
+      console.warn('Failed to sync room seats in setCinemaVideoUrl:', err);
+    }
+  }
 }
 
 /**
@@ -93,13 +110,19 @@ export async function updateCinemaSeatCount(
   seatCount: number,
   user?: { uid: string; username: string },
 ): Promise<void> {
-  const cleanCount = Math.max(1, Math.min(12, seatCount));
+  const cleanCount = Math.max(1, Math.min(16, seatCount));
   const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
   await update(cinemaRef, {
     seatCount: cleanCount,
     lastUpdated: Date.now(),
     ...(user ? { updatedByUid: user.uid, updatedByName: user.username } : {}),
   });
+
+  try {
+    await updateRoomSeatCount(roomId, cleanCount, user?.username);
+  } catch (err) {
+    console.warn('Failed to sync room seats in updateCinemaSeatCount:', err);
+  }
 }
 
 /**

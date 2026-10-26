@@ -21,7 +21,7 @@ export type VoiceEffectMode = 'normal' | 'child' | 'venom';
  * Seat in the 8-seat audio grid.
  */
 export interface Seat {
-  seatNo: number; // 1 to 8
+  seatNo: number; // 1 to 16
   userId: string | null;
   username: string | null;
   avatar: string | null;
@@ -31,6 +31,9 @@ export interface Seat {
   role?: SeatRole;
   isMicBlocked?: boolean;
   voiceEffect?: VoiceEffectMode;
+  isVip?: boolean;
+  vipAssignedName?: string | null;
+  vipAssignedUserId?: string | null;
 }
 
 export type RoomCategory = 'Gaming' | 'Voice Chat' | 'Music' | 'Chill';

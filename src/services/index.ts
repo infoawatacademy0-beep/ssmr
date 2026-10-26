@@ -27,6 +27,7 @@ export {
   muteSeatByHost,
   updateRoomPassword,
   updateRoomSeatCount,
+  setSeatVipConfig,
   sendSeatEmoji,
   subscribeToSeatEmojis,
 } from './roomService';

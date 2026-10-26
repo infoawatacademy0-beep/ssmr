@@ -33,6 +33,7 @@ export interface UserSeatInfo {
   isVerified?: boolean;
   isMuted?: boolean;
   voiceEffect?: VoiceEffectMode;
+  isAdmin?: boolean;
 }
 
 export interface CreateRoomOptions {
@@ -73,6 +74,9 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
       isMuted: Boolean(rawSeat.isMuted),
       isLocked: Boolean(rawSeat.isLocked),
       voiceEffect: (rawSeat.voiceEffect as VoiceEffectMode) || 'normal',
+      isVip: Boolean(rawSeat.isVip),
+      vipAssignedName: rawSeat.vipAssignedName || null,
+      vipAssignedUserId: rawSeat.vipAssignedUserId || null,
     };
   });
 }
@@ -198,14 +202,18 @@ export async function joinSeat(
       if (seats[i].userId === user.uid) {
         preservedIsMuted = Boolean(seats[i].isMuted);
         preservedVoiceEffect = seats[i].voiceEffect || preservedVoiceEffect;
+        const prevOccupied = seats[i];
         seats[i] = {
           seatNo: i + 1,
           userId: null,
           username: null,
           avatar: null,
           isMuted: false,
-          isLocked: false,
+          isLocked: prevOccupied.isLocked || false,
           voiceEffect: 'normal',
+          isVip: prevOccupied.isVip || false,
+          vipAssignedName: prevOccupied.vipAssignedName || null,
+          vipAssignedUserId: prevOccupied.vipAssignedUserId || null,
         };
       }
     }
@@ -226,6 +234,15 @@ export async function joinSeat(
       throw new Error(`Seat ${seatNo} is already occupied.`);
     }
 
+    // Check VIP seat assignment if set
+    if (targetSeat.isVip && targetSeat.vipAssignedName) {
+      const cleanAssigned = targetSeat.vipAssignedName.trim().toLowerCase();
+      const cleanUsername = user.username.trim().toLowerCase();
+      if (!user.isAdmin && cleanUsername !== cleanAssigned) {
+        throw new Error(`ئەم کورسییە بە تایبەت بۆ (${targetSeat.vipAssignedName}) دانراوە.`);
+      }
+    }
+
     // 3. Occupy target seat — keep user's previous mute state & voice effect
     seats[targetIndex] = {
       seatNo,
@@ -236,6 +253,9 @@ export async function joinSeat(
       isMuted: preservedIsMuted,
       isLocked: false,
       voiceEffect: preservedVoiceEffect,
+      isVip: targetSeat.isVip || false,
+      vipAssignedName: targetSeat.vipAssignedName || null,
+      vipAssignedUserId: targetSeat.vipAssignedUserId || null,
     };
 
     return seats;
@@ -265,13 +285,17 @@ export async function leaveSeat(
 
     if (seats[targetIndex]) {
       departedUsername = seats[targetIndex].username;
+      const prevSeat = seats[targetIndex];
       seats[targetIndex] = {
         seatNo,
         userId: null,
         username: null,
         avatar: null,
         isMuted: false,
-        isLocked: false,
+        isLocked: prevSeat.isLocked || false,
+        isVip: prevSeat.isVip || false,
+        vipAssignedName: prevSeat.vipAssignedName || null,
+        vipAssignedUserId: prevSeat.vipAssignedUserId || null,
       };
     }
 
@@ -555,13 +579,17 @@ export async function kickUserFromSeat(
     const seats = normalizeSeats(currentSeatsData);
     if (seats[targetIndex] && seats[targetIndex].userId) {
       kickedUsername = seats[targetIndex].username || 'User';
+      const prevSeat = seats[targetIndex];
       seats[targetIndex] = {
         seatNo,
         userId: null,
         username: null,
         avatar: null,
         isMuted: false,
-        isLocked: seats[targetIndex].isLocked || false,
+        isLocked: prevSeat.isLocked || false,
+        isVip: prevSeat.isVip || false,
+        vipAssignedName: prevSeat.vipAssignedName || null,
+        vipAssignedUserId: prevSeat.vipAssignedUserId || null,
       };
     }
     return seats;
@@ -574,6 +602,40 @@ export async function kickUserFromSeat(
       'System',
       `[Host Action] ${kickedUsername} was vacated from Seat #${seatNo} by ${hostName}.`,
     );
+  }
+}
+
+/**
+ * Host/Admin Control: Configures VIP seat status and designates an assigned name.
+ */
+export async function setSeatVipConfig(
+  roomId: string,
+  seatNo: number,
+  isVip: boolean,
+  assignedName?: string | null,
+  hostName?: string,
+): Promise<void> {
+  const targetIndex = seatNo - 1;
+  const seatsRef = ref(database, `rooms/${roomId}/seats`);
+
+  await runTransaction(seatsRef, (currentSeatsData) => {
+    const seats = normalizeSeats(currentSeatsData);
+    if (!seats[targetIndex]) return seats;
+
+    seats[targetIndex] = {
+      ...seats[targetIndex],
+      isVip,
+      vipAssignedName: isVip && assignedName ? assignedName.trim() : null,
+    };
+    return seats;
+  });
+
+  if (hostName) {
+    const cleanName = assignedName?.trim();
+    const actionText = isVip
+      ? `[VIP Seat] کورسی #${seatNo} وەک کورسی VIP دیاریکرا${cleanName ? ` بە ناوی (${cleanName})` : ''} لەلایەن ${hostName}.`
+      : `[VIP Seat] تایبەتمەندی VIP لەسەر کورسی #${seatNo} لادرا لەلایەن ${hostName}.`;
+    await sendRoomMessage(roomId, 'System', actionText);
   }
 }
 
@@ -621,7 +683,7 @@ export async function updateRoomPassword(
 }
 
 /**
- * Host Control: Dynamically adjusts room seat count (from 2 up to 16 seats).
+ * Host Control: Dynamically adjusts room seat count (from 1 up to 16 seats).
  * Expands or shrinks the seat array in Firebase Realtime Database atomically.
  */
 export async function updateRoomSeatCount(
@@ -629,7 +691,7 @@ export async function updateRoomSeatCount(
   newCount: number,
   hostName?: string,
 ): Promise<void> {
-  const safeCount = Math.max(2, Math.min(16, newCount));
+  const safeCount = Math.max(1, Math.min(16, newCount));
   const seatsRef = ref(database, `rooms/${roomId}/seats`);
 
   await runTransaction(seatsRef, (currentSeatsData) => {

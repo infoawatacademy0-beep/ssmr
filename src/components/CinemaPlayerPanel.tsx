@@ -20,8 +20,10 @@ import {
   Smartphone,
   ArrowLeft,
   LogOut,
+  MessageSquare,
+  X,
 } from 'lucide-react';
-import type { RoomCinemaState, Seat, User, AudienceMember } from '../types';
+import type { RoomCinemaState, Seat, User, AudienceMember, ChatMessage } from '../types';
 import { getVipAvatarClass } from '../types';
 import { updateCinemaPlayback, updateCinemaSeatCount } from '../services';
 import { useLanguage } from '../contexts';
@@ -39,6 +41,7 @@ interface CinemaPlayerPanelProps {
   usersAvatarMap: Record<string, string>;
   audience: AudienceMember[];
   mySeat: Seat | null;
+  chatMessages?: ChatMessage[];
   onToggleMyMute: () => void;
   onLeaveMySeat?: (seatNo?: number) => void;
   audioAutoplayBlocked?: boolean;
@@ -79,6 +82,7 @@ export default function CinemaPlayerPanel({
   usersAvatarMap,
   audience,
   mySeat,
+  chatMessages,
   onToggleMyMute,
   onLeaveMySeat,
   audioAutoplayBlocked,
@@ -90,6 +94,13 @@ export default function CinemaPlayerPanel({
   onOpenProfile,
 }: CinemaPlayerPanelProps) {
   const { tr, isRTL } = useLanguage();
+
+  // Fullscreen Live Chat Notification Toast
+  const [activeChatToast, setActiveChatToast] = useState<ChatMessage | null>(null);
+  const [isChatToastEnabled, setIsChatToastEnabled] = useState(true);
+  const lastSeenMsgIdRef = useRef<string | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitializedChatRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -103,6 +114,54 @@ export default function CinemaPlayerPanel({
   const [audioBlockedNotice, setAudioBlockedNotice] = useState(false);
   const autoEnteredRef = useRef(false);
 
+  // Monitor incoming chat messages for subtle fullscreen notification toasts
+  useEffect(() => {
+    if (!chatMessages || chatMessages.length === 0) return;
+
+    // First time initializing: remember the latest message ID without toasting old history
+    if (!hasInitializedChatRef.current) {
+      hasInitializedChatRef.current = true;
+      lastSeenMsgIdRef.current = chatMessages[chatMessages.length - 1]?.id || null;
+      return;
+    }
+
+    const latestMsg = chatMessages[chatMessages.length - 1];
+    if (!latestMsg) return;
+
+    if (latestMsg.id !== lastSeenMsgIdRef.current) {
+      lastSeenMsgIdRef.current = latestMsg.id;
+
+      // Only toast when user is in fullscreen and message is from another member
+      if (
+        isFullscreen &&
+        isChatToastEnabled &&
+        latestMsg.senderId !== currentUser.uid &&
+        latestMsg.senderId !== 'system' &&
+        latestMsg.text.trim()
+      ) {
+        if (toastTimeoutRef.current) {
+          clearTimeout(toastTimeoutRef.current);
+        }
+        setActiveChatToast(latestMsg);
+
+        // Auto-dismiss after 4 seconds to never annoy the viewer
+        toastTimeoutRef.current = setTimeout(() => {
+          setActiveChatToast(null);
+        }, 4000);
+      }
+    }
+  }, [chatMessages, isFullscreen, isChatToastEnabled, currentUser.uid]);
+
+  // Dismiss toast and clear timer if exiting fullscreen
+  useEffect(() => {
+    if (!isFullscreen) {
+      setActiveChatToast(null);
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    }
+  }, [isFullscreen]);
+
   // Custom seat count configured by Host in cinemaState (default 5, ranges from 1 to 12)
   const [localSeatCount, setLocalSeatCount] = useState<number>(cinemaState.seatCount || 5);
 
@@ -112,7 +171,7 @@ export default function CinemaPlayerPanel({
     }
   }, [cinemaState.seatCount]);
 
-  const targetSeatCount = Math.max(1, Math.min(12, localSeatCount || cinemaState.seatCount || 5));
+  const targetSeatCount = Math.max(1, Math.min(16, localSeatCount || cinemaState.seatCount || 5));
   const cinemaSeats: Seat[] = Array.from({ length: targetSeatCount }, (_, i) => {
     if (seats[i]) return seats[i];
     return {
@@ -130,7 +189,7 @@ export default function CinemaPlayerPanel({
   const handleIncreaseCinemaSeats = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!isHost) return;
-    if (targetSeatCount >= 12) return;
+    if (targetSeatCount >= 16) return;
     const nextCount = targetSeatCount + 1;
     setLocalSeatCount(nextCount);
     try {
@@ -392,38 +451,6 @@ export default function CinemaPlayerPanel({
     };
   }, [isFullscreen]);
 
-  // Auto-fullscreen & auto-rotate on mobile when entering room or cinema starts
-  useEffect(() => {
-    if (!cinemaState.isActive || !cinemaState.videoUrl || autoEnteredRef.current) return;
-
-    const isMobile =
-      typeof window !== 'undefined' &&
-      (window.innerWidth <= 768 ||
-        /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
-
-    if (!isMobile) return;
-    autoEnteredRef.current = true;
-
-    // 1. Immediate attempt on mount
-    const timer = setTimeout(() => {
-      enterLandscapeFullscreen().catch(() => {});
-    }, 450);
-
-    // 2. Fallback on first touch if browser requires user gesture
-    const handleTouchInit = () => {
-      enterLandscapeFullscreen().catch(() => {});
-    };
-
-    window.addEventListener('touchstart', handleTouchInit, { once: true, passive: true });
-    window.addEventListener('click', handleTouchInit, { once: true });
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('touchstart', handleTouchInit);
-      window.removeEventListener('click', handleTouchInit);
-    };
-  }, [cinemaState.isActive, cinemaState.videoUrl]);
-
   // Auto-hide controls in fullscreen after 3.5s
   useEffect(() => {
     if (!isFullscreen || !showControls) return;
@@ -536,6 +563,73 @@ export default function CinemaPlayerPanel({
             </button>
           </div>
         )}
+
+        {/* ════════════════════════════════════════════════════════════
+            FULLSCREEN NON-INTRUSIVE CHAT TOAST NOTIFICATION
+            ════════════════════════════════════════════════════════════ */}
+        <AnimatePresence>
+          {isFullscreen && activeChatToast && isChatToastEnabled && (
+            <motion.div
+              key={activeChatToast.id}
+              initial={{ opacity: 0, y: -20, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -15, scale: 0.95 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="absolute top-16 start-4 sm:top-18 sm:start-6 z-50 pointer-events-auto max-w-[280px] xs:max-w-xs sm:max-w-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="group relative flex items-start gap-2.5 rounded-2xl border border-white/20 bg-black/80 px-3 py-2.5 shadow-2xl backdrop-blur-xl transition hover:bg-black/95">
+                {/* Sender Avatar */}
+                <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md">
+                  {(() => {
+                    const avatarUrl =
+                      activeChatToast.senderAvatar ||
+                      usersAvatarMap[activeChatToast.senderId] ||
+                      audience.find((a) => a.uid === activeChatToast.senderId)?.avatar ||
+                      null;
+                    return avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={activeChatToast.senderName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      activeChatToast.senderName?.charAt(0).toUpperCase() || 'U'
+                    );
+                  })()}
+                </div>
+
+                {/* Sender Info & Message */}
+                <div className="flex-1 min-w-0 pr-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-black text-amber-300 truncate">
+                      {activeChatToast.senderName}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-400 bg-white/10 rounded-full px-1.5 py-0.2 shrink-0">
+                      {tr('چات', 'Chat')}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs font-semibold text-white/95 line-clamp-2 leading-snug break-words">
+                    {activeChatToast.text}
+                  </p>
+                </div>
+
+                {/* Subtle Dismiss Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveChatToast(null);
+                  }}
+                  className="text-white/40 hover:text-white transition shrink-0 p-0.5"
+                  title={tr('داخستن', 'Dismiss')}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ════════════════════════════════════════════════════════════
             CONTROLS: FULLSCREEN MODE
@@ -655,6 +749,18 @@ export default function CinemaPlayerPanel({
                 </button>
 
                 <button
+                  onClick={() => setIsChatToastEnabled((prev) => !prev)}
+                  title={isChatToastEnabled ? tr('بێدەنگکردنی ئاگاداری نامەکان', 'Mute Chat Notifications') : tr('چالاککردنی ئاگاداری نامەکان', 'Enable Chat Notifications')}
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow ${
+                    isChatToastEnabled
+                      ? 'bg-amber-400/25 border-amber-400/60 text-amber-300'
+                      : 'bg-black/70 border-white/20 text-slate-500 hover:text-white'
+                  }`}
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </button>
+
+                <button
                   onClick={() => setIsObjectCover((prev) => !prev)}
                   title={isObjectCover ? tr('پڕکردنەوەی شاشە', 'Fit') : tr('تەواوی شاشە', 'Fill')}
                   className={`flex h-8 w-8 items-center justify-center rounded-xl border transition shadow ${
@@ -705,7 +811,7 @@ export default function CinemaPlayerPanel({
                     </button>
                     <button
                       onClick={handleIncreaseCinemaSeats}
-                      disabled={targetSeatCount >= 12}
+                      disabled={targetSeatCount >= 16}
                       title={tr('زیادکردنی کورسی', 'Add Seat')}
                       className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-emerald-600 transition font-black text-xs disabled:opacity-30"
                     >
@@ -1063,7 +1169,7 @@ export default function CinemaPlayerPanel({
                     <span className="px-1.5 text-xs font-black text-amber-400">{targetSeatCount}</span>
                     <button
                       onClick={handleIncreaseCinemaSeats}
-                      disabled={targetSeatCount >= 12}
+                      disabled={targetSeatCount >= 16}
                       title={tr('زیادکردنی کورسی', 'Add Seat')}
                       className="flex h-5 w-5 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-emerald-600 transition font-black text-xs disabled:opacity-30 active:scale-95"
                     >
@@ -1092,7 +1198,9 @@ export default function CinemaPlayerPanel({
                     ? 'grid-cols-3 sm:grid-cols-6'
                     : targetSeatCount <= 8
                     ? 'grid-cols-4 sm:grid-cols-8'
-                    : 'grid-cols-5 sm:grid-cols-6 md:grid-cols-10'
+                    : targetSeatCount <= 12
+                    ? 'grid-cols-4 sm:grid-cols-6'
+                    : 'grid-cols-4 sm:grid-cols-8'
                 }`}
               >
                 {cinemaSeats.map((seat, index) => {
@@ -1197,6 +1305,14 @@ export default function CinemaPlayerPanel({
                                 )}
                               </div>
                             </>
+                          ) : seat.isVip ? (
+                            /* VIP Seat Cushion */
+                            <div className="flex flex-col items-center justify-center text-amber-300 group-hover:scale-105 transition">
+                              <Crown className="h-4 w-4 sm:h-5 sm:w-5 fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_#f59e0b]" />
+                              <span className="text-[8px] font-black text-amber-300">
+                                VIP
+                              </span>
+                            </div>
                           ) : (
                             /* Empty Seat Cushion with Plus Sign */
                             <div className="flex flex-col items-center justify-center text-rose-300/70 group-hover:text-amber-400 transition">
@@ -1214,6 +1330,8 @@ export default function CinemaPlayerPanel({
                             className={`truncate text-center text-[9px] sm:text-[11px] leading-tight max-w-[48px] sm:max-w-[60px] ${
                               isOccupied
                                 ? `font-black ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
+                                : seat.isVip
+                                ? 'text-amber-300 font-black'
                                 : 'text-rose-300/60 font-semibold'
                             }`}
                           >
@@ -1221,6 +1339,10 @@ export default function CinemaPlayerPanel({
                               ? isCurrentUser
                                 ? `${seat.username} (${tr('تۆ', 'You')})`
                                 : seat.username
+                              : seat.vipAssignedName
+                              ? `👑 ${seat.vipAssignedName}`
+                              : seat.isVip
+                              ? `👑 VIP #${seat.seatNo}`
                               : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
                           </span>
 

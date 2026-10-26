@@ -246,7 +246,7 @@ export default function CinemaConfigModal({
                 <span className="px-3 text-xs font-black text-amber-300">{seatCount}</span>
                 <button
                   type="button"
-                  onClick={() => setSeatCount((prev) => Math.min(12, prev + 1))}
+                  onClick={() => setSeatCount((prev) => Math.min(16, prev + 1))}
                   className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-emerald-600 transition font-black text-sm active:scale-95"
                 >
                   +
@@ -255,7 +255,7 @@ export default function CinemaConfigModal({
 
               {/* Quick Preset Buttons */}
               <div className="flex flex-wrap items-center gap-1.5 flex-1">
-                {[2, 3, 4, 5, 6, 8, 10].map((num) => (
+                {[2, 3, 4, 5, 6, 8, 10, 12, 16].map((num) => (
                   <button
                     key={num}
                     type="button"
