@@ -37,7 +37,6 @@ export async function generateLiveKitToken({
     canPublish: true, // Can publish audio tracks
     canSubscribe: true, // Can subscribe to incoming audio streams
     canPublishData: true,
-    canPublishSources: [TrackSource.MICROPHONE], // Restrict publish sources exclusively to microphone audio
   });
 
   return await at.toJwt();
@@ -67,9 +66,12 @@ export async function fetchLiveKitToken(
     });
 
     if (response.ok) {
-      const data = await response.json();
-      if (data.token) {
-        return data.token;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        if (data.token) {
+          return data.token;
+        }
       }
     }
   } catch (err) {

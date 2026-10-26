@@ -161,13 +161,7 @@ export default function CinemaPlayerPanel({
     }
   };
 
-  // Ensure iOS / Android WebRTC audio session doesn't get interrupted by video player
   useEffect(() => {
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'play-and-record';
-      } catch {}
-    }
     if (videoRef.current) {
       videoRef.current.setAttribute('playsinline', 'true');
       videoRef.current.setAttribute('webkit-playsinline', 'true');
@@ -177,11 +171,6 @@ export default function CinemaPlayerPanel({
   }, []);
 
   const handleUserGestureAudioUnlock = () => {
-    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
-      try {
-        (navigator as any).audioSession.type = 'play-and-record';
-      } catch {}
-    }
     onUnlockAudio?.();
   };
 

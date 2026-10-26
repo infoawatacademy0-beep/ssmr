@@ -461,14 +461,15 @@ export default function VoiceRoom() {
     if (!room || !user) return;
 
     if (!seat.userId) {
-      // Empty seat clicked: Join seat while strictly preserving current mute & VIP voice state
+      // Empty seat clicked: Join seat and unlock audio
       try {
+        unlockAudioAutoplay();
         await joinSeat(room.id, seat.seatNo, {
           uid: user.uid,
           username: user.username,
           avatar: user.avatar || user.profileImage || '',
           isVerified: Boolean(user.isVerified),
-          isMuted: mySeat ? mySeat.isMuted : lastKnownMuteRef.current,
+          isMuted: mySeat ? mySeat.isMuted : false,
           voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
         });
       } catch (err: any) {
@@ -484,6 +485,7 @@ export default function VoiceRoom() {
   const handleToggleMyMute = async () => {
     if (!room || !mySeat) return;
     try {
+      unlockAudioAutoplay();
       const nextMuted = !mySeat.isMuted;
       lastKnownMuteRef.current = nextMuted;
       // Toggling isMuted in Firebase cascades to LiveKit setMicrophoneEnabled
