@@ -10,6 +10,7 @@ import {
   Settings,
   Plus,
   Crown,
+  Diamond,
   Mic,
   MicOff,
   Film,
@@ -1222,8 +1223,18 @@ export default function CinemaPlayerPanel({
                   // Seat avatar style
                   let avatarBorderClass =
                     'border-2 border-dashed border-rose-400/30 bg-black/40 hover:border-amber-400/60 hover:bg-black/60';
+                  if (seat.isPlatinum) {
+                    avatarBorderClass =
+                      'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/20 via-blue-950/40 to-black/80 shadow-[0_0_15px_rgba(6,182,212,0.6)] ring-1 ring-cyan-400/50';
+                  } else if (seat.isVip) {
+                    avatarBorderClass =
+                      'border-2 border-amber-400/80 bg-gradient-to-b from-amber-500/20 via-amber-950/30 to-black/60 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
+                  }
                   if (isOccupied) {
-                    if (isSeatVip) {
+                    if (seat.isPlatinum) {
+                      avatarBorderClass =
+                        'border-2 border-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400/50';
+                    } else if (isSeatVip) {
                       avatarBorderClass = getVipAvatarClass(
                         true,
                         seat.userId ? vipFramesMap[seat.userId] : undefined,
@@ -1285,12 +1296,16 @@ export default function CinemaPlayerPanel({
                                 )}
                               </div>
 
-                              {/* VIP Crown */}
-                              {isSeatVip && (
+                              {/* VIP / Platinum Badge */}
+                              {seat.isPlatinum ? (
+                                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
+                                  <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                                </span>
+                              ) : isSeatVip ? (
                                 <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
                                   <Crown className="h-2.5 w-2.5 text-black fill-black" />
                                 </span>
-                              )}
+                              ) : null}
 
                               {/* Mic Muted / Open Status Indicator */}
                               <div
@@ -1305,6 +1320,14 @@ export default function CinemaPlayerPanel({
                                 )}
                               </div>
                             </>
+                          ) : seat.isPlatinum ? (
+                            /* Platinum Seat Cushion */
+                            <div className="flex flex-col items-center justify-center text-cyan-300 group-hover:scale-105 transition">
+                              <Diamond className="h-4 w-4 sm:h-5 sm:w-5 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                              <span className="text-[8px] font-black text-cyan-300">
+                                PLATINUM
+                              </span>
+                            </div>
                           ) : seat.isVip ? (
                             /* VIP Seat Cushion */
                             <div className="flex flex-col items-center justify-center text-amber-300 group-hover:scale-105 transition">
@@ -1330,6 +1353,8 @@ export default function CinemaPlayerPanel({
                             className={`truncate text-center text-[9px] sm:text-[11px] leading-tight max-w-[48px] sm:max-w-[60px] ${
                               isOccupied
                                 ? `font-black ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
+                                : seat.isPlatinum
+                                ? 'text-cyan-300 font-black'
                                 : seat.isVip
                                 ? 'text-amber-300 font-black'
                                 : 'text-rose-300/60 font-semibold'
@@ -1339,6 +1364,10 @@ export default function CinemaPlayerPanel({
                               ? isCurrentUser
                                 ? `${seat.username} (${tr('تۆ', 'You')})`
                                 : seat.username
+                              : seat.isPlatinum
+                              ? seat.vipAssignedName
+                                ? `💎 ${seat.vipAssignedName}`
+                                : `💎 Platinum #${seat.seatNo}`
                               : seat.vipAssignedName
                               ? `👑 ${seat.vipAssignedName}`
                               : seat.isVip
@@ -1349,8 +1378,14 @@ export default function CinemaPlayerPanel({
                           {/* Level / VIP Badge pill like screenshot */}
                           {isOccupied && (
                             <div className="mt-0.5 flex items-center gap-1">
-                              <span className="rounded bg-black/60 border border-white/10 px-1 py-0.2 text-[8px] font-black text-amber-300">
-                                {isSeatVip ? 'V5' : `Lv.${index + 1}`}
+                              <span className={`rounded border px-1 py-0.2 text-[8px] font-black ${
+                                seat.isPlatinum
+                                  ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300'
+                                  : isSeatVip
+                                  ? 'bg-black/60 border-white/10 text-amber-300'
+                                  : 'bg-black/60 border-white/10 text-amber-300'
+                              }`}>
+                                {seat.isPlatinum ? 'PL' : isSeatVip ? 'V5' : `Lv.${index + 1}`}
                               </span>
                             </div>
                           )}

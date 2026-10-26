@@ -65,6 +65,10 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
     const rawSeat = seatList[index] as Partial<Seat> | undefined;
     if (!rawSeat) return defaultSeat;
 
+    const isPlatinum = Boolean(rawSeat.isPlatinum || rawSeat.seatTier === 'platinum');
+    const isVip = Boolean(rawSeat.isVip || isPlatinum);
+    const seatTier: SeatTier = isPlatinum ? 'platinum' : isVip ? 'vip' : 'standard';
+
     return {
       seatNo: index + 1,
       userId: rawSeat.userId ?? null,
@@ -74,7 +78,9 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
       isMuted: Boolean(rawSeat.isMuted),
       isLocked: Boolean(rawSeat.isLocked),
       voiceEffect: (rawSeat.voiceEffect as VoiceEffectMode) || 'normal',
-      isVip: Boolean(rawSeat.isVip),
+      isVip,
+      isPlatinum,
+      seatTier,
       vipAssignedName: rawSeat.vipAssignedName || null,
       vipAssignedUserId: rawSeat.vipAssignedUserId || null,
     };
@@ -212,6 +218,8 @@ export async function joinSeat(
           isLocked: prevOccupied.isLocked || false,
           voiceEffect: 'normal',
           isVip: prevOccupied.isVip || false,
+          isPlatinum: prevOccupied.isPlatinum || false,
+          seatTier: prevOccupied.seatTier || (prevOccupied.isPlatinum ? 'platinum' : prevOccupied.isVip ? 'vip' : 'standard'),
           vipAssignedName: prevOccupied.vipAssignedName || null,
           vipAssignedUserId: prevOccupied.vipAssignedUserId || null,
         };
@@ -234,12 +242,21 @@ export async function joinSeat(
       throw new Error(`Seat ${seatNo} is already occupied.`);
     }
 
-    // Check VIP seat assignment if set
-    if (targetSeat.isVip && targetSeat.vipAssignedName) {
-      const cleanAssigned = targetSeat.vipAssignedName.trim().toLowerCase();
-      const cleanUsername = user.username.trim().toLowerCase();
-      if (!user.isAdmin && cleanUsername !== cleanAssigned) {
-        throw new Error(`ئەم کورسییە بە تایبەت بۆ (${targetSeat.vipAssignedName}) دانراوە.`);
+    // Check VIP / Platinum seat reservation
+    if (targetSeat.isPlatinum || targetSeat.isVip) {
+      if (targetSeat.vipAssignedUserId || targetSeat.vipAssignedName) {
+        const matchesUid = Boolean(targetSeat.vipAssignedUserId && targetSeat.vipAssignedUserId === user.uid);
+        const matchesName = Boolean(
+          targetSeat.vipAssignedName &&
+          targetSeat.vipAssignedName.trim().toLowerCase() === user.username.trim().toLowerCase(),
+        );
+
+        // Strict reservation: ONLY this specific designated user can take this seat!
+        if (!matchesUid && !matchesName) {
+          const targetLabel = targetSeat.vipAssignedName || 'بەکارهێنەری دیاریکراو';
+          const tierLabel = targetSeat.isPlatinum ? 'پلاتینیۆمە (Platinum)' : 'VIP';
+          throw new Error(`ئەم کورسییە بە تایبەت ${tierLabel} و تەنها بۆ (${targetLabel}) دانراوە! کەسی تر ناتوانێت دابنیشێت.`);
+        }
       }
     }
 
@@ -254,6 +271,8 @@ export async function joinSeat(
       isLocked: false,
       voiceEffect: preservedVoiceEffect,
       isVip: targetSeat.isVip || false,
+      isPlatinum: targetSeat.isPlatinum || false,
+      seatTier: targetSeat.seatTier || (targetSeat.isPlatinum ? 'platinum' : targetSeat.isVip ? 'vip' : 'standard'),
       vipAssignedName: targetSeat.vipAssignedName || null,
       vipAssignedUserId: targetSeat.vipAssignedUserId || null,
     };
@@ -294,6 +313,8 @@ export async function leaveSeat(
         isMuted: false,
         isLocked: prevSeat.isLocked || false,
         isVip: prevSeat.isVip || false,
+        isPlatinum: prevSeat.isPlatinum || false,
+        seatTier: prevSeat.seatTier || (prevSeat.isPlatinum ? 'platinum' : prevSeat.isVip ? 'vip' : 'standard'),
         vipAssignedName: prevSeat.vipAssignedName || null,
         vipAssignedUserId: prevSeat.vipAssignedUserId || null,
       };
@@ -588,6 +609,8 @@ export async function kickUserFromSeat(
         isMuted: false,
         isLocked: prevSeat.isLocked || false,
         isVip: prevSeat.isVip || false,
+        isPlatinum: prevSeat.isPlatinum || false,
+        seatTier: prevSeat.seatTier || (prevSeat.isPlatinum ? 'platinum' : prevSeat.isVip ? 'vip' : 'standard'),
         vipAssignedName: prevSeat.vipAssignedName || null,
         vipAssignedUserId: prevSeat.vipAssignedUserId || null,
       };
@@ -606,17 +629,22 @@ export async function kickUserFromSeat(
 }
 
 /**
- * Host/Admin Control: Configures VIP seat status and designates an assigned name.
+ * Host/Admin Control: Configures VIP or Platinum seat status and designates an assigned user.
  */
 export async function setSeatVipConfig(
   roomId: string,
   seatNo: number,
-  isVip: boolean,
+  tierOrIsVip: boolean | SeatTier,
   assignedName?: string | null,
   hostName?: string,
+  assignedUserId?: string | null,
 ): Promise<void> {
   const targetIndex = seatNo - 1;
   const seatsRef = ref(database, `rooms/${roomId}/seats`);
+
+  const isPlatinum = tierOrIsVip === 'platinum';
+  const isVip = tierOrIsVip === 'vip' || tierOrIsVip === true || isPlatinum;
+  const seatTier: SeatTier = isPlatinum ? 'platinum' : isVip ? 'vip' : 'standard';
 
   await runTransaction(seatsRef, (currentSeatsData) => {
     const seats = normalizeSeats(currentSeatsData);
@@ -625,16 +653,24 @@ export async function setSeatVipConfig(
     seats[targetIndex] = {
       ...seats[targetIndex],
       isVip,
-      vipAssignedName: isVip && assignedName ? assignedName.trim() : null,
+      isPlatinum,
+      seatTier,
+      vipAssignedName: (isVip || isPlatinum) && assignedName ? assignedName.trim() : null,
+      vipAssignedUserId: (isVip || isPlatinum) && assignedUserId ? assignedUserId.trim() : null,
     };
     return seats;
   });
 
   if (hostName) {
     const cleanName = assignedName?.trim();
-    const actionText = isVip
-      ? `[VIP Seat] کورسی #${seatNo} وەک کورسی VIP دیاریکرا${cleanName ? ` بە ناوی (${cleanName})` : ''} لەلایەن ${hostName}.`
-      : `[VIP Seat] تایبەتمەندی VIP لەسەر کورسی #${seatNo} لادرا لەلایەن ${hostName}.`;
+    let actionText = '';
+    if (isPlatinum) {
+      actionText = `[Platinum Seat] کورسی #${seatNo} بە شێوەی پلاتینیۆم (Platinum) دیاریکرا${cleanName ? ` تەنها بۆ (${cleanName})` : ''} لەلایەن ${hostName}.`;
+    } else if (isVip) {
+      actionText = `[VIP Seat] کورسی #${seatNo} وەک کورسی VIP دیاریکرا${cleanName ? ` بە ناوی (${cleanName})` : ''} لەلایەن ${hostName}.`;
+    } else {
+      actionText = `[Seat Setup] تایبەتمەندی تایبەت لەسەر کورسی #${seatNo} لادرا لەلایەن ${hostName}.`;
+    }
     await sendRoomMessage(roomId, 'System', actionText);
   }
 }

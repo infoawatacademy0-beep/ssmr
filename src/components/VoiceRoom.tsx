@@ -465,17 +465,25 @@ export default function VoiceRoom() {
     if (!room || !user) return;
 
     if (!seat.userId) {
-      // Check VIP seat assignment
-      if (seat.isVip && seat.vipAssignedName) {
-        const cleanAssigned = seat.vipAssignedName.trim().toLowerCase();
-        const cleanUsername = user.username.trim().toLowerCase();
-        const isHostOrAdmin = Boolean(isHost || user.isAdmin);
-        if (!isHostOrAdmin && cleanUsername !== cleanAssigned) {
-          alert(tr(
-            `ئەم کورسییە بە شێوەی VIP بە تایبەتی بۆ (${seat.vipAssignedName}) دانراوە!`,
-            `This VIP seat is reserved specifically for (${seat.vipAssignedName})!`
-          ));
-          return;
+      // Check VIP / Platinum seat reservation
+      if (seat.isPlatinum || seat.isVip) {
+        if (seat.vipAssignedUserId || seat.vipAssignedName) {
+          const matchesUid = Boolean(seat.vipAssignedUserId && seat.vipAssignedUserId === user.uid);
+          const matchesName = Boolean(
+            seat.vipAssignedName &&
+            seat.vipAssignedName.trim().toLowerCase() === user.username.trim().toLowerCase(),
+          );
+
+          // Strictly reserved: ONLY this designated person can take this seat!
+          if (!matchesUid && !matchesName) {
+            const targetLabel = seat.vipAssignedName || 'بەکارهێنەری دیاریکراو';
+            const tierLabel = seat.isPlatinum ? 'پلاتینیۆمە (Platinum)' : 'VIP';
+            alert(tr(
+              `ئەم کورسییە بە تایبەت ${tierLabel} و تەنها بۆ (${targetLabel}) دانراوە! هیچ کەسێکی تر ناتوانێت دابنیشێت لەسەری.`,
+              `This seat is ${tierLabel} and exclusively reserved for (${targetLabel})! Nobody else can take this seat.`,
+            ));
+            return;
+          }
         }
       }
 
@@ -1127,11 +1135,15 @@ export default function VoiceRoom() {
 
               // Dynamic border & glow depending on VIP fire stroke / speaking / PK team status
               let avatarBorderClass = 'border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-violet-500/50 hover:bg-white/[0.04]';
-              if (seat.isVip) {
+              if (seat.isPlatinum) {
+                avatarBorderClass = 'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/25 via-blue-950/40 to-black shadow-[0_0_24px_rgba(6,182,212,0.65)] ring-1 ring-cyan-400/50';
+              } else if (seat.isVip) {
                 avatarBorderClass = 'border-2 border-amber-400/90 bg-gradient-to-b from-amber-500/15 via-amber-950/30 to-black/60 shadow-[0_0_18px_rgba(245,158,11,0.45)]';
               }
               if (isOccupied) {
-                if (isSeatVip || seat.isVip) {
+                if (seat.isPlatinum) {
+                  avatarBorderClass = 'border-2 border-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.85)] ring-2 ring-cyan-400/60';
+                } else if (isSeatVip || seat.isVip) {
                   avatarBorderClass = getVipAvatarClass(
                     true,
                     seat.userId ? vipFramesMap[seat.userId] : undefined,
@@ -1214,8 +1226,15 @@ export default function VoiceRoom() {
                             </div>
                           )}
 
-                          {/* VIP Fire Crown Badge on Seat Profile Icon */}
-                          {isSeatVip ? (
+                          {/* VIP / Platinum Badge on Seat Profile Icon */}
+                          {seat.isPlatinum ? (
+                            <div
+                              title="Platinum Reserved"
+                              className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-400 via-sky-300 to-white shadow-[0_0_12px_rgba(6,182,212,0.9)] z-20"
+                            >
+                              <Diamond className="h-3 w-3 text-cyan-950 fill-cyan-950" strokeWidth={2.5} />
+                            </div>
+                          ) : isSeatVip ? (
                             <div
                               title="VIP Royale"
                               className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 via-orange-500 to-red-600 shadow-[0_0_10px_#f97316] z-20"
@@ -1272,6 +1291,11 @@ export default function VoiceRoom() {
                           {/* Empty Seat State */}
                           {seat.isLocked ? (
                             <Lock className="h-5 w-5 text-slate-600" />
+                          ) : seat.isPlatinum ? (
+                            <div className="flex flex-col items-center justify-center text-cyan-300 transition-transform group-hover:scale-110">
+                              <Diamond className="h-6 w-6 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]" strokeWidth={2.2} />
+                              <span className="text-[8px] font-black uppercase tracking-wider text-cyan-300 mt-0.5">PLATINUM</span>
+                            </div>
                           ) : seat.isVip ? (
                             <div className="flex flex-col items-center justify-center text-amber-300 transition-transform group-hover:scale-110">
                               <Crown className="h-6 w-6 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_#f59e0b]" strokeWidth={2.2} />
@@ -1287,15 +1311,19 @@ export default function VoiceRoom() {
                     </div>
                   </div>
 
-                  {/* Seat Title / Colored Username + VIP Flame */}
+                  {/* Seat Title / Colored Username + VIP / Platinum Icon */}
                   <div className="mt-1.5 flex items-center justify-center gap-0.5 max-w-full px-1">
-                    {(isSeatVip || seat.isVip) && (
+                    {seat.isPlatinum ? (
+                      <Diamond className="h-2.5 w-2.5 shrink-0 text-cyan-400 fill-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.8)]" />
+                    ) : (isSeatVip || seat.isVip) ? (
                       <Crown className="h-2.5 w-2.5 shrink-0 text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_#f59e0b]" />
-                    )}
+                    ) : null}
                     <span
                       className={`truncate text-center text-[11px] leading-tight max-w-[64px] ${
                         isOccupied
                           ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
+                          : seat.isPlatinum
+                          ? 'text-cyan-300 font-black'
                           : seat.isVip
                           ? 'text-amber-300 font-black'
                           : 'text-slate-500 font-medium'
@@ -1303,13 +1331,15 @@ export default function VoiceRoom() {
                       title={
                         isOccupied
                           ? seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
-                          : seat.vipAssignedName || (seat.isVip ? `VIP #${seat.seatNo}` : `${tr('کورسی', 'Seat')} ${seat.seatNo}`)
+                          : seat.vipAssignedName || (seat.isPlatinum ? `Platinum #${seat.seatNo}` : seat.isVip ? `VIP #${seat.seatNo}` : `${tr('کورسی', 'Seat')} ${seat.seatNo}`)
                       }
                     >
                       {isOccupied
                         ? (isCurrentUser ? `${seat.username} (${tr('تۆ', 'You')})` : seat.username)
                         : seat.vipAssignedName
                         ? seat.vipAssignedName
+                        : seat.isPlatinum
+                        ? `Platinum #${seat.seatNo}`
                         : seat.isVip
                         ? `VIP #${seat.seatNo}`
                         : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
@@ -1888,12 +1918,16 @@ export default function VoiceRoom() {
                   <div
                     className={`relative flex h-11 w-11 items-center justify-center rounded-full font-bold text-white ${
                       selectedSeat.userId
-                        ? selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])
+                        ? selectedSeat.isPlatinum
+                          ? 'border-2 border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.6)] overflow-hidden'
+                          : selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])
                           ? getVipAvatarClass(
                               true,
                               selectedSeat.userId ? vipFramesMap[selectedSeat.userId] : undefined,
                             )
                           : 'bg-violet-600 overflow-hidden'
+                        : selectedSeat.isPlatinum
+                        ? 'border-2 border-cyan-300 bg-cyan-500/20 shadow-[0_0_14px_rgba(6,182,212,0.6)]'
                         : selectedSeat.isVip
                         ? 'border-2 border-amber-400 bg-amber-500/20 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
                         : 'bg-slate-800'
@@ -1910,13 +1944,19 @@ export default function VoiceRoom() {
                         ) : (
                           selectedSeat.username?.charAt(0) || 'U'
                         )
+                      ) : selectedSeat.isPlatinum ? (
+                        <Diamond className="h-5 w-5 text-cyan-300 fill-cyan-400" />
                       ) : selectedSeat.isVip ? (
                         <Crown className="h-5 w-5 text-amber-400 fill-amber-400" />
                       ) : (
                         <span className="text-xs font-bold text-slate-400">#{selectedSeat.seatNo}</span>
                       )}
                     </div>
-                    {(selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) && (
+                    {selectedSeat.isPlatinum ? (
+                      <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
+                        <Diamond className="h-2.5 w-2.5 text-cyan-950 fill-cyan-950" />
+                      </span>
+                    ) : (selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) && (
                       <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
                         <Crown className="h-2.5 w-2.5 text-black fill-black" />
                       </span>
@@ -1927,24 +1967,33 @@ export default function VoiceRoom() {
                       <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition">
                         {selectedSeat.userId
                           ? selectedSeat.username
+                          : selectedSeat.isPlatinum
+                          ? selectedSeat.vipAssignedName
+                            ? `💎 ${selectedSeat.vipAssignedName}`
+                            : `💎 Platinum #${selectedSeat.seatNo}`
                           : selectedSeat.vipAssignedName
                           ? `👑 ${selectedSeat.vipAssignedName}`
                           : selectedSeat.isVip
                           ? `👑 VIP #${selectedSeat.seatNo}`
                           : `${tr('کورسی بەتاڵ', 'Empty Seat')} #${selectedSeat.seatNo}`}
                       </h3>
-                      {(selectedSeat.isVip || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) && (
+                      {selectedSeat.isPlatinum ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.2 text-[9px] font-black text-cyan-300">
+                          <Diamond className="h-2.5 w-2.5 text-cyan-300 fill-cyan-400" />
+                          Platinum
+                        </span>
+                      ) : (selectedSeat.isVip || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])) ? (
                         <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.2 text-[9px] font-black text-amber-300">
                           <Crown className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
                           VIP
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-[11px] text-slate-400">
                       {selectedSeat.userId
                         ? `Seat #${selectedSeat.seatNo} · ${tr('کرتە بکە بۆ پڕۆفایل', 'Click for profile')}`
                         : selectedSeat.vipAssignedName
-                        ? `${tr('تەرخانکراوە بۆ', 'Reserved for')}: ${selectedSeat.vipAssignedName}`
+                        ? `${selectedSeat.isPlatinum ? tr('تایبەت کراوە بۆ پلاتینیۆم:', 'Strictly reserved for Platinum:') : tr('تەرخانکراوە بۆ:', 'Reserved for:')} ${selectedSeat.vipAssignedName}`
                         : `Seat #${selectedSeat.seatNo} · ${tr('بەتاڵە لەسەر سەکۆ', 'Empty on stage')}`}
                     </p>
                   </div>
@@ -1986,7 +2035,7 @@ export default function VoiceRoom() {
                       <span>{tr('دانیشتن لەسەر ئەم کورسییە', 'Take this Seat')}</span>
                     </button>
 
-                    {/* Admin / Host VIP Seat Setup */}
+                    {/* Admin / Host VIP / Platinum Seat Setup */}
                     {(isHost || user.isAdmin) && (
                       <button
                         type="button"
@@ -1995,10 +2044,18 @@ export default function VoiceRoom() {
                           setIsVipModalOpen(true);
                           setIsActionSheetOpen(false);
                         }}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-yellow-500/15 py-3 text-xs font-black text-amber-300 hover:bg-amber-500/25 transition active:scale-95 shadow-sm"
+                        className={`flex w-full items-center justify-center gap-2 rounded-xl border py-3 text-xs font-black transition active:scale-95 shadow-sm ${
+                          selectedSeat.isPlatinum
+                            ? 'border-cyan-400/40 bg-gradient-to-r from-cyan-500/20 via-sky-500/15 to-blue-500/20 text-cyan-200 hover:bg-cyan-500/30'
+                            : 'border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-yellow-500/15 text-amber-300 hover:bg-amber-500/25'
+                        }`}
                       >
-                        <Crown className="h-4 w-4 fill-amber-400 text-amber-400" />
-                        <span>{tr('ڕێکخستنی کورسی VIP و نووسینی ناو', 'Configure VIP Seat & Name')}</span>
+                        {selectedSeat.isPlatinum ? (
+                          <Diamond className="h-4 w-4 fill-cyan-400 text-cyan-400" />
+                        ) : (
+                          <Crown className="h-4 w-4 fill-amber-400 text-amber-400" />
+                        )}
+                        <span>{tr('ڕێکخستنی کورسی VIP / پلاتینیۆم', 'Configure VIP / Platinum Seat')}</span>
                       </button>
                     )}
 
@@ -2142,7 +2199,7 @@ export default function VoiceRoom() {
                           <span>{t('room.leaveSeat', 'لادان لەسەر کورسی')}</span>
                         </button>
 
-                        {/* Host / Admin VIP Seat Setup */}
+                        {/* Host / Admin VIP / Platinum Seat Setup */}
                         <button
                           type="button"
                           onClick={() => {
@@ -2150,10 +2207,18 @@ export default function VoiceRoom() {
                             setIsVipModalOpen(true);
                             setIsActionSheetOpen(false);
                           }}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 py-2.5 text-xs font-black text-amber-300 hover:bg-amber-500/25 transition active:scale-95 shadow-sm"
+                          className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-black transition active:scale-95 shadow-sm ${
+                            selectedSeat.isPlatinum
+                              ? 'border-cyan-400/40 bg-gradient-to-r from-cyan-500/20 to-sky-500/20 text-cyan-200 hover:bg-cyan-500/30'
+                              : 'border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 text-amber-300 hover:bg-amber-500/25'
+                          }`}
                         >
-                          <Crown className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                          <span>{tr('ڕێکخستنی کورسی VIP و نووسینی ناو', 'Configure VIP Seat & Name')}</span>
+                          {selectedSeat.isPlatinum ? (
+                            <Diamond className="h-3.5 w-3.5 fill-cyan-400 text-cyan-400" />
+                          ) : (
+                            <Crown className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          )}
+                          <span>{tr('ڕێکخستنی کورسی VIP / پلاتینیۆم', 'Configure VIP / Platinum Seat')}</span>
                         </button>
                       </div>
                     )}
