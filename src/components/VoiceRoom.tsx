@@ -236,18 +236,34 @@ export default function VoiceRoom() {
   const [isRoomMenuOpen, setIsRoomMenuOpen] = useState(false);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
   useEffect(() => {
-    const container = document.getElementById('livekit-audio-container');
-    if (container) {
-      container.querySelectorAll('audio').forEach((el) => {
-        el.muted = isSpeakerMuted;
-      });
-    }
     if (isSpeakerMuted) {
       document.body.setAttribute('data-speaker-muted', 'true');
     } else {
       document.body.removeAttribute('data-speaker-muted');
     }
-  }, [isSpeakerMuted]);
+    const container = document.getElementById('livekit-audio-container');
+    if (container) {
+      container.querySelectorAll<HTMLAudioElement>('audio').forEach((el) => {
+        if (isSpeakerMuted) {
+          el.muted = true;
+          el.volume = 0;
+          el.pause();
+        } else {
+          const uid = el.getAttribute('data-participant-uid');
+          const isAllowed = uid ? room?.seats?.some((s) => s.user?.uid === uid && !s.isMuted) : true;
+          if (isAllowed) {
+            el.muted = false;
+            el.volume = 1;
+            el.play().catch(() => {});
+          } else {
+            el.muted = true;
+            el.volume = 0;
+            el.pause();
+          }
+        }
+      });
+    }
+  }, [isSpeakerMuted, room?.seats]);
   const [activeSeatEmojis, setActiveSeatEmojis] = useState<
     Record<number, { id: string; emojiId: string; timestamp: number }>
   >({});

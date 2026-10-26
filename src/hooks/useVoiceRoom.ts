@@ -29,6 +29,7 @@ export function useVoiceRoom({
   roomId,
   currentUser,
   mySeat,
+  allSeats = [],
 }: UseVoiceRoomProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -44,6 +45,45 @@ export function useVoiceRoom({
   const wakeLockRef = useRef<any>(null);
   const mySeatRef = useRef<Seat | null>(mySeat);
   mySeatRef.current = mySeat;
+  const allSeatsRef = useRef<Seat[]>(allSeats);
+  allSeatsRef.current = allSeats;
+
+  // Check if a participant identity is permitted to speak (must occupy an active unmuted seat)
+  const isParticipantAllowedToSpeak = useCallback((identity: string): boolean => {
+    if (!identity) return false;
+    const currentSeats = allSeatsRef.current || [];
+    const seat = currentSeats.find((s) => s.user?.uid === identity);
+    // If not seated (audience) or seat is muted in Firebase -> silent
+    if (!seat || seat.isMuted) return false;
+    return true;
+  }, []);
+
+  // Helper to strictly disable mic, stop hardware tracks, and unpublish all audio
+  const stopAndUnpublishLocalAudio = async (targetRoom: Room) => {
+    try {
+      if (targetRoom.localParticipant.isMicrophoneEnabled) {
+        await targetRoom.localParticipant.setMicrophoneEnabled(false);
+      }
+      const publications = Array.from(targetRoom.localParticipant.audioTrackPublications.values());
+      for (const publication of publications) {
+        const track = publication.track;
+        if (track) {
+          try {
+            track.stop();
+            if (track.mediaStreamTrack) {
+              track.mediaStreamTrack.enabled = false;
+              track.mediaStreamTrack.stop();
+            }
+            await targetRoom.localParticipant.unpublishTrack(track, true);
+          } catch (err) {
+            console.warn('Error stopping/unpublishing track:', err);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error in stopAndUnpublishLocalAudio:', e);
+    }
+  };
 
   /* ─────────────────────────────────────────────────────────────
      1. Initialize & Connect to LiveKit Room
@@ -60,7 +100,7 @@ export function useVoiceRoom({
       adaptiveStream: true,
       dynacast: true,
       disconnectOnPageLeave: false,
-      stopLocalTrackOnUnpublish: false,
+      stopLocalTrackOnUnpublish: true, // Hardware mic stops immediately when unpublished
       audioCaptureDefaults: {
         autoGainControl: isNoiseSuppEnabled,
         echoCancellation: isNoiseSuppEnabled,
@@ -98,7 +138,7 @@ export function useVoiceRoom({
       if (!isMounted) return;
       const activeIds = new Set<string>();
       for (const speaker of speakers) {
-        if (speaker.identity) {
+        if (speaker.identity && isParticipantAllowedToSpeak(speaker.identity)) {
           activeIds.add(speaker.identity);
         }
       }
@@ -112,15 +152,31 @@ export function useVoiceRoom({
         if (track.kind === Track.Kind.Audio && audioContainerRef.current) {
           const audioElement = (track as RemoteAudioTrack).attach();
           audioElement.id = `audio-${participant.identity}-${publication.trackSid}`;
+          audioElement.setAttribute('data-participant-uid', participant.identity);
           audioElement.setAttribute('playsinline', 'true');
           audioElement.setAttribute('webkit-playsinline', 'true');
+
+          const isAllowed = isParticipantAllowedToSpeak(participant.identity);
+          const isGlobalSpeakerMuted = document.body.getAttribute('data-speaker-muted') === 'true';
+
+          if (!isAllowed || isGlobalSpeakerMuted) {
+            audioElement.muted = true;
+            audioElement.volume = 0;
+            audioElement.pause();
+          } else {
+            audioElement.muted = false;
+            audioElement.volume = 1;
+          }
+
           audioContainerRef.current.appendChild(audioElement);
 
-          // Handle browser autoplay policy
-          audioElement.play().catch((err) => {
-            console.warn('Autoplay restricted by browser, user interaction required:', err);
-            setAudioAutoplayBlocked(true);
-          });
+          // Handle browser autoplay policy only if allowed to play
+          if (isAllowed && !isGlobalSpeakerMuted) {
+            audioElement.play().catch((err) => {
+              console.warn('Autoplay restricted by browser, user interaction required:', err);
+              setAudioAutoplayBlocked(true);
+            });
+          }
         }
       },
     );
@@ -165,6 +221,12 @@ export function useVoiceRoom({
           setIsConnected(true);
           setIsConnecting(false);
 
+          // Strict initial mic check: If user is audience or seat is muted, ensure mic is stopped
+          const isMicOpenOnJoin = Boolean(mySeatRef.current && !mySeatRef.current.isMuted);
+          if (!isMicOpenOnJoin) {
+            await stopAndUnpublishLocalAudio(room);
+          }
+
           // Check if audio can be played
           if (!room.canPlaybackAudio) {
             setAudioAutoplayBlocked(true);
@@ -188,16 +250,18 @@ export function useVoiceRoom({
         wakeLockRef.current = null;
       }
       setIsSelfMonitoring(false);
-      room.disconnect();
+      stopAndUnpublishLocalAudio(room).finally(() => {
+        room.disconnect();
+      });
       if (audioContainerRef.current) {
         audioContainerRef.current.innerHTML = '';
       }
       roomRef.current = null;
     };
-  }, [roomId, currentUser?.uid]);
+  }, [roomId, currentUser?.uid, isParticipantAllowedToSpeak]);
 
   /* ─────────────────────────────────────────────────────────────
-     2. Mute/Unmute Synchronization with Seat State
+     2. Mute/Unmute Synchronization with Seat State (Sender)
      ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const room = roomRef.current;
@@ -230,9 +294,12 @@ export function useVoiceRoom({
               .catch(() => {});
           }
         } else {
-          if (room!.localParticipant.isMicrophoneEnabled) {
-            await room!.localParticipant.setMicrophoneEnabled(false);
+          if (wakeLockRef.current) {
+            wakeLockRef.current.release?.().catch(() => {});
+            wakeLockRef.current = null;
           }
+          // Strictly disable mic, stop MediaStreamTrack, and unpublish
+          await stopAndUnpublishLocalAudio(room!);
         }
       } catch (err) {
         console.error('Error synchronizing LiveKit microphone with seat state:', err);
@@ -240,10 +307,49 @@ export function useVoiceRoom({
     }
 
     syncMicrophoneState();
-  }, [mySeat?.seatNo, mySeat?.isMuted, isConnected]);
+  }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.user?.uid, isConnected]);
 
   /* ─────────────────────────────────────────────────────────────
-     3. Helper: User Gesture to Resume Blocked Audio
+     3. Synchronize Remote Audio Elements with Seat State (Receiver)
+     ───────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!audioContainerRef.current) return;
+    const isGlobalSpeakerMuted = document.body.getAttribute('data-speaker-muted') === 'true';
+    const audioElements = audioContainerRef.current.querySelectorAll<HTMLAudioElement>('audio[data-participant-uid]');
+
+    audioElements.forEach((audioEl) => {
+      const uid = audioEl.getAttribute('data-participant-uid');
+      if (!uid) return;
+      const isAllowed = isParticipantAllowedToSpeak(uid);
+
+      if (!isAllowed || isGlobalSpeakerMuted) {
+        audioEl.muted = true;
+        audioEl.volume = 0;
+        audioEl.pause();
+      } else {
+        audioEl.muted = false;
+        audioEl.volume = 1;
+        audioEl.play().catch(() => {});
+      }
+    });
+
+    // Clean up speaking indicators for users who are no longer allowed to speak
+    setSpeakingUids((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (isParticipantAllowedToSpeak(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [allSeats, isParticipantAllowedToSpeak]);
+
+  /* ─────────────────────────────────────────────────────────────
+     4. Helper: User Gesture to Resume Blocked Audio
      ───────────────────────────────────────────────────────────── */
   const unlockAudioAutoplay = useCallback(async () => {
     try {
@@ -255,13 +361,24 @@ export function useVoiceRoom({
     }
 
     if (audioContainerRef.current) {
-      const audioElements = audioContainerRef.current.querySelectorAll('audio');
+      const isGlobalSpeakerMuted = document.body.getAttribute('data-speaker-muted') === 'true';
+      const audioElements = audioContainerRef.current.querySelectorAll<HTMLAudioElement>('audio');
       audioElements.forEach((el) => {
-        el.play().catch(() => {});
+        const uid = el.getAttribute('data-participant-uid');
+        const isAllowed = uid ? isParticipantAllowedToSpeak(uid) : true;
+        if (!isAllowed || isGlobalSpeakerMuted) {
+          el.muted = true;
+          el.volume = 0;
+          el.pause();
+        } else {
+          el.muted = false;
+          el.volume = 1;
+          el.play().catch(() => {});
+        }
       });
     }
     setAudioAutoplayBlocked(false);
-  }, []);
+  }, [isParticipantAllowedToSpeak]);
 
   const toggleSelfMonitor = useCallback(() => {
     setIsSelfMonitoring((prev) => !prev);
