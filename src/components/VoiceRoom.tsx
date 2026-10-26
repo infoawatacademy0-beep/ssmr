@@ -250,7 +250,7 @@ export default function VoiceRoom() {
           el.pause();
         } else {
           const uid = el.getAttribute('data-participant-uid');
-          const isAllowed = uid ? room?.seats?.some((s) => s.user?.uid === uid && !s.isMuted) : true;
+          const isAllowed = uid ? room?.seats?.some((s) => s.userId === uid && !s.isMuted) : true;
           if (isAllowed) {
             el.muted = false;
             el.volume = 1;

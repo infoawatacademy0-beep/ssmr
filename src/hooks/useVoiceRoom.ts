@@ -52,7 +52,7 @@ export function useVoiceRoom({
   const isParticipantAllowedToSpeak = useCallback((identity: string): boolean => {
     if (!identity) return false;
     const currentSeats = allSeatsRef.current || [];
-    const seat = currentSeats.find((s) => s.user?.uid === identity);
+    const seat = currentSeats.find((s) => s.userId === identity);
     // If not seated (audience) or seat is muted in Firebase -> silent
     if (!seat || seat.isMuted) return false;
     return true;
@@ -272,7 +272,10 @@ export function useVoiceRoom({
     async function syncMicrophoneState() {
       try {
         if (isMicOpen) {
-          if (!room!.localParticipant.isMicrophoneEnabled) {
+          const hasTrack = Array.from(room!.localParticipant.audioTrackPublications.values()).some(
+            (pub) => Boolean(pub.track)
+          );
+          if (!room!.localParticipant.isMicrophoneEnabled || !hasTrack) {
             await room!.localParticipant.setMicrophoneEnabled(true);
           }
 
@@ -298,8 +301,16 @@ export function useVoiceRoom({
             wakeLockRef.current.release?.().catch(() => {});
             wakeLockRef.current = null;
           }
-          // Strictly disable mic, stop MediaStreamTrack, and unpublish
-          await stopAndUnpublishLocalAudio(room!);
+
+          // Mute microphone in LiveKit
+          if (room!.localParticipant.isMicrophoneEnabled) {
+            await room!.localParticipant.setMicrophoneEnabled(false);
+          }
+
+          // If audience (not on any seat), completely stop hardware track and unpublish
+          if (!mySeat) {
+            await stopAndUnpublishLocalAudio(room!);
+          }
         }
       } catch (err) {
         console.error('Error synchronizing LiveKit microphone with seat state:', err);
@@ -307,7 +318,7 @@ export function useVoiceRoom({
     }
 
     syncMicrophoneState();
-  }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.user?.uid, isConnected]);
+  }, [mySeat?.seatNo, mySeat?.isMuted, mySeat?.userId, isConnected]);
 
   /* ─────────────────────────────────────────────────────────────
      3. Synchronize Remote Audio Elements with Seat State (Receiver)
