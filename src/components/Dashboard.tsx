@@ -45,6 +45,7 @@ import {
   X,
   Mic,
   PenSquare,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
@@ -73,6 +74,7 @@ import {
   subscribeToFollowersCount,
   subscribeToFollowingCount,
   subscribeToFriendsCount,
+  uploadImageToImgBB,
 } from '../services';
 
 import UserProfileManager from './UserProfileManager';
@@ -156,6 +158,35 @@ export default function Dashboard() {
   const [expandedCommentsPostIds, setExpandedCommentsPostIds] = useState<Record<string, boolean>>({});
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const postTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const postImageInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
+
+  const handlePostImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setPublishPostError(tr('قەبارەی وێنە نابێت لە ١٠ مێگابایت زیاتر بێت.', 'Image must be under 10MB.'));
+      return;
+    }
+    setPostImageFile(file);
+    setPublishPostError(null);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPostImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePostImage = () => {
+    setPostImageFile(null);
+    setPostImagePreview(null);
+    if (postImageInputRef.current) {
+      postImageInputRef.current.value = '';
+    }
+  };
 
   const handleOpenCreatePost = () => {
     setNavTab('dashboard');
@@ -392,24 +423,39 @@ export default function Dashboard() {
     e.preventDefault();
     if (!user) return;
     const cleanContent = newPostContent.trim();
-    if (!cleanContent) return;
+    if (!cleanContent && !postImageFile) return;
 
     setIsPublishingPost(true);
     setPublishPostError(null);
 
     try {
+      let hostedImageUrl: string | null = null;
+      if (postImageFile) {
+        setIsUploadingImage(true);
+        hostedImageUrl = await uploadImageToImgBB(
+          postImageFile,
+          `post_${user.uid}_${Date.now()}`
+        );
+        setIsUploadingImage(false);
+      }
+
       await createPost({
         authorUid: user.uid,
         authorName: user.username,
         authorAvatar: user.avatar || user.profileImage || null,
         authorIsVerified: Boolean(user.isVerified),
-        content: cleanContent,
+        content: cleanContent || (hostedImageUrl ? tr('وێنەیەکی نوێ', 'New photo shared') : ''),
+        imageUrl: hostedImageUrl,
       });
+
       setNewPostContent('');
+      handleRemovePostImage();
+      setIsCreatePostModalOpen(false);
     } catch (err: any) {
       setPublishPostError(err.message ? t(err.message) : tr('نەتوانرا پۆست بڵاوبکرێتەوە.', 'Could not publish post.'));
     } finally {
       setIsPublishingPost(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -447,6 +493,14 @@ export default function Dashboard() {
   const getOccupiedCount = (room: Room) => {
     if (!room.seats) return 0;
     return room.seats.filter((s) => s.userId !== null).length;
+  };
+
+  const getTotalMembers = (room: Room) => {
+    const seatedCount = (room.seats || []).filter((s) => s.userId !== null).length;
+    const count = typeof room.participantCount === 'number' && room.participantCount > 0
+      ? room.participantCount
+      : Math.max(seatedCount, 1);
+    return Math.max(count, seatedCount, 1);
   };
 
   if (!user) return null;
@@ -811,58 +865,65 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {displayRooms.map((room) => {
-                const occupiedCount = getOccupiedCount(room);
+                const totalMembers = getTotalMembers(room);
                 const isLocked = Boolean(room.isPrivate && room.password);
 
                 return (
                   <motion.div
                     key={room.id}
-                    whileHover={{ y: -3 }}
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => handleRoomClick(room)}
-                    className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/50 p-4.5 shadow-xl backdrop-blur-xl transition hover:border-amber-400/40 hover:shadow-2xl hover:shadow-amber-500/10 cursor-pointer"
+                    className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-800/90 bg-gradient-to-br from-slate-900/80 via-slate-900/50 to-slate-950/90 p-4 sm:p-5 shadow-xl backdrop-blur-2xl transition-all duration-300 hover:border-amber-400/50 hover:shadow-2xl hover:shadow-amber-500/15 cursor-pointer"
                   >
+                    {/* Top ambient glow line */}
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
                     <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold tracking-wider text-amber-400 uppercase border border-white/[0.06]">
-                          {room.category || 'Voice Chat'}
+                      {/* Top Bar: Category & Total Members LIVE Badge (No seat count) */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5 rounded-xl bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold tracking-wide text-amber-300 border border-amber-500/20">
+                          <Radio className="h-3 w-3 text-amber-400" />
+                          <span>{room.category || 'Voice Arena'}</span>
                         </span>
 
                         <div className="flex items-center gap-1.5">
-                          {isLocked && <Lock className="h-3.5 w-3.5 text-rose-400" />}
-                          <div className="flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            <span>{occupiedCount}/8</span>
+                          {isLocked && (
+                            <span className="flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[9px] font-bold text-rose-400 shadow-sm">
+                              <Lock className="h-3 w-3" />
+                              <span>{tr('داخراو', 'Locked')}</span>
+                            </span>
+                          )}
+
+                          {/* Real-time Total Members Badge (Seated + Audience) */}
+                          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-black text-emerald-300 shadow-sm shadow-emerald-500/20">
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                            </span>
+                            <Users className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>{totalMembers} {tr('ئامادەبوو', 'Online')}</span>
                           </div>
                         </div>
                       </div>
 
-                      <h3 className="mt-2 font-display text-sm font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                      {/* Room Title */}
+                      <h3 className="mt-3 font-display text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                         {room.roomName}
                       </h3>
+
+                      {/* Active Arena Tag / Description */}
+                      <p className="mt-1 text-xs text-slate-400 line-clamp-1">
+                        {room.cinema?.isActive
+                          ? `🎬 ${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
+                          : tr('ژووری دەنگی و گەنگەشەی هاوڕێیان', 'Live voice arena and social lounge')}
+                      </p>
                     </div>
 
-                    {/* Mic Stage Seat Pill Indicators */}
-                    <div className="my-3.5 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-2.5">
-                      <div className="grid grid-cols-8 gap-1">
-                        {Array.from({ length: 8 }).map((_, idx) => {
-                          const isOccupied = room.seats && room.seats[idx]?.userId;
-                          return (
-                            <div
-                              key={idx}
-                              className={`h-1.5 rounded-full ${
-                                isOccupied
-                                  ? 'bg-amber-400 shadow-sm shadow-amber-400/50'
-                                  : 'bg-white/10'
-                              }`}
-                            />
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] text-slate-400">
-                      <div className="flex items-center gap-2 truncate max-w-[140px]">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-violet-600/40 text-[9px] font-black text-violet-200">
+                    {/* Bottom Info Bar: Host profile + Quick Join Button */}
+                    <div className="mt-4 flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs text-slate-400">
+                      <div className="flex items-center gap-2.5 truncate max-w-[150px] sm:max-w-[180px]">
+                        <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-[10px] font-black text-black shadow-md border border-white/20">
                           {room.hostAvatar || (room.hostId === user.uid ? user.avatar || user.profileImage : '') ? (
                             <img
                               src={room.hostAvatar || user.avatar || user.profileImage}
@@ -873,12 +934,17 @@ export default function Dashboard() {
                             room.hostName.charAt(0).toUpperCase()
                           )}
                         </div>
-                        <span className="truncate">{room.hostName}</span>
+                        <div className="min-w-0">
+                          <span className="block truncate font-bold text-slate-200 group-hover:text-white transition-colors">
+                            {room.hostName}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">{tr('خانەخوێ', 'Host')}</span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1 text-amber-400 text-[10px] font-bold group-hover:translate-x-1 transition-transform">
+                      <div className="flex items-center gap-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs font-black text-amber-300 group-hover:bg-amber-500 group-hover:text-black group-hover:border-amber-400 transition-all shadow-sm">
                         <span>{tr('چوونەژوورەوە', 'Join Arena')}</span>
-                        <ArrowRight className="h-3 w-3" />
+                        <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     </div>
                   </motion.div>
@@ -890,70 +956,6 @@ export default function Dashboard() {
 
         {/* ── SECTION 2: GLOBAL MICRO-BLOGGING POST FEED ── */}
         <section className="space-y-4 pt-2">
-          {/* Post Creation Standalone Textarea */}
-          <div className="overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/50 p-4 shadow-xl backdrop-blur-xl sm:p-5">
-            <div className="flex items-start gap-3">
-              <div
-                onClick={() => openUserProfile(user.uid)}
-                className={`relative flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-xs font-black text-black shadow-md transition hover:scale-105 ${
-                  user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden'
-                }`}
-              >
-                <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
-                  {user.avatar || user.profileImage ? (
-                    <img
-                      src={user.avatar || user.profileImage}
-                      alt={user.username}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    (user.username || 'U').charAt(0).toUpperCase()
-                  )}
-                </div>
-                {user.isVerified && (
-                  <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
-                    <Crown className="h-2.5 w-2.5 text-black fill-black" />
-                  </span>
-                )}
-              </div>
-
-              <div className="flex-1">
-                <form onSubmit={handlePublishPost} className="space-y-2.5">
-                  <textarea
-                    rows={2}
-                    maxLength={400}
-                    value={newPostContent}
-                    onChange={(e) => setNewPostContent(e.target.value)}
-                    placeholder={tr('پۆستێک، بیرۆکەیەک یان بانگهێشتێکی یاری بڵاوبکەرەوە…', 'Share a post, idea, or arena invite…')}
-                    className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/60 p-3 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
-                  />
-
-                  {publishPostError && (
-                    <div className="flex items-center gap-1.5 text-xs text-rose-400">
-                      <AlertCircle className="h-3.5 w-3.5" />
-                      <span>{publishPostError}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] font-mono text-slate-500">
-                      {newPostContent.length}/400
-                    </span>
-
-                    <button
-                      type="submit"
-                      disabled={!newPostContent.trim() || isPublishingPost}
-                      className="flex items-center gap-1.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-4 py-2 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95 disabled:opacity-40"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      <span>{isPublishingPost ? tr('خەریکی بڵاوکردنەوەیە…', 'Publishing…') : tr('بڵاوکردنەوە', 'Publish')}</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-
           {/* Social Post Feed Cards */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
@@ -1063,6 +1065,26 @@ export default function Dashboard() {
                       <p className="mt-3 text-xs leading-relaxed text-slate-200 whitespace-pre-wrap">
                         {post.content}
                       </p>
+
+                      {/* Post Image Attachment (ImgBB Hosted) */}
+                      {post.imageUrl && (
+                        <div
+                          onClick={() => setActiveLightboxImage(post.imageUrl!)}
+                          className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/60 cursor-pointer group/img relative"
+                        >
+                          <img
+                            src={post.imageUrl}
+                            alt="Post image"
+                            className="w-full max-h-[380px] sm:max-h-[460px] object-cover transition-transform duration-300 group-hover/img:scale-[1.01]"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg backdrop-blur-md">
+                              {tr('کلیک بکە بۆ بینینی تەواو', 'Click to view full image')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Post Actions Bar */}
                       <div className="mt-4 flex items-center justify-between border-t border-slate-800/60 pt-3 text-xs text-slate-400">
@@ -1271,79 +1293,65 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredExploreRooms.map((room) => {
-              const occupiedCount = getOccupiedCount(room);
+              const totalMembers = getTotalMembers(room);
               const isLocked = Boolean(room.isPrivate && room.password);
 
               return (
                 <motion.div
                   key={room.id}
-                  whileHover={{ y: -3 }}
+                  whileHover={{ y: -3, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleRoomClick(room)}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/60 p-4.5 shadow-xl backdrop-blur-xl transition hover:border-amber-400/40 hover:shadow-2xl hover:shadow-amber-500/10 cursor-pointer"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-800/90 bg-gradient-to-br from-slate-900/80 via-slate-900/50 to-slate-950/90 p-4 sm:p-5 shadow-xl backdrop-blur-2xl transition-all duration-300 hover:border-amber-400/50 hover:shadow-2xl hover:shadow-amber-500/15 cursor-pointer"
                 >
+                  {/* Top ambient glow line */}
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
                   <div>
                     {/* Top Category & Live status badge */}
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold tracking-wider text-amber-400 uppercase border border-white/[0.06]">
-                        {room.category || 'Voice Chat'}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 rounded-xl bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold tracking-wide text-amber-300 border border-amber-500/20">
+                        <Radio className="h-3 w-3 text-amber-400" />
+                        <span>{room.category || 'Voice Arena'}</span>
                       </span>
 
                       <div className="flex items-center gap-1.5">
                         {isLocked && (
-                          <span title="Locked Arena">
-                            <Lock className="h-3.5 w-3.5 text-rose-400" />
+                          <span className="flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[9px] font-bold text-rose-400 shadow-sm">
+                            <Lock className="h-3 w-3" />
+                            <span>{tr('داخراو', 'Locked')}</span>
                           </span>
                         )}
-                        <div className="flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>{occupiedCount}/8</span>
+
+                        {/* Real-time Total Members Badge (Seated + Audience) */}
+                        <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-black text-emerald-300 shadow-sm shadow-emerald-500/20">
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                          </span>
+                          <Users className="h-3.5 w-3.5 text-emerald-400" />
+                          <span>{totalMembers} {tr('ئامادەبوو', 'Online')}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Room Name */}
-                    <h3 className="mt-2.5 font-display text-sm font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                    <h3 className="mt-3 font-display text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                       {room.roomName}
                     </h3>
 
                     {/* Room Info Snippet */}
-                    <p className="mt-1 text-[11px] text-slate-400 line-clamp-1">
-                      {room.description || tr('ژووری دەنگی و یارییە بەکۆمەڵەکان', 'Live voice arena and social lounge')}
+                    <p className="mt-1 text-xs text-slate-400 line-clamp-1">
+                      {room.cinema?.isActive
+                        ? `🎬 ${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
+                        : room.description || tr('ژووری دەنگی و یارییە بەکۆمەڵەکان', 'Live voice arena and social lounge')}
                     </p>
                   </div>
 
-                  {/* Mic Stage Seat Pill Indicators */}
-                  <div className="my-3.5 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-2.5">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1.5 font-medium">
-                      <div className="flex items-center gap-1">
-                        <Mic className="h-3 w-3 text-amber-400" />
-                        <span>{tr('کورسییەکانی مایک', 'Stage Seats')}</span>
-                      </div>
-                      <span className="font-mono text-amber-300 font-bold">
-                        {occupiedCount}/8
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-8 gap-1">
-                      {Array.from({ length: 8 }).map((_, idx) => {
-                        const isOccupied = room.seats && room.seats[idx]?.userId;
-                        return (
-                          <div
-                            key={idx}
-                            className={`h-1.5 rounded-full ${
-                              isOccupied
-                                ? 'bg-amber-400 shadow-sm shadow-amber-400/50'
-                                : 'bg-white/10'
-                            }`}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   {/* Host and Enter Arena button */}
-                  <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] text-slate-400">
-                    <div className="flex items-center gap-2 truncate max-w-[150px]">
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-violet-600/40 text-[10px] font-black text-violet-200">
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs text-slate-400">
+                    <div className="flex items-center gap-2.5 truncate max-w-[150px] sm:max-w-[180px]">
+                      <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-[10px] font-black text-black shadow-md border border-white/20">
                         {room.hostAvatar || (room.hostId === user.uid ? user.avatar || user.profileImage : '') ? (
                           <img
                             src={room.hostAvatar || user.avatar || user.profileImage}
@@ -1354,14 +1362,17 @@ export default function Dashboard() {
                           room.hostName.charAt(0).toUpperCase()
                         )}
                       </div>
-                      <div className="truncate">
-                        <span className="block truncate font-semibold text-slate-300">{room.hostName}</span>
+                      <div className="min-w-0">
+                        <span className="block truncate font-bold text-slate-200 group-hover:text-white transition-colors">
+                          {room.hostName}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium">{tr('خانەخوێ', 'Host')}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 text-amber-400 text-xs font-bold group-hover:translate-x-1 transition-transform">
+                    <div className="flex items-center gap-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 text-xs font-black text-amber-300 group-hover:bg-amber-500 group-hover:text-black group-hover:border-amber-400 transition-all shadow-sm">
                       <span>{tr('چوونەژوورەوە', 'Join Arena')}</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
+                      <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </div>
                   </div>
                 </motion.div>
@@ -2040,6 +2051,32 @@ export default function Dashboard() {
                       placeholder={tr('پۆستێک، بیرۆکەیەک یان بانگهێشتێکی یاری بڵاوبکەرەوە…', 'Share a post, idea, or arena invite…')}
                       className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5 text-xs sm:text-sm font-medium text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
                     />
+
+                    {/* Image Preview Box */}
+                    {postImagePreview && (
+                      <div className="relative mt-2.5 overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-950/80 shadow-inner">
+                        <img
+                          src={postImagePreview}
+                          alt="Post upload preview"
+                          className="w-full max-h-52 object-cover rounded-2xl"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemovePostImage}
+                          className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-white hover:bg-rose-600 transition shadow-lg border border-white/20"
+                          title={tr('سڕینەوەی وێنە', 'Remove photo')}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                        {isUploadingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/75 backdrop-blur-sm text-xs font-bold text-amber-300 gap-2">
+                            <RefreshCw className="h-4 w-4 animate-spin text-amber-400" />
+                            <span>{tr('خەریکی ناردنی وێنەیە بۆ ImgBB…', 'Uploading to ImgBB…')}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {publishPostError && (
                       <div className="mt-2 flex items-center gap-1.5 text-xs text-rose-400">
                         <AlertCircle className="h-3.5 w-3.5" />
@@ -2049,15 +2086,45 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-slate-800/80 pt-3">
-                  <span className="text-[11px] font-mono text-slate-500">
-                    {newPostContent.length}/400
-                  </span>
+                {/* Hidden Native File Input */}
+                <input
+                  type="file"
+                  ref={postImageInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePostImageChange}
+                />
+
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800/80 pt-3">
+                  <div className="flex items-center gap-3">
+                    {/* Add Image Button from Mobile / Desktop */}
+                    <button
+                      type="button"
+                      onClick={() => postImageInputRef.current?.click()}
+                      disabled={isPublishingPost || isUploadingImage}
+                      className={`flex items-center gap-1.5 rounded-2xl border px-3 py-2 text-xs font-bold transition active:scale-95 ${
+                        postImageFile
+                          ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
+                          : 'border-slate-800 bg-slate-800/80 text-slate-300 hover:border-amber-400/30 hover:text-white'
+                      }`}
+                      title={tr('هەڵبژاردنی وێنە لە مۆبایلەکەتەوە', 'Pick photo from device')}
+                    >
+                      <ImageIcon className="h-4 w-4 text-amber-400" />
+                      <span>{postImageFile ? tr('گۆڕینی وێنە', 'Change Photo') : tr('وێنە زیادبکە', 'Add Photo')}</span>
+                    </button>
+
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {newPostContent.length}/400
+                    </span>
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setIsCreatePostModalOpen(false)}
+                      onClick={() => {
+                        handleRemovePostImage();
+                        setIsCreatePostModalOpen(false);
+                      }}
                       className="rounded-2xl border border-slate-800 bg-slate-800/60 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-800 transition"
                     >
                       {tr('پەشیمانبوونەوە', 'Cancel')}
@@ -2065,11 +2132,20 @@ export default function Dashboard() {
 
                     <button
                       type="submit"
-                      disabled={!newPostContent.trim() || isPublishingPost}
+                      disabled={(!newPostContent.trim() && !postImageFile) || isPublishingPost || isUploadingImage}
                       className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-5 py-2.5 text-xs font-black text-black shadow-lg shadow-amber-500/25 transition active:scale-95 disabled:opacity-40"
                     >
-                      <Send className="h-4 w-4" />
-                      <span>{isPublishingPost ? tr('خەریکی بڵاوکردنەوەیە…', 'Publishing…') : tr('بڵاوکردنەوە', 'Publish')}</span>
+                      {isPublishingPost ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin text-black" />
+                          <span>{isUploadingImage ? tr('بەرزکردنەوەی وێنە…', 'Uploading…') : tr('خەریکی بڵاوکردنەوەیە…', 'Publishing…')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          <span>{tr('بڵاوکردنەوە', 'Publish')}</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -2459,6 +2535,35 @@ export default function Dashboard() {
             onLogout={logout}
             onOpenEditProfile={() => openUserProfile(user.uid)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── FULLSCREEN IMAGE LIGHTBOX MODAL ── */}
+      <AnimatePresence>
+        {activeLightboxImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActiveLightboxImage(null)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl"
+          >
+            <button
+              onClick={() => setActiveLightboxImage(null)}
+              className="absolute top-5 right-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition shadow-lg"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              src={activeLightboxImage}
+              alt="Full preview"
+              className="max-h-[90vh] max-w-[92vw] object-contain rounded-2xl shadow-2xl border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

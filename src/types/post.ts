@@ -9,6 +9,7 @@ export interface Post {
   authorAvatar: string | null;
   authorIsVerified?: boolean;
   content: string;
+  imageUrl?: string | null;
   timestamp: number;
   likesCount: number;
   likedBy?: Record<string, boolean>;
@@ -32,6 +33,7 @@ export interface CreatePostPayload {
   authorAvatar?: string | null;
   authorIsVerified?: boolean;
   content: string;
+  imageUrl?: string | null;
 }
 
 export interface CreateCommentPayload {

@@ -34,6 +34,7 @@ export function normalizePosts(rawPosts: unknown): Post[] {
       authorAvatar: p.authorAvatar ? String(p.authorAvatar) : null,
       authorIsVerified: Boolean(p.authorIsVerified),
       content: String(p.content),
+      imageUrl: p.imageUrl ? String(p.imageUrl) : null,
       timestamp: Number(p.timestamp) || Date.now(),
       likesCount: Number(p.likesCount) || 0,
       likedBy: p.likedBy && typeof p.likedBy === 'object' ? (p.likedBy as Record<string, boolean>) : {},
@@ -72,6 +73,7 @@ export async function createPost(payload: CreatePostPayload): Promise<string> {
     authorAvatar: authorAvatar || null,
     authorIsVerified: Boolean(payload.authorIsVerified),
     content: cleanContent,
+    imageUrl: payload.imageUrl || null,
     timestamp: Date.now(),
     likesCount: 0,
     likedBy: {},
@@ -204,6 +206,7 @@ export async function addPostComment(
     authorAvatar: payload.authorAvatar || null,
     authorIsVerified: Boolean(payload.authorIsVerified),
     content: cleanContent,
+    imageUrl: payload.imageUrl || null,
     timestamp: Date.now(),
   };
 

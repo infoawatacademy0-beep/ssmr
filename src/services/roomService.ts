@@ -487,7 +487,7 @@ export function subscribeToRoom(
         hostId: val.hostId || '',
         hostName: val.hostName || 'Host',
         hostAvatar: val.hostAvatar || '',
-        participantCount: val.participantCount || 1,
+        participantCount: calculateTotalParticipants(val),
         seats: normalizeSeats(val.seats),
         activeChat: normalizeChat(val.activeChat),
         latestEntrance: val.latestEntrance || null,
@@ -501,6 +501,17 @@ export function subscribeToRoom(
       onUpdate(null);
     },
   );
+}
+
+function calculateTotalParticipants(data: any): number {
+  if (!data) return 1;
+  const seats = normalizeSeats(data.seats);
+  const seatedUserIds = seats.map((s) => s.userId).filter(Boolean);
+  const audienceUserIds = data.audience && typeof data.audience === 'object' ? Object.keys(data.audience) : [];
+  const uniqueUsers = new Set([...seatedUserIds, ...audienceUserIds]);
+  if (uniqueUsers.size > 0) return uniqueUsers.size;
+  if (typeof data.participantCount === 'number' && data.participantCount > 0) return data.participantCount;
+  return Math.max(seatedUserIds.length, 1);
 }
 
 /**
@@ -527,7 +538,7 @@ export function subscribeToRoomsList(
       hostId: data.hostId || '',
       hostName: data.hostName || 'Host',
       hostAvatar: data.hostAvatar || '',
-      participantCount: data.participantCount || Math.floor(Math.random() * 8) + 2,
+      participantCount: calculateTotalParticipants(data),
       seats: normalizeSeats(data.seats),
       activeChat: normalizeChat(data.activeChat),
       latestEntrance: data.latestEntrance || null,
@@ -566,7 +577,7 @@ export function subscribeToFeaturedRooms(
       hostId: data.hostId || '',
       hostName: data.hostName || 'Host',
       hostAvatar: data.hostAvatar || '',
-      participantCount: data.participantCount || Math.floor(Math.random() * 8) + 2,
+      participantCount: calculateTotalParticipants(data),
       seats: normalizeSeats(data.seats),
       activeChat: normalizeChat(data.activeChat),
       latestEntrance: data.latestEntrance || null,
