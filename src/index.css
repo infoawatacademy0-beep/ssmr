@@ -58,6 +58,17 @@
   border-radius: 2px;
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Selection */
 ::selection {
   background: rgba(124, 58, 237, 0.4);

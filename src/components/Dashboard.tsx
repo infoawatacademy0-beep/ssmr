@@ -616,108 +616,18 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════
           2. CENTER MAIN STREAM (The Core Content Workspace)
           ══════════════════════════════════════════════════════════════ */}
-      <main className="flex-1 h-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6 pb-24 md:pb-8">
+      <main className="flex-1 h-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6 pb-32 md:pb-8">
         {/* Mobile Header Bar */}
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 md:hidden">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500 text-black shadow-md">
-              {navTab === 'explore' ? (
-                <Compass className="h-4 w-4" />
-              ) : navTab === 'wallet' ? (
-                <Wallet className="h-4 w-4" />
-              ) : navTab === 'settings' ? (
-                <Settings className="h-4 w-4" />
-              ) : (
-                <Radio className="h-4 w-4" />
-              )}
-            </div>
-            <div>
-              <h1 className="font-display text-sm font-black text-white">
-                {navTab === 'explore'
-                  ? tr('گەڕان لە ژوورەکان', 'Explore Arenas')
-                  : navTab === 'wallet'
-                  ? tr('جزدان و دراوەکان', 'Wallet & Vault')
-                  : navTab === 'settings'
-                  ? tr('ڕێکخستنەکانی هەژمار', 'Settings')
-                  : tr('ژووری دەنگی', 'Voice Arena')}
-              </h1>
-              <span className="text-[9px] text-slate-400 uppercase font-bold">
-                {navTab === 'explore'
-                  ? `${allRooms.length} ${tr('ژووری چالاک', 'Live Arenas')}`
-                  : navTab === 'wallet'
-                  ? `${formatCoinsK(user.coins)} ${tr('دراو', 'Coins')}`
-                  : navTab === 'settings'
-                  ? tr('کۆنترۆڵی سیستم', 'System Control')
-                  : tr('پەخشی ڕاستەوخۆ', 'Live Broadcast')}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-slate-300"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={() => setIsNotificationsOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-slate-300"
-            >
-              <Bell className="h-4 w-4" />
-              {unreadNotifsCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-rose-500 text-[8px] font-bold text-white flex items-center justify-center">
-                  {unreadNotifsCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setIsChatCenterOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-cyan-400 hover:bg-slate-800 transition"
-              title={tr('نامەی تایبەتی', 'Direct Messages')}
-            >
-              <MessageSquare className="h-4 w-4" />
-              {unreadDMsCount > 0 ? (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-lg shadow-rose-500/50 animate-pulse border border-white/20">
-                  {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
-                </span>
-              ) : inboxThreadsCount > 0 ? (
-                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-cyan-500/80 text-[8px] font-bold text-black flex items-center justify-center">
-                  {inboxThreadsCount > 9 ? '9+' : inboxThreadsCount}
-                </span>
-              ) : null}
-            </button>
-
-            <button
-              onClick={() => setIsFriendsModalOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-amber-400"
-              title="Friends & Connections"
-            >
-              <HeartHandshake className="h-4 w-4" />
-              {friendsCount + followersCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-amber-400 text-[8px] font-bold text-black flex items-center justify-center">
-                  {friendsCount + followersCount > 9 ? '9+' : friendsCount + followersCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setIsWalletModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300"
-            >
-              <Coins className="h-3.5 w-3.5 text-amber-400" />
-              <span>{formatCoinsK(user.coins)}</span>
-            </button>
-
+        <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3 md:hidden">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={() => openUserProfile(user.uid)}
-              className={`relative flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white ${
-                user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden border border-white/10'
+              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-xs font-bold text-white transition active:scale-95 ${
+                user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden border border-amber-500/30 shadow-md shadow-amber-500/10'
               }`}
+              title={user.username}
             >
-              <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+              <div className="h-full w-full overflow-hidden rounded-2xl flex items-center justify-center">
                 {user.avatar || user.profileImage ? (
                   <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
                 ) : (
@@ -725,8 +635,88 @@ export default function Dashboard() {
                 )}
               </div>
               {user.isVerified && (
-                <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
-                  <Crown className="h-2 w-2 text-black fill-black" />
+                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+                  <Crown className="h-2.5 w-2.5 text-black fill-black" />
+                </span>
+              )}
+            </button>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-display text-sm font-black text-white truncate max-w-[125px] sm:max-w-none">
+                  {navTab === 'explore'
+                    ? tr('گەڕان لە ژوورەکان', 'Explore Arenas')
+                    : navTab === 'wallet'
+                    ? tr('جزدان و دراوەکان', 'Wallet & Vault')
+                    : navTab === 'settings'
+                    ? tr('ڕێکخستنەکان', 'Settings')
+                    : tr('گۆڕەپانی دەنگی', 'Voice Arena')}
+                </h1>
+                {navTab === 'dashboard' && (
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-400 shrink-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {tr('ڕاستەوخۆ', 'LIVE')}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium truncate block">
+                {navTab === 'explore'
+                  ? `${allRooms.length} ${tr('ژووری چالاک', 'Live Arenas')}`
+                  : navTab === 'wallet'
+                  ? `${formatCoinsK(user.coins)} ${tr('دراو', 'Coins')}`
+                  : navTab === 'settings'
+                  ? tr('کۆنترۆڵی سیستم', 'System Control')
+                  : `${user.username || tr('بەخێربێیت', 'Welcome')}`}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Coins Wallet Badge */}
+            <button
+              onClick={() => {
+                setNavTab('wallet');
+              }}
+              className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-yellow-500/10 px-2 py-1.5 text-xs font-black text-amber-300 shadow-sm active:scale-95 transition"
+              title={tr('جزدان', 'Wallet')}
+            >
+              <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+              <span className="font-mono text-[11px]">{formatCoinsK(user.coins)}</span>
+            </button>
+
+            {/* Search */}
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="flex h-8.5 w-8.5 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition"
+              title={tr('گەڕان', 'Search')}
+            >
+              <Search className="h-4 w-4" />
+            </button>
+
+            {/* Notifications with Badge */}
+            <button
+              onClick={() => setIsNotificationsOpen(true)}
+              className="relative flex h-8.5 w-8.5 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition"
+              title={tr('ئاگادارکردنەوەکان', 'Notifications')}
+            >
+              <Bell className="h-4 w-4" />
+              {unreadNotifsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white shadow-md shadow-rose-500/50">
+                  {unreadNotifsCount > 9 ? '9+' : unreadNotifsCount}
+                </span>
+              )}
+            </button>
+
+            {/* Friends */}
+            <button
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="relative flex h-8.5 w-8.5 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-amber-400 hover:bg-slate-800 active:scale-95 transition"
+              title={tr('هاوڕێکان', 'Friends')}
+            >
+              <HeartHandshake className="h-4 w-4" />
+              {friendsCount + followersCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] px-0.5 items-center justify-center rounded-full bg-amber-400 text-[8px] font-black text-black shadow">
+                  {friendsCount + followersCount > 9 ? '9+' : friendsCount + followersCount}
                 </span>
               )}
             </button>
@@ -741,7 +731,7 @@ export default function Dashboard() {
             </section>
 
             {/* Category Filter Pills Bar */}
-            <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1">
+            <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 scrollbar-none no-scrollbar">
               <div className="flex items-center gap-1.5">
                 {CATEGORIES.map((cat) => {
                   const IconComp = cat.icon;
@@ -1856,72 +1846,118 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════
           4. MOBILE BOTTOM NAVIGATION BAR
           ══════════════════════════════════════════════════════════════ */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-800/80 bg-slate-950/95 py-2.5 backdrop-blur-xl px-2 md:hidden">
-        <button
-          onClick={() => setNavTab('dashboard')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            navTab === 'dashboard' ? 'text-amber-400' : 'text-slate-500'
-          }`}
-        >
-          <LayoutDashboard className="h-5 w-5" />
-          <span>{t('nav.dashboard', 'گۆڕەپان')}</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setNavTab('explore');
-            setSelectedCategory('All');
-          }}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            navTab === 'explore' ? 'text-amber-400' : 'text-slate-500'
-          }`}
-        >
-          <Compass className="h-5 w-5" />
-          <span>{t('nav.exploreRooms', 'گەڕان')}</span>
-        </button>
-
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 text-black shadow-lg shadow-amber-500/25 -mt-4"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
-
-        {/* Direct Messages Mobile Tab with Real-time Unread Badge */}
-        <button
-          onClick={() => setIsChatCenterOpen(true)}
-          className="relative flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-cyan-400 active:scale-95 transition"
-        >
-          <div className="relative">
-            <MessageSquare className="h-5 w-5 text-cyan-400/90" />
-            {unreadDMsCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-lg shadow-rose-500/50 animate-pulse border border-white/20">
-                {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
-              </span>
+      {/* ══════════════════════════════════════════════════════════════
+          4. MOBILE BOTTOM NAVIGATION DOCK (Ultra-smooth Native Mobile Bar)
+          ══════════════════════════════════════════════════════════════ */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-slate-950/92 backdrop-blur-2xl border-t border-white/10 shadow-[0_-10px_35px_rgba(0,0,0,0.85)] px-1 sm:px-2 pt-1.5 pb-[max(0.65rem,env(safe-area-inset-bottom,0px))]">
+        <div className="flex items-center justify-between w-full max-w-lg mx-auto">
+          {/* 1. Dashboard Tab */}
+          <button
+            onClick={() => setNavTab('dashboard')}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
+              navTab === 'dashboard'
+                ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <LayoutDashboard className={`h-5 w-5 transition-transform duration-200 ${navTab === 'dashboard' ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'}`} />
+            <span className="text-[10px] tracking-tight truncate max-w-full mt-0.5">
+              {t('nav.dashboard', 'گۆڕەپان')}
+            </span>
+            {navTab === 'dashboard' && (
+              <span className="absolute -bottom-0.5 h-1 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
             )}
+          </button>
+
+          {/* 2. Explore Tab */}
+          <button
+            onClick={() => {
+              setNavTab('explore');
+              setSelectedCategory('All');
+            }}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
+              navTab === 'explore'
+                ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Compass className={`h-5 w-5 transition-transform duration-200 ${navTab === 'explore' ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'}`} />
+            <span className="text-[10px] tracking-tight truncate max-w-full mt-0.5">
+              {t('nav.exploreRooms', 'گەڕان')}
+            </span>
+            {navTab === 'explore' && (
+              <span className="absolute -bottom-0.5 h-1 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+            )}
+          </button>
+
+          {/* 3. Center Elevated Floating Action Button (Create Room) */}
+          <div className="flex-1 min-w-0 flex flex-col items-center justify-center relative -mt-5">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-[0_4px_22px_rgba(245,158,11,0.5)] border-2 border-amber-300/50 ring-4 ring-slate-950 active:scale-90 hover:scale-105 transition-all duration-200"
+              title={tr('دروستکردنی ژوور', 'Create Arena')}
+            >
+              <Plus className="h-6 w-6 stroke-[2.5]" />
+            </button>
+            <span className="text-[9.5px] font-black text-amber-400 mt-1 truncate max-w-full tracking-tight">
+              {tr('دروستکردن', 'Create')}
+            </span>
           </div>
-          <span className={unreadDMsCount > 0 ? 'text-rose-400 font-bold' : ''}>{tr('نامەکان', 'Messages')}</span>
-        </button>
 
-        <button
-          onClick={() => setNavTab('wallet')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            navTab === 'wallet' ? 'text-amber-400' : 'text-slate-500'
-          }`}
-        >
-          <Wallet className="h-5 w-5" />
-          <span>{t('nav.wallet', 'جزدان')}</span>
-        </button>
+          {/* 4. Direct Messages Mobile Tab with Real-time Unread Badge */}
+          <button
+            onClick={() => setIsChatCenterOpen(true)}
+            className="flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative text-slate-400 hover:text-cyan-300"
+          >
+            <div className="relative">
+              <MessageSquare className="h-5 w-5 text-cyan-400 transition-transform duration-200 group-hover:scale-105" />
+              {unreadDMsCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-lg shadow-rose-500/60 animate-pulse border border-white/20">
+                  {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
+                </span>
+              )}
+            </div>
+            <span className={`text-[10px] tracking-tight truncate max-w-full mt-0.5 ${unreadDMsCount > 0 ? 'text-rose-400 font-black' : ''}`}>
+              {tr('نامەکان', 'Messages')}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setNavTab('settings')}
-          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-            navTab === 'settings' ? 'text-amber-400' : 'text-slate-500'
-          }`}
-        >
-          <Settings className="h-5 w-5" />
-          <span>{t('settings.title', 'ڕێکخستن')}</span>
-        </button>
+          {/* 5. Wallet Tab */}
+          <button
+            onClick={() => setNavTab('wallet')}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
+              navTab === 'wallet'
+                ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Wallet className={`h-5 w-5 transition-transform duration-200 ${navTab === 'wallet' ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'}`} />
+            <span className="text-[10px] tracking-tight truncate max-w-full mt-0.5">
+              {t('nav.wallet', 'جزدان')}
+            </span>
+            {navTab === 'wallet' && (
+              <span className="absolute -bottom-0.5 h-1 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+            )}
+          </button>
+
+          {/* 6. Settings Tab */}
+          <button
+            onClick={() => setNavTab('settings')}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
+              navTab === 'settings'
+                ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Settings className={`h-5 w-5 transition-transform duration-200 ${navTab === 'settings' ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'}`} />
+            <span className="text-[10px] tracking-tight truncate max-w-full mt-0.5">
+              {t('settings.title', 'ڕێکخستن')}
+            </span>
+            {navTab === 'settings' && (
+              <span className="absolute -bottom-0.5 h-1 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
+            )}
+          </button>
+        </div>
       </nav>
 
       {/* ── CREATE ARENA MODAL ── */}
