@@ -1447,6 +1447,16 @@ export default function VoiceRoom() {
                             )
                           )}
 
+                          {/* Clear Seat Number Badge on Occupied Avatar */}
+                          {isOccupied && (
+                            <div
+                              title={`${tr('کورسی', 'Seat')} #${seat.seatNo}`}
+                              className="absolute -top-1.5 -right-1.5 z-20 flex h-4 min-w-[17px] px-1 items-center justify-center rounded-full bg-slate-950 border border-amber-400 text-[9px] font-black text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.6)]"
+                            >
+                              #{seat.seatNo}
+                            </div>
+                          )}
+
                           {/* Gift / PK Coins Badge on Seat Profile Icon */}
                           {seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
                             <div
@@ -1523,7 +1533,7 @@ export default function VoiceRoom() {
                       <Crown className="h-2.5 w-2.5 shrink-0 text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_#f59e0b]" />
                     ) : null}
                     <span
-                      className={`truncate text-center text-[11px] leading-tight max-w-[64px] ${
+                      className={`truncate text-center text-[11px] leading-tight max-w-[72px] ${
                         isOccupied
                           ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
                           : seat.isPlatinum
@@ -1536,7 +1546,7 @@ export default function VoiceRoom() {
                       }`}
                       title={
                         isOccupied
-                          ? seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
+                          ? `${tr('کورسی', 'Seat')} ${seat.seatNo}: ${seat.username || ''}`
                           : seat.vipAssignedName || (seat.isPlatinum ? `Platinum #${seat.seatNo}` : seat.isIron ? `Iron #${seat.seatNo}` : seat.isVip ? `VIP #${seat.seatNo}` : `${tr('کورسی', 'Seat')} ${seat.seatNo}`)
                       }
                     >

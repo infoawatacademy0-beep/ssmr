@@ -8,6 +8,7 @@ import {
   runTransaction,
   query,
   limitToFirst,
+  onDisconnect,
   type Unsubscribe,
 } from 'firebase/database';
 import { database } from '../config/firebase';
@@ -167,7 +168,7 @@ export async function createRoom(
     hostId: hostUser.uid,
     hostName: hostUser.username,
     hostAvatar: hostUser.avatar || '',
-    participantCount: 1,
+    participantCount: 0,
     seats: initialSeats,
     activeChat: [initialWelcomeMessage],
     createdAt: Date.now(),
@@ -297,6 +298,19 @@ export async function joinSeat(
     return seats;
   });
 
+  // Automatically vacate seat if user abruptly disconnects
+  try {
+    const targetIndex = seatNo - 1;
+    const seatUserRef = ref(database, `rooms/${roomId}/seats/${targetIndex}/userId`);
+    const seatUsernameRef = ref(database, `rooms/${roomId}/seats/${targetIndex}/username`);
+    const seatAvatarRef = ref(database, `rooms/${roomId}/seats/${targetIndex}/avatar`);
+    onDisconnect(seatUserRef).set(null);
+    onDisconnect(seatUsernameRef).set(null);
+    onDisconnect(seatAvatarRef).set(null);
+  } catch (err) {
+    console.warn('Could not register onDisconnect for seat:', err);
+  }
+
   // Chat notification removed per user request to prevent chat spam when switching seats
 }
 
@@ -340,6 +354,19 @@ export async function leaveSeat(
 
     return seats;
   });
+
+  // Cancel onDisconnect since user voluntarily left the seat
+  try {
+    const targetIndex = seatNo - 1;
+    const seatUserRef = ref(database, `rooms/${roomId}/seats/${targetIndex}/userId`);
+    const seatUsernameRef = ref(database, `rooms/${roomId}/seats/${targetIndex}/username`);
+    const seatAvatarRef = ref(database, `rooms/${roomId}/seats/${targetIndex}/avatar`);
+    onDisconnect(seatUserRef).cancel();
+    onDisconnect(seatUsernameRef).cancel();
+    onDisconnect(seatAvatarRef).cancel();
+  } catch (err) {
+    console.warn('Could not cancel onDisconnect for seat:', err);
+  }
 
   // Chat notification removed per user request to prevent chat spam when leaving/switching seats
 }
@@ -504,14 +531,12 @@ export function subscribeToRoom(
 }
 
 function calculateTotalParticipants(data: any): number {
-  if (!data) return 1;
+  if (!data) return 0;
   const seats = normalizeSeats(data.seats);
   const seatedUserIds = seats.map((s) => s.userId).filter(Boolean);
   const audienceUserIds = data.audience && typeof data.audience === 'object' ? Object.keys(data.audience) : [];
   const uniqueUsers = new Set([...seatedUserIds, ...audienceUserIds]);
-  if (uniqueUsers.size > 0) return uniqueUsers.size;
-  if (typeof data.participantCount === 'number' && data.participantCount > 0) return data.participantCount;
-  return Math.max(seatedUserIds.length, 1);
+  return uniqueUsers.size;
 }
 
 /**

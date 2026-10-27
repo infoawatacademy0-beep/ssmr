@@ -497,10 +497,10 @@ export default function Dashboard() {
 
   const getTotalMembers = (room: Room) => {
     const seatedCount = (room.seats || []).filter((s) => s.userId !== null).length;
-    const count = typeof room.participantCount === 'number' && room.participantCount > 0
-      ? room.participantCount
-      : Math.max(seatedCount, 1);
-    return Math.max(count, seatedCount, 1);
+    if (typeof room.participantCount === 'number') {
+      return Math.max(room.participantCount, seatedCount);
+    }
+    return seatedCount;
   };
 
   if (!user) return null;
@@ -896,14 +896,22 @@ export default function Dashboard() {
                           )}
 
                           {/* Real-time Total Members Badge (Seated + Audience) */}
-                          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-black text-emerald-300 shadow-sm shadow-emerald-500/20">
-                            <span className="relative flex h-2 w-2">
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                            </span>
-                            <Users className="h-3.5 w-3.5 text-emerald-400" />
-                            <span>{totalMembers} {tr('ئامادەبوو', 'Online')}</span>
-                          </div>
+                          {totalMembers > 0 ? (
+                            <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-black text-emerald-300 shadow-sm shadow-emerald-500/20">
+                              <span className="relative flex h-2 w-2">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                              </span>
+                              <Users className="h-3.5 w-3.5 text-emerald-400" />
+                              <span>{totalMembers} {tr('ئامادەبوو', 'Online')}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[10px] font-bold text-slate-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+                              <Users className="h-3.5 w-3.5 text-slate-500" />
+                              <span>0 {tr('ئامادەبوو', 'Online')}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -918,6 +926,60 @@ export default function Dashboard() {
                           ? `🎬 ${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
                           : tr('ژووری دەنگی و گەنگەشەی هاوڕێیان', 'Live voice arena and social lounge')}
                       </p>
+
+                      {/* ── SEAT OCCUPANCY STATUS: SHOW OCCUPIED SEATS & USERNAME ── */}
+                      {(() => {
+                        const occupiedSeats = (room.seats || []).filter((s) => Boolean(s.userId));
+                        if (occupiedSeats.length > 0) {
+                          return (
+                            <div className="mt-3 rounded-2xl bg-slate-950/70 border border-amber-500/30 p-2.5 shadow-inner">
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1.5 text-[11px] font-black text-amber-400">
+                                  <Mic className="h-3.5 w-3.5 animate-pulse text-amber-400" />
+                                  <span>{tr('لەسەر کورسییەکان:', 'On Stage Seats:')}</span>
+                                </div>
+                                <span className="text-[10px] font-bold text-amber-300/90 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                  {occupiedSeats.length} {tr('کورسی گیراوە', 'Seated')}
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5">
+                                {occupiedSeats.map((seat) => (
+                                  <div
+                                    key={seat.seatNo}
+                                    className="flex items-center gap-1.5 rounded-xl bg-slate-900/95 border border-amber-400/40 px-2 py-1 text-xs shadow-sm"
+                                  >
+                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black text-black">
+                                      {seat.seatNo}
+                                    </span>
+                                    <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-slate-800">
+                                      {seat.avatar ? (
+                                        <img src={seat.avatar} alt={seat.username || ''} className="h-full w-full object-cover" />
+                                      ) : (
+                                        <span className="flex h-full w-full items-center justify-center text-[8px] font-bold text-slate-300">
+                                          {(seat.username || '?').charAt(0).toUpperCase()}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[11px] font-bold text-amber-300">
+                                      {tr('کورسی', 'Seat')} {seat.seatNo}:
+                                    </span>
+                                    <span className="text-[11px] font-bold text-white max-w-[85px] truncate">
+                                      {seat.username}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-slate-950/40 border border-slate-800/60 px-2.5 py-1.5 text-[11px] text-slate-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
+                            <span>{tr('هەموو کورسییەکان بەتاڵن بۆ دانیشتن', 'All seats are vacant & ready to join')}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Bottom Info Bar: Host profile + Quick Join Button */}
@@ -1324,14 +1386,22 @@ export default function Dashboard() {
                         )}
 
                         {/* Real-time Total Members Badge (Seated + Audience) */}
-                        <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-black text-emerald-300 shadow-sm shadow-emerald-500/20">
-                          <span className="relative flex h-2 w-2">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                          </span>
-                          <Users className="h-3.5 w-3.5 text-emerald-400" />
-                          <span>{totalMembers} {tr('ئامادەبوو', 'Online')}</span>
-                        </div>
+                        {totalMembers > 0 ? (
+                          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-black text-emerald-300 shadow-sm shadow-emerald-500/20">
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                            </span>
+                            <Users className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>{totalMembers} {tr('ئامادەبوو', 'Online')}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[10px] font-bold text-slate-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+                            <Users className="h-3.5 w-3.5 text-slate-500" />
+                            <span>0 {tr('ئامادەبوو', 'Online')}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1346,6 +1416,60 @@ export default function Dashboard() {
                         ? `🎬 ${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
                         : room.description || tr('ژووری دەنگی و یارییە بەکۆمەڵەکان', 'Live voice arena and social lounge')}
                     </p>
+
+                    {/* ── SEAT OCCUPANCY STATUS: SHOW OCCUPIED SEATS & USERNAME ── */}
+                    {(() => {
+                      const occupiedSeats = (room.seats || []).filter((s) => Boolean(s.userId));
+                      if (occupiedSeats.length > 0) {
+                        return (
+                          <div className="mt-3 rounded-2xl bg-slate-950/70 border border-amber-500/30 p-2.5 shadow-inner">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <div className="flex items-center gap-1.5 text-[11px] font-black text-amber-400">
+                                <Mic className="h-3.5 w-3.5 animate-pulse text-amber-400" />
+                                <span>{tr('لەسەر کورسییەکان:', 'On Stage Seats:')}</span>
+                              </div>
+                              <span className="text-[10px] font-bold text-amber-300/90 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                {occupiedSeats.length} {tr('کورسی گیراوە', 'Seated')}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5">
+                              {occupiedSeats.map((seat) => (
+                                <div
+                                  key={seat.seatNo}
+                                  className="flex items-center gap-1.5 rounded-xl bg-slate-900/95 border border-amber-400/40 px-2 py-1 text-xs shadow-sm"
+                                >
+                                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black text-black">
+                                    {seat.seatNo}
+                                  </span>
+                                  <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-slate-800">
+                                    {seat.avatar ? (
+                                      <img src={seat.avatar} alt={seat.username || ''} className="h-full w-full object-cover" />
+                                    ) : (
+                                      <span className="flex h-full w-full items-center justify-center text-[8px] font-bold text-slate-300">
+                                        {(seat.username || '?').charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] font-bold text-amber-300">
+                                    {tr('کورسی', 'Seat')} {seat.seatNo}:
+                                  </span>
+                                  <span className="text-[11px] font-bold text-white max-w-[85px] truncate">
+                                    {seat.username}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-slate-950/40 border border-slate-800/60 px-2.5 py-1.5 text-[11px] text-slate-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
+                          <span>{tr('هەموو کورسییەکان بەتاڵن بۆ دانیشتن', 'All seats are vacant & ready to join')}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Host and Enter Arena button */}
