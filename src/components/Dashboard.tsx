@@ -42,6 +42,8 @@ import {
   HeartHandshake,
   Users,
   UserCheck,
+  X,
+  Mic,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
@@ -56,6 +58,7 @@ import {
 } from '../types';
 import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
 import {
+  subscribeToRoomsList,
   subscribeToFeaturedRooms,
   createRoom,
   createPost,
@@ -136,9 +139,11 @@ export default function Dashboard() {
   // Active navigation tab
   const [navTab, setNavTab] = useState<'dashboard' | 'explore' | 'wallet' | 'settings'>('dashboard');
 
-  // Strict 4-room directory state
+  // Strict 4-room directory & Explore Arenas state
   const [featuredRooms, setFeaturedRooms] = useState<Room[]>([]);
+  const [allRooms, setAllRooms] = useState<Room[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<RoomCategory | 'All'>('All');
+  const [exploreSearchQuery, setExploreSearchQuery] = useState('');
 
   // Posts Feed State
   const [posts, setPosts] = useState<Post[]>([]);
@@ -242,9 +247,10 @@ export default function Dashboard() {
     return () => unsub();
   }, [user?.uid]);
 
-  // 1. Subscribe to exactly 4 active rooms using .limitToFirst(4)
+  // 1. Subscribe to all live voice rooms for Explore & Dashboard
   useEffect(() => {
-    const unsubscribe = subscribeToFeaturedRooms(4, (rooms) => {
+    const unsubscribe = subscribeToRoomsList((rooms) => {
+      setAllRooms(rooms);
       setFeaturedRooms(rooms);
     });
     return () => unsubscribe();
@@ -267,7 +273,7 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [user?.uid]);
 
-  // Filtered rooms based on selected category (strictly at most 4)
+  // Filtered rooms for Dashboard Spotlight (strictly at most 4)
   const displayRooms = useMemo(() => {
     if (selectedCategory === 'All') return featuredRooms.slice(0, 4);
     const filtered = featuredRooms.filter(
@@ -275,6 +281,26 @@ export default function Dashboard() {
     );
     return (filtered.length > 0 ? filtered : featuredRooms).slice(0, 4);
   }, [featuredRooms, selectedCategory]);
+
+  // Filtered rooms for Explore Arenas view (All Matching Rooms)
+  const filteredExploreRooms = useMemo(() => {
+    let list = allRooms;
+    if (selectedCategory !== 'All') {
+      list = list.filter(
+        (r) => (r.category || 'Voice Chat').toLowerCase() === selectedCategory.toLowerCase(),
+      );
+    }
+    if (exploreSearchQuery.trim()) {
+      const q = exploreSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (r) =>
+          r.roomName.toLowerCase().includes(q) ||
+          r.hostName.toLowerCase().includes(q) ||
+          (r.category || '').toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [allRooms, selectedCategory, exploreSearchQuery]);
 
   // Level & XP Progress Calculations
   const xpInCurrentLevel = (user?.xp || 0) % 1000;
@@ -527,8 +553,12 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => setIsWalletModalOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
+              onClick={() => setNavTab('wallet')}
+              className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold transition-all ${
+                navTab === 'wallet'
+                  ? 'border border-amber-400/30 bg-amber-400/15 text-amber-300 shadow-lg shadow-amber-500/10'
+                  : 'text-slate-400 hover:bg-slate-900/60 hover:text-white'
+              }`}
             >
               <div className="flex items-center gap-3">
                 <Wallet className="h-4 w-4" />
@@ -540,8 +570,12 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
+              onClick={() => setNavTab('settings')}
+              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold transition-all ${
+                navTab === 'settings'
+                  ? 'border border-amber-400/30 bg-amber-400/15 text-amber-300 shadow-lg shadow-amber-500/10'
+                  : 'text-slate-400 hover:bg-slate-900/60 hover:text-white'
+              }`}
             >
               <Settings className="h-4 w-4" />
               <span>{t('settings.title', 'ڕێکخستنەکان')}</span>
@@ -569,11 +603,35 @@ export default function Dashboard() {
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 md:hidden">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500 text-black shadow-md">
-              <Radio className="h-4 w-4" />
+              {navTab === 'explore' ? (
+                <Compass className="h-4 w-4" />
+              ) : navTab === 'wallet' ? (
+                <Wallet className="h-4 w-4" />
+              ) : navTab === 'settings' ? (
+                <Settings className="h-4 w-4" />
+              ) : (
+                <Radio className="h-4 w-4" />
+              )}
             </div>
             <div>
-              <h1 className="font-display text-sm font-black text-white">{tr('ژووری دەنگی', 'Voice Arena')}</h1>
-              <span className="text-[9px] text-slate-400 uppercase font-bold">{tr('پەخشی ڕاستەوخۆ', 'Live Broadcast')}</span>
+              <h1 className="font-display text-sm font-black text-white">
+                {navTab === 'explore'
+                  ? tr('گەڕان لە ژوورەکان', 'Explore Arenas')
+                  : navTab === 'wallet'
+                  ? tr('جزدان و دراوەکان', 'Wallet & Vault')
+                  : navTab === 'settings'
+                  ? tr('ڕێکخستنەکانی هەژمار', 'Settings')
+                  : tr('ژووری دەنگی', 'Voice Arena')}
+              </h1>
+              <span className="text-[9px] text-slate-400 uppercase font-bold">
+                {navTab === 'explore'
+                  ? `${allRooms.length} ${tr('ژووری چالاک', 'Live Arenas')}`
+                  : navTab === 'wallet'
+                  ? `${formatCoinsK(user.coins)} ${tr('دراو', 'Coins')}`
+                  : navTab === 'settings'
+                  ? tr('کۆنترۆڵی سیستم', 'System Control')
+                  : tr('پەخشی ڕاستەوخۆ', 'Live Broadcast')}
+              </span>
             </div>
           </div>
 
@@ -653,54 +711,65 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 24-Hour Stories Bar */}
-        <section className="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-3.5 backdrop-blur-xl">
-          <StoriesBar currentUser={user} />
-        </section>
+        {navTab === 'dashboard' && (
+          <>
+            {/* 24-Hour Stories Bar */}
+            <section className="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-3.5 backdrop-blur-xl">
+              <StoriesBar currentUser={user} />
+            </section>
 
-        {/* Category Filter Pills Bar */}
-        <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1">
-          <div className="flex items-center gap-1.5">
-            {CATEGORIES.map((cat) => {
-              const IconComp = cat.icon;
-              const isSelected = selectedCategory === cat.value;
-              return (
-                <button
-                  key={cat.value}
-                  onClick={() => setSelectedCategory(cat.value)}
-                  className={`flex shrink-0 items-center gap-2 rounded-2xl px-3.5 py-2 text-xs font-bold transition-all ${
-                    isSelected
-                      ? 'border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-md shadow-amber-500/10'
-                      : 'border border-slate-800/80 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:text-white'
-                  }`}
-                >
-                  <IconComp className={`h-3.5 w-3.5 ${cat.color}`} />
-                  <span>{tr(cat.label, cat.value === 'All' ? 'All Arenas' : cat.value)}</span>
-                </button>
-              );
-            })}
-          </div>
+            {/* Category Filter Pills Bar */}
+            <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1">
+              <div className="flex items-center gap-1.5">
+                {CATEGORIES.map((cat) => {
+                  const IconComp = cat.icon;
+                  const isSelected = selectedCategory === cat.value;
+                  return (
+                    <button
+                      key={cat.value}
+                      onClick={() => setSelectedCategory(cat.value)}
+                      className={`flex shrink-0 items-center gap-2 rounded-2xl px-3.5 py-2 text-xs font-bold transition-all ${
+                        isSelected
+                          ? 'border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-md shadow-amber-500/10'
+                          : 'border border-slate-800/80 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <IconComp className={`h-3.5 w-3.5 ${cat.color}`} />
+                      <span>{tr(cat.label, cat.value === 'All' ? 'All Arenas' : cat.value)}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="hidden sm:flex shrink-0 items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black shadow-lg shadow-amber-500/20 transition hover:bg-amber-400"
-          >
-            <Plus className="h-4 w-4" />
-            <span>{tr('کردنەوەی ژوور', 'Create Room')}</span>
-          </button>
-        </div>
-
-        {/* ── SECTION 1: STRICT 4-ROOM DIRECTORY (SPOTLIGHT GRID) ── */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <Flame className="h-4 w-4 text-amber-400" />
-              <h2 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
-                {tr('ژوورە چالاکەکان', 'Active Arenas')}
-              </h2>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="hidden sm:flex shrink-0 items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black shadow-lg shadow-amber-500/20 transition hover:bg-amber-400"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{tr('کردنەوەی ژوور', 'Create Room')}</span>
+              </button>
             </div>
-            <span className="text-[10px] font-semibold text-slate-500"></span>
-          </div>
+
+            {/* ── SECTION 1: STRICT 4-ROOM DIRECTORY (SPOTLIGHT GRID) ── */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <Flame className="h-4 w-4 text-amber-400" />
+                  <h2 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
+                    {tr('ژوورە چالاکەکان', 'Active Arenas')}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setNavTab('explore');
+                    setSelectedCategory('All');
+                  }}
+                  className="flex items-center gap-1 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                >
+                  <span>{tr('هەموو ژوورەکان', 'Explore All')}</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
 
           {displayRooms.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 py-12 text-center">
@@ -1038,6 +1107,490 @@ export default function Dashboard() {
             )}
           </div>
         </section>
+      </>
+    )}
+
+    {/* ══════════════════════════════════════════════════════════════
+        EXPLORE ARENAS DISCOVERY VIEW
+        ══════════════════════════════════════════════════════════════ */}
+    {navTab === 'explore' && (
+      <div className="space-y-6">
+        {/* Explore Arenas Hero Header */}
+        <div className="relative overflow-hidden rounded-3xl border border-amber-500/25 bg-gradient-to-r from-amber-500/10 via-slate-900/70 to-slate-900/90 p-5 backdrop-blur-xl sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 text-black shadow-lg shadow-amber-500/25">
+                <Compass className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-lg sm:text-xl font-black text-white">
+                    {tr('گەڕان لە هەموو ژوورەکان', 'Explore Voice Arenas')}
+                  </h2>
+                  <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{allRooms.length} {tr('ژووری چالاک', 'Live')}</span>
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  {tr(
+                    'هەموو ژوورە کراوەکان ببینە، بەپێی بابەت و هاوڕێکانت بگەڕێ و یەکسەر بەشداری بکە',
+                    'Discover and join all active live voice rooms, gaming lobbies, and podcasts in real time',
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 px-4 py-2.5 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              <span>{tr('کردنەوەی ژوور', 'Create Room')}</span>
+            </button>
+          </div>
+
+          {/* Instant Search Bar */}
+          <div className="mt-5 relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={exploreSearchQuery}
+              onChange={(e) => setExploreSearchQuery(e.target.value)}
+              placeholder={tr('گەڕان بەپێی ناوی ژوور، بەکارهێنەر، یان بابەت…', 'Search arenas by room name, host, or keyword…')}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 pl-10 pr-10 py-3 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-amber-400/80 focus:ring-1 focus:ring-amber-400/30"
+            />
+            {exploreSearchQuery && (
+              <button
+                onClick={() => setExploreSearchQuery('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Category Filter Pills Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {CATEGORIES.map((cat) => {
+            const IconComp = cat.icon;
+            const isSelected = selectedCategory === cat.value;
+            const count =
+              cat.value === 'All'
+                ? allRooms.length
+                : allRooms.filter(
+                    (r) => (r.category || 'Voice Chat').toLowerCase() === cat.value.toLowerCase(),
+                  ).length;
+
+            return (
+              <button
+                key={cat.value}
+                onClick={() => setSelectedCategory(cat.value)}
+                className={`flex shrink-0 items-center gap-2 rounded-2xl px-3.5 py-2 text-xs font-bold transition-all ${
+                  isSelected
+                    ? 'border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-md shadow-amber-500/10'
+                    : 'border border-slate-800/80 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:text-white'
+                }`}
+              >
+                <IconComp className={`h-3.5 w-3.5 ${cat.color}`} />
+                <span>{tr(cat.label, cat.value === 'All' ? 'All Arenas' : cat.value)}</span>
+                <span
+                  className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                    isSelected ? 'bg-amber-400/25 text-amber-200' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Arenas Grid */}
+        {filteredExploreRooms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30 py-16 text-center px-4">
+            <Compass className="h-10 w-10 text-slate-600 mb-3 animate-spin-slow" />
+            <h3 className="text-sm font-bold text-white">
+              {tr('هیچ ژوورێک نەدۆزرایەوە', 'No Arenas Found')}
+            </h3>
+            <p className="mt-1 text-xs text-slate-400 max-w-sm">
+              {exploreSearchQuery.trim()
+                ? tr(
+                    `هیچ ژوورێک بۆ گەڕان بە دوای "${exploreSearchQuery}" نەدۆزرایەوە. وشەی گەڕانەکەت بگۆڕە یان بپاڕێوە.`,
+                    `No arenas matched "${exploreSearchQuery}". Try adjusting your search query or category filter.`,
+                  )
+                : tr(
+                    'لە ئێستادا هیچ ژوورێک لەم بەشەدا نییە. دەتوانیت یەکەم ژوور بکەیتەوە!',
+                    'There are currently no active rooms in this category. You can launch the first one!',
+                  )}
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              {(exploreSearchQuery || selectedCategory !== 'All') && (
+                <button
+                  onClick={() => {
+                    setExploreSearchQuery('');
+                    setSelectedCategory('All');
+                  }}
+                  className="rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700"
+                >
+                  {tr('پاککردنەوەی فلتەرەکان', 'Clear Filters')}
+                </button>
+              )}
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black hover:bg-amber-400"
+              >
+                {tr('دروستکردنی ژووری نوێ', 'Create Arena')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredExploreRooms.map((room) => {
+              const occupiedCount = getOccupiedCount(room);
+              const isLocked = Boolean(room.isPrivate && room.password);
+
+              return (
+                <motion.div
+                  key={room.id}
+                  whileHover={{ y: -3 }}
+                  onClick={() => handleRoomClick(room)}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/60 p-4.5 shadow-xl backdrop-blur-xl transition hover:border-amber-400/40 hover:shadow-2xl hover:shadow-amber-500/10 cursor-pointer"
+                >
+                  <div>
+                    {/* Top Category & Live status badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[9px] font-bold tracking-wider text-amber-400 uppercase border border-white/[0.06]">
+                        {room.category || 'Voice Chat'}
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        {isLocked && (
+                          <span title="Locked Arena">
+                            <Lock className="h-3.5 w-3.5 text-rose-400" />
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>{occupiedCount}/8</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Room Name */}
+                    <h3 className="mt-2.5 font-display text-sm font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                      {room.roomName}
+                    </h3>
+
+                    {/* Room Info Snippet */}
+                    <p className="mt-1 text-[11px] text-slate-400 line-clamp-1">
+                      {room.description || tr('ژووری دەنگی و یارییە بەکۆمەڵەکان', 'Live voice arena and social lounge')}
+                    </p>
+                  </div>
+
+                  {/* Mic Stage Seat Pill Indicators */}
+                  <div className="my-3.5 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-2.5">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1.5 font-medium">
+                      <div className="flex items-center gap-1">
+                        <Mic className="h-3 w-3 text-amber-400" />
+                        <span>{tr('کورسییەکانی مایک', 'Stage Seats')}</span>
+                      </div>
+                      <span className="font-mono text-amber-300 font-bold">
+                        {occupiedCount}/8
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-8 gap-1">
+                      {Array.from({ length: 8 }).map((_, idx) => {
+                        const isOccupied = room.seats && room.seats[idx]?.userId;
+                        return (
+                          <div
+                            key={idx}
+                            className={`h-1.5 rounded-full ${
+                              isOccupied
+                                ? 'bg-amber-400 shadow-sm shadow-amber-400/50'
+                                : 'bg-white/10'
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Host and Enter Arena button */}
+                  <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] text-slate-400">
+                    <div className="flex items-center gap-2 truncate max-w-[150px]">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-violet-600/40 text-[10px] font-black text-violet-200">
+                        {room.hostAvatar || (room.hostId === user.uid ? user.avatar || user.profileImage : '') ? (
+                          <img
+                            src={room.hostAvatar || user.avatar || user.profileImage}
+                            alt={room.hostName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          room.hostName.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="truncate">
+                        <span className="block truncate font-semibold text-slate-300">{room.hostName}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-amber-400 text-xs font-bold group-hover:translate-x-1 transition-transform">
+                      <span>{tr('چوونەژوورەوە', 'Join Arena')}</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* ══════════════════════════════════════════════════════════════
+        WALLET & VAULT OVERVIEW VIEW
+        ══════════════════════════════════════════════════════════════ */}
+    {navTab === 'wallet' && (
+      <div className="space-y-6">
+        {/* Wallet Header Card */}
+        <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-amber-500/20 via-yellow-500/10 to-slate-900/90 p-6 backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 text-black shadow-lg shadow-amber-500/30">
+                <Wallet className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg sm:text-xl font-black text-white">
+                  {tr('جزدان و خەزێنەی دراوەکان', 'Coins Vault & Wallet')}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {tr('باڵانسی فەرمی دراوەکانت و چالاکییەکانی بەخشین', 'Your official coin balance, store, and gift rewards')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsShopOpen(true)}
+                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 px-4 py-2.5 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                <span>{tr('فرۆشگای دراو و VIP', 'Coins & VIP Shop')}</span>
+              </button>
+              <button
+                onClick={() => setIsWalletModalOpen(true)}
+                className="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-slate-700"
+              >
+                <Coins className="h-4 w-4 text-amber-400" />
+                <span>{tr('مێژووی جزدان', 'Wallet Details')}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Big Coins Counter */}
+          <div className="mt-6 flex flex-col sm:flex-row sm:items-end justify-between rounded-2xl border border-amber-500/20 bg-slate-950/60 p-5 gap-3">
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                {tr('باڵانسی بەردەست', 'Available Balance')}
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <Coins className="h-8 w-8 text-amber-400" />
+                <span className="font-mono text-3xl sm:text-4xl font-black text-amber-300">
+                  {user.coins.toLocaleString()}
+                </span>
+                <span className="text-sm font-bold text-amber-400/80">{tr('دراو', 'Coins')}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span>{tr('سیستەمی پارێزراوی خەزێنە', 'Protected Vault Security')}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Perks Cards Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-3">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <h4 className="font-display text-sm font-bold text-white">
+              {tr('ناردنی دیاری لە ژوورەکاندا', 'Send Gifts in Rooms')}
+            </h4>
+            <p className="mt-1 text-xs text-slate-400">
+              {tr('بە دراوەکانت پشتگیری پێشکەشکاران و بەشداربووان بکە بە دیاری ناوازە و ئەنیمەیشن.', 'Support your favorite hosts and speakers with animated gifts.')}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20 mb-3">
+              <Crown className="h-5 w-5" />
+            </div>
+            <h4 className="font-display text-sm font-bold text-white">
+              {tr('پلەی تایبەت و ڕەنگاوڕەنگ', 'VIP & Badge Titles')}
+            </h4>
+            <p className="mt-1 text-xs text-slate-400">
+              {tr('تاجی VIP، کەڤەری ئەنیمەیشن و چوارچێوەی ئاگرین بۆ پرۆفایلەکەت بەدەستبهێنە.', 'Unlock VIP badges, animated profile covers, and glowing borders.')}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 mb-3">
+              <Music className="h-5 w-5" />
+            </div>
+            <h4 className="font-display text-sm font-bold text-white">
+              {tr('سینەما و پەخشی مووزیک', 'Cinema & Music Stream')}
+            </h4>
+            <p className="mt-1 text-xs text-slate-400">
+              {tr('گۆرانی و ڤیدیۆی دڵخوازت لە ژوورەکاندا بە هاوبەشی پەخش بکە و چێژ وەربگرە.', 'Request songs and stream cinema playlists with friends in real-time.')}
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ══════════════════════════════════════════════════════════════
+        SETTINGS & ACCOUNT HUB VIEW
+        ══════════════════════════════════════════════════════════════ */}
+    {navTab === 'settings' && (
+      <div className="space-y-6">
+        {/* Settings Header Card */}
+        <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-800 border border-slate-700 text-amber-400 shadow-lg">
+              <Settings className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="font-display text-lg sm:text-xl font-black text-white">
+                {tr('ڕێکخستنەکان و هەژمار', 'Settings & Preferences')}
+              </h2>
+              <p className="text-xs text-slate-400">
+                {tr('کۆنترۆڵی هەژمار، تایبەتمەندییەکان، زمان و ئاسایشی کۆگاکەت', 'Manage profile, language, notifications, and security')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Settings Options Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* User Profile Card */}
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5 flex flex-col justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                onClick={() => openUserProfile(user.uid)}
+                className="relative flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-full overflow-hidden border border-white/10 bg-slate-800"
+              >
+                {user.avatar || user.profileImage ? (
+                  <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
+                ) : (
+                  (user.username || 'U').charAt(0).toUpperCase()
+                )}
+              </div>
+              <div>
+                <h4 className="font-display text-sm font-bold text-white">{user.username}</h4>
+                <span className="text-xs text-slate-400">ID: {user.uid.slice(0, 8)}...</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between">
+              <button
+                onClick={() => openUserProfile(user.uid)}
+                className="flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-xs font-bold text-black hover:bg-amber-400"
+              >
+                <UserIcon className="h-3.5 w-3.5" />
+                <span>{tr('دەستکاریکردنی پرۆفایل', 'Edit Profile')}</span>
+              </button>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white"
+              >
+                <span>{tr('ڕێکخستنی زیاتر', 'More')}</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Preferences Shortcut */}
+          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
+                <Settings className="h-4 w-4" />
+                <span>{tr('ڕێکخستنە سەرەکییەکان', 'Core App Settings')}</span>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-400">
+                {tr('گۆڕینی زمان، دەنگ، بەشی پارێزراوی و ئاگادارکردنەوەکان لە پەنجەرەی ڕێکخستندا.', 'Adjust language, audio preferences, and privacy controls.')}
+              </p>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-800/80">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/20"
+              >
+                <Settings className="h-4 w-4" />
+                <span>{tr('کردنەوەی پانێڵی ڕێکخستنەکان', 'Open Settings Panel')}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Hall of Fame / Leaderboard */}
+          <div
+            onClick={() => setIsLeaderboardOpen(true)}
+            className="cursor-pointer rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5 hover:border-amber-400/30 transition group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-display text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                    {t('nav.hallOfFame', 'ڕیزبەندی پاڵەوانان')}
+                  </h4>
+                  <p className="text-xs text-slate-400">{tr('بەرزترین ئاستەکان و خاوەن دراوەکان', 'Top XP and coin leaderboard')}</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+          </div>
+
+          {/* Direct Messages & Chat Center */}
+          <div
+            onClick={() => setIsChatCenterOpen(true)}
+            className="cursor-pointer rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5 hover:border-cyan-400/30 transition group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                  <MessageSquare className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-display text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                    {t('nav.messages', 'نامەی تایبەتی')}
+                  </h4>
+                  <p className="text-xs text-slate-400">{tr('گفتوگۆ لەگەڵ هاوڕێکانت', 'Direct private chat threads')}</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+          </div>
+        </div>
+
+        {/* Logout Row */}
+        <div className="pt-2">
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-2.5 text-xs font-bold text-rose-400 hover:bg-rose-500/20 transition"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>{tr('چوونەدەرەوە لە هەژمار', 'Log Out')}</span>
+          </button>
+        </div>
+      </div>
+    )}
       </main>
 
       {/* ══════════════════════════════════════════════════════════════
@@ -1299,18 +1852,20 @@ export default function Dashboard() {
         </button>
 
         <button
-          onClick={() => setIsWalletModalOpen(true)}
+          onClick={() => setNavTab('wallet')}
           className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
             navTab === 'wallet' ? 'text-amber-400' : 'text-slate-500'
           }`}
         >
           <Wallet className="h-5 w-5" />
-          <span>{t('nav.shop', 'جزدان')}</span>
+          <span>{t('nav.wallet', 'جزدان')}</span>
         </button>
 
         <button
-          onClick={() => setIsSettingsOpen(true)}
-          className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500"
+          onClick={() => setNavTab('settings')}
+          className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+            navTab === 'settings' ? 'text-amber-400' : 'text-slate-500'
+          }`}
         >
           <Settings className="h-5 w-5" />
           <span>{t('settings.title', 'ڕێکخستنەکان')}</span>

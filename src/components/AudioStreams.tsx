@@ -55,10 +55,10 @@ export default function AudioStreams({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="fixed bottom-20 left-4 right-4 z-50 mx-auto flex max-w-sm items-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 backdrop-blur-md"
+            className="fixed bottom-20 left-4 right-4 z-50 mx-auto flex max-w-md items-start gap-2.5 rounded-2xl border border-rose-500/40 bg-slate-950/95 p-3.5 text-xs text-rose-200 shadow-2xl backdrop-blur-md"
           >
-            <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
-            <span className="truncate">{connectionError}</span>
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+            <span className="leading-relaxed">{connectionError}</span>
           </motion.div>
         )}
       </AnimatePresence>

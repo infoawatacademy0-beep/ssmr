@@ -235,7 +235,14 @@ export function useVoiceRoom({
       } catch (err: any) {
         console.error('Failed to connect to LiveKit voice room:', err);
         if (isMounted) {
-          setConnectionError(err.message || 'WebRTC Voice connection failed.');
+          const rawErr = String(err?.message || err || '');
+          if (rawErr.includes('429') || rawErr.includes('signal connection') || rawErr.includes('websocket error')) {
+            setConnectionError(
+              'کێشەی سێرڤەری دەنگ (LiveKit 429 Quota Exceeded): کۆتای بەکارهێنانی سێرڤەری LiveKit گەیشتووەتە ئەوپەڕی سنوور. پێویستە کلیلەکانی LiveKit لە cloud.livekit.io نوێ بکرێنەوە.',
+            );
+          } else {
+            setConnectionError(err.message || 'WebRTC Voice connection failed.');
+          }
           setIsConnecting(false);
         }
       }
