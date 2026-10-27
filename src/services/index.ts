@@ -164,6 +164,8 @@ export {
   subscribeToDirectMessages,
   normalizeDirectMessages,
   subscribeToUserInbox,
+  markThreadAsRead,
+  subscribeToUnreadDirectMessagesCount,
 } from './chatService';
 
 export {

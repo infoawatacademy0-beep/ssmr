@@ -30,4 +30,7 @@ export interface UserInboxItem {
   lastMessageTimestamp: number;
   lastSenderUid: string;
   threadId: string;
+  unread?: boolean;
+  unreadCount?: number;
+  lastReadTimestamp?: number;
 }

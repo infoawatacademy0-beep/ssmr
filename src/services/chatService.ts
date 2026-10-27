@@ -159,6 +159,15 @@ export async function sendDirectMessage(params: {
       const senderInboxRef = ref(database, `userInboxes/${senderUid}/${targetUid}`);
       const recipientInboxRef = ref(database, `userInboxes/${targetUid}/${senderUid}`);
 
+      // Query current recipient unread count to increment
+      let prevRecipientUnread = 0;
+      try {
+        const snap = await get(recipientInboxRef);
+        if (snap.exists()) {
+          prevRecipientUnread = Number(snap.val()?.unreadCount) || 0;
+        }
+      } catch {}
+
       await set(senderInboxRef, {
         recipientUid: targetUid,
         recipientName: params.recipientName || 'User',
@@ -167,6 +176,9 @@ export async function sendDirectMessage(params: {
         lastMessageTimestamp: now,
         lastSenderUid: senderUid,
         threadId,
+        unread: false,
+        unreadCount: 0,
+        lastReadTimestamp: now,
       });
 
       await set(recipientInboxRef, {
@@ -177,6 +189,8 @@ export async function sendDirectMessage(params: {
         lastMessageTimestamp: now,
         lastSenderUid: senderUid,
         threadId,
+        unread: true,
+        unreadCount: prevRecipientUnread + 1,
       });
     } catch (inboxErr) {
       console.warn('Inbox metadata update non-critical warning:', inboxErr);
@@ -184,6 +198,46 @@ export async function sendDirectMessage(params: {
   }
 
   return messageId;
+}
+
+/**
+ * Marks a direct message thread as read by the current user.
+ */
+export async function markThreadAsRead(currentUid: string, otherUid: string): Promise<void> {
+  if (!currentUid || !otherUid) return;
+  try {
+    const inboxItemRef = ref(database, `userInboxes/${currentUid}/${otherUid}`);
+    await update(inboxItemRef, {
+      unread: false,
+      unreadCount: 0,
+      lastReadTimestamp: Date.now(),
+    });
+  } catch (err) {
+    console.warn('Failed to mark thread as read:', err);
+  }
+}
+
+/**
+ * Subscribes to the count of unread Direct Message threads for a user.
+ */
+export function subscribeToUnreadDirectMessagesCount(
+  uid: string,
+  onUpdate: (count: number) => void,
+): Unsubscribe {
+  const inboxRef = ref(database, `userInboxes/${uid}`);
+
+  return onValue(inboxRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate(0);
+      return;
+    }
+    const val = snapshot.val();
+    const list: UserInboxItem[] = Object.values(val);
+    const unreadCount = list.filter(
+      (item) => item.lastSenderUid !== uid && (item.unread === true || (item.unreadCount && item.unreadCount > 0)),
+    ).length;
+    onUpdate(unreadCount);
+  });
 }
 
 /**

@@ -68,6 +68,7 @@ import {
   subscribeToUserVisitors,
   subscribeToUnreadCount,
   subscribeToUserInbox,
+  subscribeToUnreadDirectMessagesCount,
   subscribeToFollowersCount,
   subscribeToFollowingCount,
   subscribeToFriendsCount,
@@ -204,6 +205,7 @@ export default function Dashboard() {
   const [friendsCount, setFriendsCount] = useState(0);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
   const [inboxThreadsCount, setInboxThreadsCount] = useState(0);
+  const [unreadDMsCount, setUnreadDMsCount] = useState(0);
 
   // Live Followers, Following & Friends counts
   useEffect(() => {
@@ -238,13 +240,20 @@ export default function Dashboard() {
     };
   }, [user?.uid]);
 
-  // Live active chat threads count
+  // Live active chat threads count and unread messages count
   useEffect(() => {
     if (!user?.uid) return;
-    const unsub = subscribeToUserInbox(user.uid, (threads) => {
+    const unsubInbox = subscribeToUserInbox(user.uid, (threads) => {
       setInboxThreadsCount(threads.length);
     });
-    return () => unsub();
+    const unsubUnread = subscribeToUnreadDirectMessagesCount(user.uid, (count) => {
+      setUnreadDMsCount(count);
+    });
+
+    return () => {
+      unsubInbox();
+      unsubUnread();
+    };
   }, [user?.uid]);
 
   // 1. Subscribe to all live voice rooms for Explore & Dashboard
@@ -526,17 +535,26 @@ export default function Dashboard() {
 
             <button
               onClick={() => setIsChatCenterOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
+              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white group"
             >
               <div className="flex items-center gap-3">
-                <MessageSquare className="h-4 w-4 text-cyan-400" />
+                <div className="relative">
+                  <MessageSquare className="h-4 w-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                  {unreadDMsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-rose-500 animate-ping" />
+                  )}
+                </div>
                 <span>{t('nav.messages', 'نامەی تایبەتی')}</span>
               </div>
-              {inboxThreadsCount > 0 && (
-                <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-bold border border-cyan-500/30">
+              {unreadDMsCount > 0 ? (
+                <span className="flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[9px] font-black shadow-md shadow-rose-500/30 animate-pulse border border-white/20">
+                  {unreadDMsCount} {tr('نوێ', 'New')}
+                </span>
+              ) : inboxThreadsCount > 0 ? (
+                <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold border border-slate-700/60">
                   {inboxThreadsCount}
                 </span>
-              )}
+              ) : null}
             </button>
 
             <button
@@ -657,15 +675,19 @@ export default function Dashboard() {
 
             <button
               onClick={() => setIsChatCenterOpen(true)}
-              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-cyan-400"
-              title="Direct Chat"
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-slate-900 text-cyan-400 hover:bg-slate-800 transition"
+              title={tr('نامەی تایبەتی', 'Direct Messages')}
             >
               <MessageSquare className="h-4 w-4" />
-              {inboxThreadsCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-cyan-500 text-[8px] font-bold text-black flex items-center justify-center">
-                  {inboxThreadsCount}
+              {unreadDMsCount > 0 ? (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-lg shadow-rose-500/50 animate-pulse border border-white/20">
+                  {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
                 </span>
-              )}
+              ) : inboxThreadsCount > 0 ? (
+                <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-cyan-500/80 text-[8px] font-bold text-black flex items-center justify-center">
+                  {inboxThreadsCount > 9 ? '9+' : inboxThreadsCount}
+                </span>
+              ) : null}
             </button>
 
             <button
@@ -1560,18 +1582,32 @@ export default function Dashboard() {
           {/* Direct Messages & Chat Center */}
           <div
             onClick={() => setIsChatCenterOpen(true)}
-            className="cursor-pointer rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5 hover:border-cyan-400/30 transition group"
+            className={`cursor-pointer rounded-3xl border p-5 transition group ${
+              unreadDMsCount > 0
+                ? 'border-cyan-400/50 bg-gradient-to-r from-cyan-950/40 via-slate-900/60 to-slate-900/80 shadow-lg shadow-cyan-500/10'
+                : 'border-slate-800/80 bg-slate-900/50 hover:border-cyan-400/30'
+            }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-105 transition-transform">
                   <MessageSquare className="h-5 w-5" />
+                  {unreadDMsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-rose-500 animate-ping" />
+                  )}
                 </div>
                 <div>
-                  <h4 className="font-display text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
-                    {t('nav.messages', 'نامەی تایبەتی')}
-                  </h4>
-                  <p className="text-xs text-slate-400">{tr('گفتوگۆ لەگەڵ هاوڕێکانت', 'Direct private chat threads')}</p>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-display text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
+                      {t('nav.messages', 'نامەی تایبەتی')}
+                    </h4>
+                    {unreadDMsCount > 0 && (
+                      <span className="flex items-center gap-1 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-2 py-0.5 text-[9px] font-black text-white shadow-md shadow-rose-500/40 animate-pulse">
+                        {unreadDMsCount} {tr('نامەی نوێ', 'New Messages')}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">{tr('گفتوگۆی ڕاستەوخۆ لەگەڵ هاوڕێکانت', 'Direct private chat threads')}</p>
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
@@ -1851,6 +1887,22 @@ export default function Dashboard() {
           <Plus className="h-6 w-6" />
         </button>
 
+        {/* Direct Messages Mobile Tab with Real-time Unread Badge */}
+        <button
+          onClick={() => setIsChatCenterOpen(true)}
+          className="relative flex flex-col items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-cyan-400 active:scale-95 transition"
+        >
+          <div className="relative">
+            <MessageSquare className="h-5 w-5 text-cyan-400/90" />
+            {unreadDMsCount > 0 && (
+              <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-lg shadow-rose-500/50 animate-pulse border border-white/20">
+                {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
+              </span>
+            )}
+          </div>
+          <span className={unreadDMsCount > 0 ? 'text-rose-400 font-bold' : ''}>{tr('نامەکان', 'Messages')}</span>
+        </button>
+
         <button
           onClick={() => setNavTab('wallet')}
           className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
@@ -1868,7 +1920,7 @@ export default function Dashboard() {
           }`}
         >
           <Settings className="h-5 w-5" />
-          <span>{t('settings.title', 'ڕێکخستنەکان')}</span>
+          <span>{t('settings.title', 'ڕێکخستن')}</span>
         </button>
       </nav>
 

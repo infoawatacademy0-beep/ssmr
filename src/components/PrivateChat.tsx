@@ -28,6 +28,7 @@ import {
   getThreadId,
   sendDirectMessage,
   subscribeToDirectMessages,
+  markThreadAsRead,
   subscribeToUserPresence,
   subscribeToFollowState,
   followUser,
@@ -143,9 +144,10 @@ export default function PrivateChat({
   useEffect(() => {
     const unsubscribe = subscribeToDirectMessages(threadId, (updatedMessages) => {
       setMessages(updatedMessages);
+      markThreadAsRead(currentUser.uid, recipientUser.uid);
     });
     return () => unsubscribe();
-  }, [threadId]);
+  }, [threadId, currentUser.uid, recipientUser.uid]);
 
   // 2. Subscribe to recipient's live presence
   useEffect(() => {

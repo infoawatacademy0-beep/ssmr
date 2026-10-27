@@ -87,6 +87,7 @@ import {
   updateRoomSeatCount,
   moveUserToSeat,
   assignUserToSeat,
+  subscribeToUnreadDirectMessagesCount,
 } from '../services';
 import { useVoiceRoom } from '../hooks/useVoiceRoom';
 import JackarooGamePanel from './JackarooGamePanel';
@@ -103,6 +104,7 @@ import CinemaConfigModal from './CinemaConfigModal';
 import AudienceGrid from './AudienceGrid';
 import ReportModal from './ReportModal';
 import PrivateChat from './PrivateChat';
+import ChatCenterModal from './ChatCenterModal';
 import HostControlsPanel from './HostControlsPanel';
 import RoomInviteModal from './RoomInviteModal';
 import IncomingChatToast from './IncomingChatToast';
@@ -229,6 +231,15 @@ export default function VoiceRoom() {
     username: string;
     avatar?: string;
   } | null>(null);
+  const [isChatCenterOpen, setIsChatCenterOpen] = useState(false);
+  const [unreadDMsCount, setUnreadDMsCount] = useState(0);
+
+  // Live Unread Direct Messages subscription inside Voice Room
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = subscribeToUnreadDirectMessagesCount(user.uid, setUnreadDMsCount);
+    return () => unsub();
+  }, [user?.uid]);
 
   // User Profile Modal state inside room
   const [selectedProfileUid, setSelectedProfileUid] = useState<string | null>(null);
@@ -849,6 +860,20 @@ export default function VoiceRoom() {
             <span className="hidden sm:inline">{tr('بانگهێشت', 'Invite')}</span>
           </button>
 
+          {/* Direct Messenger Button with Real-time Unread Badge (Inside Voice Room) */}
+          <button
+            onClick={() => setIsChatCenterOpen(true)}
+            className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 active:scale-95 transition"
+            title={tr('نامەی تایبەتی', 'Direct Messages')}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            {unreadDMsCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] px-0.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-md shadow-rose-500/50 animate-pulse border border-white/20">
+                {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
+              </span>
+            )}
+          </button>
+
           {/* Cinema Active Pill (Only when cinema is currently broadcasting) */}
           {cinemaState?.isActive && (
             <button
@@ -922,6 +947,26 @@ export default function VoiceRoom() {
                         <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0" />
                         <span>{tr('ڕاپۆرتکردنی ئەم ژوورە', 'Report Room')}</span>
                       </div>
+                    </button>
+
+                    {/* Direct Messages Center */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTopHeaderMenuOpen(false);
+                        setIsChatCenterOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <MessageSquare className="h-4 w-4 text-cyan-400 shrink-0" />
+                        <span>{tr('نامەی تایبەتی (Direct)', 'Direct Messages')}</span>
+                      </div>
+                      {unreadDMsCount > 0 && (
+                        <span className="rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-1.5 py-0.2 text-[9px] font-black text-white shadow-sm animate-pulse border border-white/20">
+                          {unreadDMsCount} {tr('نوێ', 'New')}
+                        </span>
+                      )}
                     </button>
 
                     {/* 2. Cinema & Movie Mode (Host or Admin) */}
@@ -2743,6 +2788,24 @@ export default function VoiceRoom() {
             currentUser={user}
             recipientUser={activeChatRecipient}
             onClose={() => setActiveChatRecipient(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Direct Messages Center Modal (Inside Voice Room) */}
+      <AnimatePresence>
+        {isChatCenterOpen && user && (
+          <ChatCenterModal
+            currentUser={user}
+            onClose={() => setIsChatCenterOpen(false)}
+            onSelectUser={(recipient) => {
+              setIsChatCenterOpen(false);
+              setActiveChatRecipient({
+                uid: recipient.uid,
+                username: recipient.username,
+                avatar: recipient.avatar ?? undefined,
+              });
+            }}
           />
         )}
       </AnimatePresence>

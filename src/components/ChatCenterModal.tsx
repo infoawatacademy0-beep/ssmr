@@ -8,7 +8,7 @@ import {
   Plus,
 } from 'lucide-react';
 import type { User, UserInboxItem } from '../types';
-import { subscribeToUserInbox, searchUsersByUsername } from '../services';
+import { subscribeToUserInbox, searchUsersByUsername, markThreadAsRead } from '../services';
 import { useLanguage } from '../contexts';
 
 interface ChatCenterModalProps {
@@ -144,7 +144,14 @@ export default function ChatCenterModal({
               }`}
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              <span>{tr('گفتوگۆکان', 'Conversations')} ({inboxThreads.length})</span>
+              <span>{tr('گفتوگۆکان', 'Conversations')}</span>
+              {inboxThreads.filter((t) => t.lastSenderUid !== currentUser.uid && Boolean(t.unread || (t.unreadCount && t.unreadCount > 0))).length > 0 ? (
+                <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[9px] font-black text-white shadow-sm animate-pulse">
+                  {inboxThreads.filter((t) => t.lastSenderUid !== currentUser.uid && Boolean(t.unread || (t.unreadCount && t.unreadCount > 0))).length}
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-500 font-mono">({inboxThreads.length})</span>
+              )}
             </button>
 
             <button
@@ -186,49 +193,74 @@ export default function ChatCenterModal({
                   </button>
                 </div>
               ) : (
-                filteredInbox.map((item) => (
-                  <button
-                    key={item.threadId || item.recipientUid}
-                    onClick={() => {
-                      onSelectUser({
-                        uid: item.recipientUid,
-                        username: item.recipientName,
-                        avatar: item.recipientAvatar,
-                      });
-                      onClose();
-                    }}
-                    className="flex w-full items-center gap-3.5 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-3 text-left transition hover:border-cyan-500/40 hover:bg-slate-900/90 hover:scale-[1.01]"
-                  >
-                    <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 font-bold text-white shadow-md">
-                      {item.recipientAvatar ? (
-                        <img
-                          src={item.recipientAvatar}
-                          alt={item.recipientName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        item.recipientName.charAt(0).toUpperCase()
-                      )}
-                    </div>
+                filteredInbox.map((item) => {
+                  const isUnread =
+                    item.lastSenderUid !== currentUser.uid &&
+                    Boolean(item.unread || (item.unreadCount && item.unreadCount > 0));
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-sm text-white truncate">
-                          {item.recipientName}
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-500 shrink-0">
-                          {formatInboxTime(item.lastMessageTimestamp, isEn)}
-                        </span>
+                  return (
+                    <button
+                      key={item.threadId || item.recipientUid}
+                      onClick={() => {
+                        markThreadAsRead(currentUser.uid, item.recipientUid);
+                        onSelectUser({
+                          uid: item.recipientUid,
+                          username: item.recipientName,
+                          avatar: item.recipientAvatar,
+                        });
+                        onClose();
+                      }}
+                      className={`flex w-full items-center gap-3.5 rounded-2xl border p-3 text-left transition hover:scale-[1.01] ${
+                        isUnread
+                          ? 'border-cyan-500/50 bg-cyan-950/25 shadow-md shadow-cyan-500/10 hover:border-cyan-400 hover:bg-cyan-950/40'
+                          : 'border-slate-800/80 bg-slate-900/50 hover:border-cyan-500/40 hover:bg-slate-900/90'
+                      }`}
+                    >
+                      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 font-bold text-white shadow-md">
+                        {item.recipientAvatar ? (
+                          <img
+                            src={item.recipientAvatar}
+                            alt={item.recipientName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          item.recipientName.charAt(0).toUpperCase()
+                        )}
+                        {isUnread && (
+                          <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-950 animate-pulse" />
+                        )}
                       </div>
-                      <p className="text-xs text-slate-400 truncate mt-0.5">
-                        {item.lastSenderUid === currentUser.uid ? tr('تۆ: ', 'You: ') : ''}
-                        {item.lastMessage || tr('فایلی نارد', 'Sent an attachment')}
-                      </p>
-                    </div>
 
-                    <ArrowRight className="h-4 w-4 text-slate-600 shrink-0" />
-                  </button>
-                ))
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-bold text-sm text-white truncate flex items-center gap-1.5">
+                            {item.recipientName}
+                            {isUnread && (
+                              <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 px-1.5 py-0.2 text-[9px] font-black">
+                                {tr('نوێ', 'New')}
+                              </span>
+                            )}
+                          </span>
+                          <span className={`text-[10px] font-medium shrink-0 ${isUnread ? 'text-cyan-300 font-bold' : 'text-slate-500'}`}>
+                            {formatInboxTime(item.lastMessageTimestamp, isEn)}
+                          </span>
+                        </div>
+                        <p className={`text-xs truncate mt-0.5 ${isUnread ? 'text-white font-semibold' : 'text-slate-400'}`}>
+                          {item.lastSenderUid === currentUser.uid ? tr('تۆ: ', 'You: ') : ''}
+                          {item.lastMessage || tr('فایلی نارد', 'Sent an attachment')}
+                        </p>
+                      </div>
+
+                      {isUnread && item.unreadCount && item.unreadCount > 1 ? (
+                        <span className="flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-black shadow-md shadow-rose-500/40 shrink-0">
+                          {item.unreadCount}
+                        </span>
+                      ) : (
+                        <ArrowRight className="h-4 w-4 text-slate-600 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })
               )}
             </>
           )}
