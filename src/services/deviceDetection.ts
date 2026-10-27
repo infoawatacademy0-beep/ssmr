@@ -7,24 +7,25 @@ import type { UserDeviceInfo } from '../types';
  */
 function resolveIPhoneModel(width: number, height: number, dpr: number): string {
   // Normalize landscape/portrait to portrait
-  const w = Math.min(width, height);
-  const h = Math.max(width, height);
+  const w = Math.round(Math.min(width, height));
+  const h = Math.round(Math.max(width, height));
+  const match = (tw: number, th: number) => Math.abs(w - tw) <= 3 && Math.abs(h - th) <= 3;
 
   // Exact resolution check (pt and px)
-  if (w === 440 && h === 956) return 'iPhone 16 Pro Max';
-  if (w === 402 && h === 874) return 'iPhone 16 Pro';
-  if (w === 430 && h === 932) return 'iPhone 16 Plus / 15 Pro Max / 14 Pro Max';
-  if (w === 393 && h === 852) return 'iPhone 16 / 15 / 15 Pro / 14 Pro';
-  if (w === 428 && h === 926) return 'iPhone 14 Plus / 13 Pro Max / 12 Pro Max';
-  if (w === 390 && h === 844) return 'iPhone 14 / 13 / 13 Pro / 12 / 12 Pro';
-  if (w === 360 && h === 780) return 'iPhone 13 mini / 12 mini';
-  if (w === 414 && h === 896) {
-    return dpr === 3 ? 'iPhone 11 Pro Max / XS Max' : 'iPhone 11 / XR';
+  if (match(440, 956)) return 'iPhone 16 Pro Max';
+  if (match(402, 874)) return 'iPhone 16 Pro';
+  if (match(430, 932)) return 'iPhone 16 Plus / 15 Pro Max / 14 Pro Max';
+  if (match(393, 852)) return 'iPhone 16 / 15 / 15 Pro / 14 Pro';
+  if (match(428, 926)) return 'iPhone 14 Plus / 13 Pro Max / 12 Pro Max';
+  if (match(390, 844)) return 'iPhone 14 / 13 / 13 Pro / 12 / 12 Pro';
+  if (match(360, 780)) return 'iPhone 13 mini / 12 mini';
+  if (match(414, 896)) {
+    return dpr >= 2.5 ? 'iPhone 11 Pro Max / XS Max' : 'iPhone 11 / XR';
   }
-  if (w === 375 && h === 812) return 'iPhone 11 Pro / XS / X';
-  if (w === 414 && h === 736) return 'iPhone 8 Plus / 7 Plus / 6s Plus';
-  if (w === 375 && h === 667) return 'iPhone SE (2nd/3rd gen) / iPhone 8 / 7';
-  if (w === 320 && h === 568) return 'iPhone SE (1st gen) / 5s';
+  if (match(375, 812)) return 'iPhone 11 Pro / XS / X';
+  if (match(414, 736)) return 'iPhone 8 Plus / 7 Plus / 6s Plus';
+  if (match(375, 667)) return 'iPhone SE (2nd/3rd gen) / iPhone 8 / 7';
+  if (match(320, 568)) return 'iPhone SE (1st gen) / 5s';
 
   return 'iPhone (Apple Mobile)';
 }
@@ -52,6 +53,9 @@ function resolveAndroidModel(rawModel: string): string {
   if (upper.includes('SM-G988')) return 'Samsung Galaxy S20 Ultra';
   if (upper.includes('SM-G986')) return 'Samsung Galaxy S20+';
   if (upper.includes('SM-G980')) return 'Samsung Galaxy S20';
+  if (upper.includes('SM-N986')) return 'Samsung Galaxy Note 20 Ultra';
+  if (upper.includes('SM-N981')) return 'Samsung Galaxy Note 20';
+  if (upper.includes('SM-N975')) return 'Samsung Galaxy Note 10+';
 
   // Samsung Galaxy Z Fold & Flip
   if (upper.includes('SM-F956')) return 'Samsung Galaxy Z Fold 6';
@@ -61,17 +65,24 @@ function resolveAndroidModel(rawModel: string): string {
   if (upper.includes('SM-F936')) return 'Samsung Galaxy Z Fold 4';
   if (upper.includes('SM-F721')) return 'Samsung Galaxy Z Flip 4';
 
-  // Samsung Galaxy A series
+  // Samsung Galaxy A & M series
   if (upper.includes('SM-A556')) return 'Samsung Galaxy A55 5G';
   if (upper.includes('SM-A546')) return 'Samsung Galaxy A54 5G';
   if (upper.includes('SM-A536')) return 'Samsung Galaxy A53 5G';
+  if (upper.includes('SM-A528') || upper.includes('SM-A526') || upper.includes('SM-A525')) return 'Samsung Galaxy A52s / A52';
   if (upper.includes('SM-A356')) return 'Samsung Galaxy A35 5G';
   if (upper.includes('SM-A346')) return 'Samsung Galaxy A34 5G';
+  if (upper.includes('SM-A256')) return 'Samsung Galaxy A25 5G';
+  if (upper.includes('SM-A245')) return 'Samsung Galaxy A24';
   if (upper.includes('SM-A156') || upper.includes('SM-A155')) return 'Samsung Galaxy A15';
   if (upper.includes('SM-A146') || upper.includes('SM-A145')) return 'Samsung Galaxy A14';
+  if (upper.includes('SM-A137') || upper.includes('SM-A135')) return 'Samsung Galaxy A13';
+  if (upper.includes('SM-A057') || upper.includes('SM-A055')) return 'Samsung Galaxy A05s / A05';
+  if (upper.includes('SM-A047') || upper.includes('SM-A045') || upper.includes('SM-A042')) return 'Samsung Galaxy A04';
   if (upper.startsWith('SM-') || upper.startsWith('SAMSUNG')) return `Samsung Galaxy (${model})`;
 
   // Google Pixel
+  if (/Pixel 9 Pro XL/i.test(model)) return 'Google Pixel 9 Pro XL';
   if (/Pixel 9 Pro/i.test(model)) return 'Google Pixel 9 Pro';
   if (/Pixel 9/i.test(model)) return 'Google Pixel 9';
   if (/Pixel 8 Pro/i.test(model)) return 'Google Pixel 8 Pro';
@@ -80,22 +91,56 @@ function resolveAndroidModel(rawModel: string): string {
   if (/Pixel 7 Pro/i.test(model)) return 'Google Pixel 7 Pro';
   if (/Pixel 7a/i.test(model)) return 'Google Pixel 7a';
   if (/Pixel 7/i.test(model)) return 'Google Pixel 7';
+  if (/Pixel 6 Pro/i.test(model)) return 'Google Pixel 6 Pro';
+  if (/Pixel 6a/i.test(model)) return 'Google Pixel 6a';
   if (/Pixel 6/i.test(model)) return 'Google Pixel 6';
   if (/Pixel/i.test(model)) return `Google ${model}`;
 
   // Xiaomi & Redmi & POCO
+  if (/23116PN5BC|Xiaomi 14/i.test(model)) return 'Xiaomi 14';
+  if (/Xiaomi 13/i.test(model)) return 'Xiaomi 13';
+  if (/Redmi Note 13 Pro/i.test(model)) return 'Xiaomi Redmi Note 13 Pro';
   if (/Redmi Note 13/i.test(model)) return 'Xiaomi Redmi Note 13';
+  if (/Redmi Note 12 Pro/i.test(model)) return 'Xiaomi Redmi Note 12 Pro';
   if (/Redmi Note 12/i.test(model)) return 'Xiaomi Redmi Note 12';
   if (/Redmi Note 11/i.test(model)) return 'Xiaomi Redmi Note 11';
+  if (/POCO F6/i.test(model)) return 'POCO F6';
+  if (/POCO X6 Pro/i.test(model)) return 'POCO X6 Pro';
+  if (/POCO X6/i.test(model)) return 'POCO X6';
+  if (/POCO X5/i.test(model)) return 'POCO X5';
   if (/Redmi/i.test(model)) return `Xiaomi ${model}`;
   if (/POCO/i.test(model)) return `POCO (${model})`;
   if (/Xiaomi/i.test(model) || /Mi /i.test(model)) return `Xiaomi ${model}`;
 
-  // Huawei & Honor
-  if (/HUAWEI/i.test(model) || /HONOR/i.test(model)) return model;
+  // Honor & Huawei
+  if (/Honor 200/i.test(model)) return 'Honor 200';
+  if (/Honor 90/i.test(model)) return 'Honor 90';
+  if (/Honor 70/i.test(model)) return 'Honor 70';
+  if (/Honor X9/i.test(model)) return 'Honor X9';
+  if (/Honor X8/i.test(model)) return 'Honor X8';
+  if (/Honor X7/i.test(model)) return 'Honor X7';
+  if (/Magic/i.test(model)) return `Honor ${model}`;
+  if (/HONOR/i.test(model)) return model;
+  if (/Pura 70/i.test(model)) return 'Huawei Pura 70';
+  if (/Mate 60/i.test(model)) return 'Huawei Mate 60';
+  if (/Mate 50/i.test(model)) return 'Huawei Mate 50';
+  if (/nova 12/i.test(model)) return 'Huawei nova 12';
+  if (/nova 11/i.test(model)) return 'Huawei nova 11';
+  if (/HUAWEI/i.test(model)) return model;
+
+  // Tecno & Infinix
+  if (/Infinix/i.test(model) || /^X68/i.test(model)) return `Infinix (${model})`;
+  if (/Tecno|Spark|Camon|Pova/i.test(model) || /^KJ/i.test(model) || /^CK/i.test(model)) return `Tecno (${model})`;
 
   // OnePlus
-  if (/OnePlus/i.test(model)) return model;
+  if (/OnePlus 12/i.test(model)) return 'OnePlus 12';
+  if (/OnePlus 11/i.test(model)) return 'OnePlus 11';
+  if (/OnePlus/i.test(model) || /^CPH/i.test(model)) return model.startsWith('CPH') ? `OnePlus (${model})` : model;
+
+  // Oppo & Realme & Vivo
+  if (/Realme/i.test(model) || /^RMX/i.test(model)) return `Realme (${model})`;
+  if (/OPPO/i.test(model) || /^CPH/i.test(model)) return `Oppo (${model})`;
+  if (/vivo/i.test(model) || /^V2/i.test(model)) return `Vivo (${model})`;
 
   // Other phones
   if (model.length > 0 && model !== 'Android' && model !== 'K') {
@@ -110,8 +155,8 @@ function resolveAndroidModel(rawModel: string): string {
  */
 export async function captureDeviceInfo(): Promise<UserDeviceInfo> {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const width = typeof window !== 'undefined' ? window.innerWidth || window.screen?.width || 0 : 0;
-  const height = typeof window !== 'undefined' ? window.innerHeight || window.screen?.height || 0 : 0;
+  const width = typeof window !== 'undefined' ? (window.screen?.width || window.innerWidth || 0) : 0;
+  const height = typeof window !== 'undefined' ? (window.screen?.height || window.innerHeight || 0) : 0;
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const screenStr = `${width}x${height} (@${dpr.toFixed(1)}x)`;
 

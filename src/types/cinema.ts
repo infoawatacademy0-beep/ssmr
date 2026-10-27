@@ -15,6 +15,8 @@ export interface RoomCinemaState {
   pausedByName?: string;
   pausedByUid?: string;
   seatCount?: number;
+  syncType?: 'seek' | 'play_pause' | 'heartbeat' | 'movie_change';
+  seekSeq?: number;
 }
 
 export interface StartCinemaPayload {

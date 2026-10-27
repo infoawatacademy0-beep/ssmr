@@ -33,6 +33,8 @@ export async function startCinemaMode(
     isPlaying: true,
     currentTime: 0,
     lastUpdated: Date.now(),
+    syncType: 'movie_change',
+    seekSeq: Date.now(),
     updatedByUid: payload.hostUid,
     updatedByName: payload.hostName,
     seatCount: safeSeats,
@@ -60,7 +62,7 @@ export async function startCinemaMode(
 }
 
 /**
- * Updates video playback state (Play/Pause, Seek).
+ * Updates video playback state (Play/Pause, Seek, Heartbeat).
  * Synced across all connected clients in real-time.
  */
 export async function updateCinemaPlayback(
@@ -70,12 +72,15 @@ export async function updateCinemaPlayback(
   user?: { uid: string; username: string },
   duration?: number,
   pausedByName?: string | null,
+  syncType: 'seek' | 'play_pause' | 'heartbeat' = 'seek',
 ): Promise<void> {
   const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
   const updates: Record<string, any> = {
     isPlaying,
     currentTime: Math.max(0, currentTime),
     lastUpdated: Date.now(),
+    syncType,
+    ...(syncType === 'seek' ? { seekSeq: Date.now() } : {}),
     ...(duration !== undefined && duration > 0 ? { duration } : {}),
     ...(user ? { updatedByUid: user.uid, updatedByName: user.username } : {}),
   };
@@ -90,6 +95,20 @@ export async function updateCinemaPlayback(
   }
 
   await update(cinemaRef, updates);
+}
+
+/**
+ * Safely updates only movie duration in Firebase without resetting currentTime or triggering seek jumps.
+ */
+export async function updateCinemaDuration(
+  roomId: string,
+  duration: number,
+): Promise<void> {
+  if (!duration || !Number.isFinite(duration) || duration <= 0) return;
+  const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
+  await update(cinemaRef, {
+    duration: Math.round(duration),
+  });
 }
 
 /**
@@ -116,6 +135,8 @@ export async function setCinemaVideoUrl(
     currentTime: 0,
     isPlaying: true,
     lastUpdated: Date.now(),
+    syncType: 'movie_change',
+    seekSeq: Date.now(),
     updatedByUid: user.uid,
     updatedByName: user.username,
     ...(cleanSeatCount !== undefined ? { seatCount: cleanSeatCount } : {}),

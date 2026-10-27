@@ -39,6 +39,7 @@ import type { RoomCinemaState, Seat, User, AudienceMember, ChatMessage, SavedCin
 import { getVipAvatarClass } from '../types';
 import {
   updateCinemaPlayback,
+  updateCinemaDuration,
   updateCinemaSeatCount,
   subscribeToCinemaPlaylist,
   switchCinemaMovie,
@@ -140,8 +141,8 @@ export default function CinemaPlayerPanel({
   const [isSeeking, setIsSeeking] = useState(false);
   const [pauseToastUser, setPauseToastUser] = useState<string | null>(null);
   const prevIsPlayingRef = useRef<boolean>(cinemaState.isPlaying);
-  const lastHandledUpdateRef = useRef<number>(0);
-  const isInitialSyncRef = useRef<boolean>(true);
+  const hasSyncedInitialRef = useRef<boolean>(false);
+  const lastHandledSeekSeqRef = useRef<number>(cinemaState.seekSeq || 0);
 
   // Saved Movies Playlist State
   const [isPlaylistDrawerOpen, setIsPlaylistDrawerOpen] = useState(false);
@@ -446,15 +447,15 @@ export default function CinemaPlayerPanel({
   useEffect(() => {
     setVideoError(false);
     setAudioBlockedNotice(false);
-    isInitialSyncRef.current = true;
-    lastHandledUpdateRef.current = 0;
+    hasSyncedInitialRef.current = false;
+    lastHandledSeekSeqRef.current = cinemaState.seekSeq || 0;
     if (videoRef.current) {
       videoRef.current.load();
     }
   }, [cinemaState.videoUrl]);
 
   // ─────────────────────────────────────────────────────────────
-  // VIDEO PLAYBACK & EXPLICIT SYNC HANDLER
+  // VIDEO PLAYBACK & JITTER-FREE SYNC HANDLER
   // ─────────────────────────────────────────────────────────────
   const serverOffsetRef = useRef<number>(0);
 
@@ -505,25 +506,72 @@ export default function CinemaPlayerPanel({
       video.pause();
     }
 
-    // 2. Position synchronization: ONLY on initial load or explicit user action (Seek/Change Movie)
-    // NEVER jump or skip video during normal playback so users with slow internet don't lose any scenes!
-    const isExplicitAction =
-      isInitialSyncRef.current ||
-      cinemaState.lastUpdated !== lastHandledUpdateRef.current;
+    // 2. EXPLICIT SEEK SYNC:
+    // Only triggered when host/user actively moves the timeline (+10s, -10s, scrub, or new movie)
+    const isExplicitSeek =
+      cinemaState.syncType === 'seek' ||
+      cinemaState.syncType === 'movie_change' ||
+      (Boolean(cinemaState.seekSeq) && cinemaState.seekSeq !== lastHandledSeekSeqRef.current);
 
-    if (isExplicitAction) {
-      lastHandledUpdateRef.current = cinemaState.lastUpdated;
-      isInitialSyncRef.current = false;
-
-      const expectedTime = getExpectedLiveTime();
-      if (Number.isFinite(expectedTime)) {
-        video.currentTime = expectedTime;
+    if (isExplicitSeek && cinemaState.seekSeq) {
+      lastHandledSeekSeqRef.current = cinemaState.seekSeq;
+      const targetTime = cinemaState.currentTime || 0;
+      if (Number.isFinite(targetTime) && Math.abs(video.currentTime - targetTime) > 1.5) {
+        video.currentTime = targetTime;
         if (!isSeeking) {
-          setCurrentTime(expectedTime);
+          setCurrentTime(targetTime);
         }
       }
+      return;
     }
-  }, [cinemaState.isPlaying, cinemaState.currentTime, cinemaState.lastUpdated, cinemaState.videoUrl, isSeeking, getExpectedLiveTime]);
+
+    // 3. HEARTBEAT / PERIODIC PLAYBACK SYNC:
+    // If the video is currently playing, NEVER dump buffer or jump backwards!
+    // Uses smooth micro-playback-rate adjustments so viewers never miss scenes or get jolted backwards.
+    if (cinemaState.isPlaying && !video.paused && !video.seeking) {
+      const expectedTime = getExpectedLiveTime();
+      if (!Number.isFinite(expectedTime)) return;
+
+      // Guard against invalid zero updates during active playback
+      if (expectedTime < 2 && video.currentTime > 10) {
+        return;
+      }
+
+      // diff = expected - current
+      // Positive: viewer is behind expected
+      // Negative: viewer is ahead of expected
+      const diff = expectedTime - video.currentTime;
+
+      // A. Small drift (within 6 seconds): Smooth dynamic micro-rate (imperceptible, preserves audio pitch)
+      if (Math.abs(diff) <= 6) {
+        if (diff > 1.5) {
+          // Slightly behind: speed up imperceptibly by 4% to catch up seamlessly
+          video.playbackRate = 1.04;
+        } else if (diff < -1.5) {
+          // Slightly ahead: slow down imperceptibly by 4% to let host align
+          video.playbackRate = 0.96;
+        } else {
+          // Perfectly synced
+          video.playbackRate = 1.0;
+        }
+      } else if (diff > 14 && !video.seeking && video.readyState >= 3) {
+        // Audience fell severely behind (> 14s, e.g. severe WiFi interruption)
+        // Gently seek FORWARD to current live position, NEVER backwards!
+        video.playbackRate = 1.0;
+        video.currentTime = expectedTime;
+      }
+      // Note: If diff < -6 (audience is ahead because host buffered), NEVER jump backwards!
+    }
+  }, [
+    cinemaState.isPlaying,
+    cinemaState.currentTime,
+    cinemaState.lastUpdated,
+    cinemaState.seekSeq,
+    cinemaState.syncType,
+    cinemaState.videoUrl,
+    isSeeking,
+    getExpectedLiveTime,
+  ]);
 
   // Periodic Ground-Truth Sync from Host (Every 25 seconds)
   useEffect(() => {
@@ -538,6 +586,8 @@ export default function CinemaPlayerPanel({
           vid.currentTime,
           { uid: currentUser.uid, username: currentUser.username },
           effectiveDuration,
+          null,
+          'heartbeat',
         ).catch(() => {});
       }
     }, 25000);
@@ -545,20 +595,39 @@ export default function CinemaPlayerPanel({
     return () => clearInterval(interval);
   }, [isHost, cinemaState.isPlaying, cinemaState.videoUrl, roomId, currentUser, effectiveDuration]);
 
-  // Handle video metadata loaded (duration detection and Host Firebase sync)
+  // Handle video metadata loaded (safe duration detection without resetting currentTime)
   const handleLoadedMetadata = () => {
     setVideoError(false);
     const vid = videoRef.current;
-    if (vid && Number.isFinite(vid.duration) && vid.duration > 0) {
+    if (!vid) return;
+
+    if (Number.isFinite(vid.duration) && vid.duration > 0) {
       setDuration(vid.duration);
       if (isHost && (!cinemaState.duration || Math.abs(cinemaState.duration - vid.duration) > 2)) {
-        updateCinemaPlayback(
-          roomId,
-          cinemaState.isPlaying,
-          vid.currentTime,
-          { uid: currentUser.uid, username: currentUser.username },
-          vid.duration,
-        ).catch(() => {});
+        updateCinemaDuration(roomId, vid.duration).catch(() => {});
+      }
+    }
+
+    // Perform initial sync once media metadata is available
+    if (!hasSyncedInitialRef.current) {
+      hasSyncedInitialRef.current = true;
+      const expectedTime = getExpectedLiveTime();
+      if (Number.isFinite(expectedTime) && expectedTime > 0.5) {
+        vid.currentTime = expectedTime;
+        setCurrentTime(expectedTime);
+      }
+    }
+  };
+
+  const handleCanPlay = () => {
+    setVideoError(false);
+    if (!hasSyncedInitialRef.current) {
+      hasSyncedInitialRef.current = true;
+      const expectedTime = getExpectedLiveTime();
+      const vid = videoRef.current;
+      if (vid && Number.isFinite(expectedTime) && expectedTime > 0.5) {
+        vid.currentTime = expectedTime;
+        setCurrentTime(expectedTime);
       }
     }
   };
@@ -579,19 +648,20 @@ export default function CinemaPlayerPanel({
     handleUserGestureAudioUnlock();
     const video = videoRef.current;
     const nextPlaying = !cinemaState.isPlaying;
-    const timeToSync = video ? video.currentTime : currentTime;
+    const safeBaseTime = video && video.currentTime > 0 ? video.currentTime : (cinemaState.currentTime || currentTime || 0);
 
     try {
       await updateCinemaPlayback(
         roomId,
         nextPlaying,
-        timeToSync,
+        safeBaseTime,
         {
           uid: currentUser.uid,
           username: currentUser.username,
         },
         effectiveDuration,
         !nextPlaying ? currentUser.username : null,
+        'play_pause',
       );
     } catch (err) {
       console.error('Failed to sync cinema playback:', err);
@@ -622,6 +692,7 @@ export default function CinemaPlayerPanel({
         },
         effectiveDuration,
         !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+        'seek',
       );
     } catch (err) {
       console.error('Failed to seek video relative:', err);
@@ -651,6 +722,7 @@ export default function CinemaPlayerPanel({
         },
         effectiveDuration,
         !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+        'seek',
       );
     } catch (err) {
       console.error('Failed to seek video to time:', err);
@@ -1118,13 +1190,22 @@ export default function CinemaPlayerPanel({
             setVideoError(true);
           }}
           onLoadedData={() => setVideoError(false)}
-          onCanPlay={() => setVideoError(false)}
+          onCanPlay={handleCanPlay}
           onLoadedMetadata={handleLoadedMetadata}
-          onDurationChange={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => {
-            if (isHost) {
-              updateCinemaPlayback(roomId, false, 0, undefined, effectiveDuration);
+            const vid = videoRef.current;
+            const isNearEnd = vid && effectiveDuration > 10 && vid.currentTime >= (effectiveDuration - 3);
+            if (isHost && isNearEnd) {
+              updateCinemaPlayback(
+                roomId,
+                false,
+                effectiveDuration,
+                { uid: currentUser.uid, username: currentUser.username },
+                effectiveDuration,
+                null,
+                'play_pause',
+              );
             }
           }}
           className={`h-full w-full ${isObjectCover && isFullscreen ? 'object-cover' : 'object-contain'} bg-black`}

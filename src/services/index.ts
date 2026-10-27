@@ -244,6 +244,7 @@ export {
   stopCinemaMode,
   setCinemaVideoUrl,
   updateCinemaPlayback,
+  updateCinemaDuration,
   updateCinemaSeatCount,
   subscribeToRoomCinema,
   normalizeCinemaPlaylist,

@@ -948,15 +948,20 @@ export default function AdminPanel({
                                       <Smartphone className="h-3.5 w-3.5" />
                                     )}
                                   </div>
-                                  <span className="truncate max-w-[170px] text-xs font-bold text-white" title={targetUser.deviceInfo.deviceModel}>
-                                    {targetUser.deviceInfo.deviceModel}
-                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider">
+                                      {targetUser.deviceInfo.isMobile ? tr('مۆبایل:', 'Mobile:') : tr('ئامێر:', 'Device:')}
+                                    </span>
+                                    <span className="text-xs font-black text-white hover:text-amber-300 transition" title={targetUser.deviceInfo.deviceModel}>
+                                      {targetUser.deviceInfo.deviceModel}
+                                    </span>
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-[10px]">
                                   <span className="rounded-md bg-slate-800/90 border border-slate-700/80 px-1.5 py-0.2 text-[9px] font-mono text-cyan-300 font-bold">
                                     {targetUser.deviceInfo.os}
                                   </span>
-                                  <span className="truncate max-w-[110px] text-slate-400 font-medium" title={targetUser.deviceInfo.browser}>
+                                  <span className="text-slate-400 font-medium" title={targetUser.deviceInfo.browser}>
                                     {targetUser.deviceInfo.browser}
                                   </span>
                                 </div>
@@ -964,7 +969,7 @@ export default function AdminPanel({
                             ) : (
                               <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
                                 <Smartphone className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                                <span>{tr('تۆمار نەکراوە', 'Pending connection')}</span>
+                                <span>{tr('مۆبایل: تۆمار نەکراوە', 'Mobile: Pending')}</span>
                               </div>
                             )}
                           </td>
@@ -1272,9 +1277,9 @@ export default function AdminPanel({
                                 {loc.city ? `${loc.city}, ` : ''}{loc.country || 'Detected'}
                               </p>
                               {locatedUser.deviceInfo && (
-                                <p className="truncate text-[9px] text-cyan-300 font-mono flex items-center gap-1 mt-0.5">
-                                  <Smartphone className="h-2.5 w-2.5 text-cyan-400 shrink-0" />
-                                  <span className="truncate">{locatedUser.deviceInfo.deviceModel}</span>
+                                <p className="truncate text-[10px] text-amber-300 font-bold flex items-center gap-1 mt-0.5">
+                                  <Smartphone className="h-3 w-3 text-amber-400 shrink-0" />
+                                  <span className="truncate">{tr('مۆبایل:', 'Mobile:')} {locatedUser.deviceInfo.deviceModel}</span>
                                 </p>
                               )}
                             </div>
@@ -1335,9 +1340,9 @@ export default function AdminPanel({
                               </span>
                             )}
                             {target.deviceInfo && (
-                              <span className="flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[9px] font-bold text-cyan-300 border border-cyan-500/30">
-                                <Smartphone className="h-2.5 w-2.5 text-cyan-400" />
-                                <span>{target.deviceInfo.deviceModel} ({target.deviceInfo.os})</span>
+                              <span className="flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">
+                                <Smartphone className="h-3 w-3 text-amber-400" />
+                                <span>{tr('مۆبایل:', 'Mobile:')} {target.deviceInfo.deviceModel} ({target.deviceInfo.os})</span>
                               </span>
                             )}
                           </div>
@@ -1641,9 +1646,9 @@ export default function AdminPanel({
                         {mapModalUser.location.address || `${mapModalUser.location.city ? mapModalUser.location.city + ', ' : ''}${mapModalUser.location.country || 'Detected Region'}`}
                       </p>
                       {mapModalUser.deviceInfo && (
-                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-cyan-300 font-medium">
-                          <Smartphone className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                          <span className="font-bold text-white">{mapModalUser.deviceInfo.deviceModel}</span>
+                        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-amber-300 font-bold bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-xl w-fit">
+                          <Smartphone className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                          <span>{tr('جۆری مۆبایل:', 'Mobile Model:')} <strong className="text-white">{mapModalUser.deviceInfo.deviceModel}</strong></span>
                           <span className="text-slate-400 font-mono text-[10px]">({mapModalUser.deviceInfo.os} &bull; {mapModalUser.deviceInfo.browser})</span>
                         </div>
                       )}
@@ -1746,6 +1751,12 @@ export default function AdminPanel({
                     <p className="text-xs text-slate-400">
                       Restricting access for <strong>{tempBanTarget.username}</strong>
                     </p>
+                    {tempBanTarget.deviceInfo && (
+                      <p className="text-[11px] font-bold text-amber-300 flex items-center gap-1 mt-0.5">
+                        <Smartphone className="h-3 w-3 text-amber-400 shrink-0" />
+                        <span>{tr('مۆبایل:', 'Mobile:')} {tempBanTarget.deviceInfo.deviceModel}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1827,6 +1838,12 @@ export default function AdminPanel({
                       <p className="text-xs text-slate-400">
                         {tr('بەخشینی چوارچێوەی جوڵاوی پڕۆفایل و تیمی ئاگرین بۆ', 'Grant animated profile frame and inferno theme to')} <strong>{cosmeticsTarget.username}</strong>
                       </p>
+                      {cosmeticsTarget.deviceInfo && (
+                        <p className="text-[11px] font-bold text-amber-300 flex items-center gap-1 mt-0.5">
+                          <Smartphone className="h-3 w-3 text-amber-400 shrink-0" />
+                          <span>{tr('مۆبایل:', 'Mobile:')} {cosmeticsTarget.deviceInfo.deviceModel}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                   <button
@@ -2026,6 +2043,12 @@ export default function AdminPanel({
                   <p className="mt-1 text-xs text-slate-400">
                     Modifying balance for <strong>{coinsTarget.username}</strong>
                   </p>
+                  {coinsTarget.deviceInfo && (
+                    <p className="text-[11px] font-bold text-amber-300 flex items-center justify-center gap-1 mt-1">
+                      <Smartphone className="h-3 w-3 text-amber-400 shrink-0" />
+                      <span>{tr('مۆبایل:', 'Mobile:')} {coinsTarget.deviceInfo.deviceModel}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 justify-center">
