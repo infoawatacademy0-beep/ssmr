@@ -2177,7 +2177,7 @@ export default function CinemaPlayerPanel({
         </>
       )}
 
-      {/* In-Player Playlist Overlay (Works seamlessly in Fullscreen & Stage) */}
+      {/* In-Player Playlist Overlay (Works seamlessly in Fullscreen & Stage on all mobile screens) */}
       <AnimatePresence>
         {isPlaylistDrawerOpen && (
           <motion.div
@@ -2185,34 +2185,34 @@ export default function CinemaPlayerPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsPlaylistDrawerOpen(false)}
-            className="absolute inset-0 z-[70] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-xl pointer-events-auto"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md pointer-events-auto"
           >
             <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative flex flex-col w-full max-w-lg max-h-[85vh] rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#160b13] via-[#0f0914] to-[#07040a] p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.9),0_0_30px_rgba(245,158,11,0.2)] text-white overflow-hidden"
+              className="relative flex flex-col w-full max-w-lg max-h-[85vh] sm:max-h-[88vh] rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#180e1a] via-[#100a16] to-[#08050c] shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(245,158,11,0.2)] text-white overflow-hidden"
             >
               {/* Glow Bar */}
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600" />
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600 z-10" />
 
-              {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-black shadow">
+              {/* Sticky Modal Header with Prominent Close Button */}
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/[0.08] bg-[#180e1a]/95 backdrop-blur-md shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-black shadow font-bold">
                     <Film className="h-4 w-4" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="font-display text-sm font-black text-white">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-display text-sm font-black text-white truncate">
                         {tr('قایمەی فیلمە پاشەکەوتکراوەکان', 'Saved Movies Playlist')}
                       </h3>
-                      <span className="rounded-full bg-amber-400/20 px-2 py-0.2 text-[9px] font-black text-amber-300">
+                      <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.2 text-[9px] font-black text-amber-300">
                         {playlist.length}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-400 truncate max-w-[210px] sm:max-w-xs mt-0.5">
                       {tr(
                         'هەموو ئەندامێک دەتوانێت فیلم بگۆڕێت · تەنها ئەدمین دەتوانێت بیسڕێتەوە',
                         'Members can switch movies · Only admin can delete',
@@ -2221,23 +2221,26 @@ export default function CinemaPlayerPanel({
                   </div>
                 </div>
 
+                {/* Prominent High-Visibility Close Button */}
                 <button
+                  type="button"
                   onClick={() => setIsPlaylistDrawerOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.05] text-slate-400 hover:bg-white/10 hover:text-white transition"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white border border-white/15 transition shadow-md active:scale-90"
+                  title={tr('داخستن', 'Close')}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5 stroke-[2.5]" />
                 </button>
               </div>
 
               {playlistToast && (
-                <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 animate-in fade-in">
+                <div className="mx-4 sm:mx-5 mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 animate-in fade-in shrink-0">
                   <Check className="h-3.5 w-3.5" />
                   <span>{playlistToast}</span>
                 </div>
               )}
 
               {/* Playlist Scroll Area */}
-              <div className="flex-1 overflow-y-auto my-3 pr-1 space-y-2">
+              <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 space-y-2 overscroll-contain min-h-0">
                 {playlist.length === 0 ? (
                   <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
                     <Film className="h-8 w-8 text-slate-600 mx-auto mb-1.5" />
@@ -2314,8 +2317,8 @@ export default function CinemaPlayerPanel({
                 )}
               </div>
 
-              {/* Bottom Quick-Add Movie Section */}
-              <form onSubmit={handleAddNewMovieToRoom} className="pt-2 border-t border-white/[0.08] space-y-2">
+              {/* Bottom Quick-Add Movie Section (Fixed at bottom of modal) */}
+              <form onSubmit={handleAddNewMovieToRoom} className="p-3 sm:p-4 border-t border-white/[0.08] bg-black/50 shrink-0 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
                     <Plus className="h-3 w-3 text-amber-400" />
@@ -2342,7 +2345,7 @@ export default function CinemaPlayerPanel({
                     value={newMovieUrl}
                     onChange={(e) => setNewMovieUrl(e.target.value)}
                     placeholder={tr('بەستەری فیلم (https://...mp4)', 'Video URL (https://...mp4)')}
-                    className="flex-1 rounded-xl border border-white/10 bg-black/60 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                    className="flex-1 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                   />
                   <input
                     type="text"
@@ -2350,12 +2353,12 @@ export default function CinemaPlayerPanel({
                     value={newMovieTitle}
                     onChange={(e) => setNewMovieTitle(e.target.value)}
                     placeholder={tr('ناوی فیلم', 'Title')}
-                    className="w-24 sm:w-32 rounded-xl border border-white/10 bg-black/60 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
+                    className="w-24 sm:w-32 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
                   />
                   <button
                     type="submit"
                     disabled={isSavingMovie || !newMovieUrl.trim()}
-                    className="rounded-xl bg-amber-400 text-black px-3 py-1.5 text-xs font-black hover:bg-amber-300 transition disabled:opacity-40"
+                    className="rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 text-black px-3.5 py-2 text-xs font-black hover:brightness-110 active:scale-95 transition shadow disabled:opacity-40 shrink-0"
                   >
                     + {tr('پاشەکەوت', 'Save')}
                   </button>

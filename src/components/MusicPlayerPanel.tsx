@@ -602,56 +602,69 @@ export default function MusicPlayerPanel({
          ───────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md pointer-events-auto"
+            onClick={closeModal}
+          >
             <motion.div
-              initial={{ scale: 0.92, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.92, opacity: 0 }}
-              className="w-full max-w-sm max-h-[88vh] overflow-y-auto rounded-3xl border border-white/[0.1] bg-surface-800 p-5 shadow-2xl space-y-4"
+              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative flex flex-col w-full max-w-md max-h-[85vh] sm:max-h-[88vh] rounded-3xl border border-violet-500/30 bg-gradient-to-b from-surface-900 via-surface-900 to-surface-950 p-0 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(139,92,246,0.2)] overflow-hidden text-white"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-600/20 text-violet-400">
+              {/* Ambient Top Glow Bar */}
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-violet-500 via-fuchsia-400 to-indigo-500 z-10" />
+
+              {/* Sticky Header with Prominent Close Button */}
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/[0.08] bg-surface-900/95 backdrop-blur-md shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow font-bold">
                     <Music className="h-4 w-4" />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-black text-white">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-black text-white truncate">
                       {tr('گۆرانییەکانی ژوور (موزیک)', 'Room Music & Songs')}
                     </h3>
-                    <p className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                    <p className="text-[10px] text-slate-400 truncate max-w-[200px] sm:max-w-xs mt-0.5">
                       {currentTrack
                         ? `${currentTrack.title}${musicState.playedByName ? ` (${musicState.playedByName})` : ''}`
                         : tr('هیچ گۆرانییەک هەڵنەبژێردراوە', 'No track selected')}
                     </p>
                   </div>
                 </div>
+
+                {/* Prominent High-Visibility Close Button */}
                 <button
+                  type="button"
                   onClick={closeModal}
-                  className="rounded-full p-1 text-slate-400 hover:text-white"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white border border-white/15 transition shadow-md active:scale-90"
+                  title={tr('داخستن', 'Close')}
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5 stroke-[2.5]" />
                 </button>
               </div>
 
-              {/* Uploading Status Overlay (If uploading file to Archive S3) */}
-              {isUploading && (
-                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-center space-y-2">
-                  <Loader2 className="h-6 w-6 text-emerald-400 animate-spin mx-auto" />
-                  <p className="text-xs font-bold text-emerald-300">{uploadStatus}</p>
-                  {uploadProgress > 0 && (
-                    <div className="w-full bg-slate-700/60 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 transition-all duration-200"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  )}
-                  <p className="text-[10px] text-slate-400">
-                    {tr('فایل ڕاستەوخۆ باردەکرێت بۆ ئەرشیف بۆ لینکی هەمیشەیی...', 'Directly uploading to Internet Archive S3...')}
-                  </p>
-                </div>
-              )}
+              {/* Scrollable Content Body (Header stays fixed at top!) */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain min-h-0">
+                {/* Uploading Status Overlay (If uploading file to Archive S3) */}
+                {isUploading && (
+                  <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-center space-y-2">
+                    <Loader2 className="h-6 w-6 text-emerald-400 animate-spin mx-auto" />
+                    <p className="text-xs font-bold text-emerald-300">{uploadStatus}</p>
+                    {uploadProgress > 0 && (
+                      <div className="w-full bg-slate-700/60 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 transition-all duration-200"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-400">
+                      {tr('فایل ڕاستەوخۆ باردەکرێت بۆ ئەرشیف بۆ لینکی هەمیشەیی...', 'Directly uploading to Internet Archive S3...')}
+                    </p>
+                  </div>
+                )}
 
               {/* 1. VOLUME CONTROL */}
               <div className="rounded-2xl border border-white/[0.08] bg-surface-900/80 p-3">
@@ -948,7 +961,8 @@ export default function MusicPlayerPanel({
                   })}
                 </div>
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
           </div>
         )}
       </AnimatePresence>

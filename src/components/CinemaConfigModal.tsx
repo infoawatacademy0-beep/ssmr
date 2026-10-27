@@ -343,25 +343,29 @@ export default function CinemaConfigModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xl animate-fade-in">
+    <div
+      className="fixed inset-0 z-[10001] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-xl animate-fade-in"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 15 }}
-        className="relative flex flex-col w-full max-w-xl max-h-[92vh] overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#160b13] via-[#0f0914] to-[#07040a] p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.9),0_0_30px_rgba(245,158,11,0.2)] text-white"
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex flex-col w-full max-w-xl max-h-[85vh] sm:max-h-[88vh] overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#160b13] via-[#0f0914] to-[#07040a] p-0 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(245,158,11,0.2)] text-white"
       >
         {/* Ambient Top Glow Bar */}
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600" />
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600 z-10" />
 
-        {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-amber-600 text-black shadow-lg shadow-amber-500/25">
+        {/* Sticky Modal Header with Prominent Close Button */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/[0.08] bg-[#160b13]/95 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-amber-600 text-black shadow-lg shadow-amber-500/25 font-bold">
               <Film className="h-5 w-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="font-display text-sm font-black tracking-wide text-white">
+                <h3 className="font-display text-sm font-black tracking-wide text-white truncate">
                   {tr('قایمە و مۆدی فیلمی سینەما', 'Cinema & Room Movie Playlist')}
                 </h3>
                 {cinemaState?.seatCount && (
@@ -375,7 +379,7 @@ export default function CinemaConfigModal({
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[10px] text-slate-400 truncate max-w-[210px] sm:max-w-xs mt-0.5">
                 {tr(
                   'بەستەری فیلم لێرە دابنێ بۆ پاشەکەوتکردن · هەموو ئەندامێک دەتوانێت فیلم بگۆڕێت',
                   'Set movie link & save here · All members can switch movies',
@@ -385,29 +389,31 @@ export default function CinemaConfigModal({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.05] text-slate-400 hover:bg-white/[0.1] hover:text-white transition"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white border border-white/15 transition shadow-md active:scale-90"
+            title={tr('داخستن', 'Close')}
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5 stroke-[2.5]" />
           </button>
         </div>
 
         {/* Notifications Banner */}
         {successMsg && (
-          <div className="mt-2.5 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 p-2 text-xs text-emerald-300 animate-in fade-in">
+          <div className="mx-4 sm:mx-5 mt-2.5 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 p-2 text-xs text-emerald-300 animate-in fade-in shrink-0">
             <Check className="h-4 w-4 shrink-0" />
             <span className="font-semibold">{successMsg}</span>
           </div>
         )}
         {errorMsg && (
-          <div className="mt-2.5 flex items-center gap-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 p-2 text-xs text-rose-300 animate-in fade-in">
+          <div className="mx-4 sm:mx-5 mt-2.5 flex items-center gap-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 p-2 text-xs text-rose-300 animate-in fade-in shrink-0">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span className="font-semibold">{errorMsg}</span>
           </div>
         )}
 
         {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto pr-1 mt-3 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 space-y-4 overscroll-contain min-h-0">
           {/* ─────────────────────────────────────────────────────────────
               SECTION 1: ADD / SAVE / PLAY MOVIE INPUTS (ALWAYS VISIBLE)
               ───────────────────────────────────────────────────────────── */}

@@ -1095,7 +1095,7 @@ export default function VoiceRoom() {
       {/* ─────────────────────────────────────────────────────────
          MAIN CONTENT AREA: 8-Seat Stage + Music + Audience + Chat
          ───────────────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* ── THE STAGE AREA: CINEMA MODE (5-SEAT COUCH + SCREEN) OR 8-SEAT AUDIO GRID ── */}
         <section className={isChatExpanded ? 'hidden' : 'shrink-0 p-4 pb-1'}>
           {cinemaState?.isActive ? (
