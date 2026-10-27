@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -44,6 +44,7 @@ import {
   UserCheck,
   X,
   Mic,
+  PenSquare,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts';
@@ -153,6 +154,16 @@ export default function Dashboard() {
   const [publishPostError, setPublishPostError] = useState<string | null>(null);
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null);
   const [expandedCommentsPostIds, setExpandedCommentsPostIds] = useState<Record<string, boolean>>({});
+  const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const postTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const handleOpenCreatePost = () => {
+    setNavTab('dashboard');
+    setIsCreatePostModalOpen(true);
+    setTimeout(() => {
+      postTextareaRef.current?.focus();
+    }, 120);
+  };
 
   const toggleComments = (postId: string) => {
     setExpandedCommentsPostIds((prev) => ({
@@ -1385,6 +1396,13 @@ export default function Dashboard() {
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setNavTab('settings')}
+                className="flex items-center gap-1.5 rounded-2xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 transition"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span>{tr('ڕێکخستنەکان', 'Settings')}</span>
+              </button>
+              <button
                 onClick={() => setIsShopOpen(true)}
                 className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 px-4 py-2.5 text-xs font-black text-black shadow-lg shadow-amber-500/20 transition hover:scale-[1.02] active:scale-95"
               >
@@ -1545,6 +1563,29 @@ export default function Dashboard() {
                 <Settings className="h-4 w-4" />
                 <span>{tr('کردنەوەی پانێڵی ڕێکخستنەکان', 'Open Settings Panel')}</span>
               </button>
+            </div>
+          </div>
+
+          {/* Wallet & Vault Shortcut */}
+          <div
+            onClick={() => setNavTab('wallet')}
+            className="cursor-pointer rounded-3xl border border-slate-800/80 bg-slate-900/50 p-5 hover:border-amber-400/30 transition group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-display text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
+                    {t('nav.wallet', 'جزدان و خەزێنەی دراو')}
+                  </h4>
+                  <p className="text-xs text-slate-400 font-mono">
+                    {formatCoinsK(user.coins)} {tr('دراو بەردەستە', 'Coins available')}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
             </div>
           </div>
 
@@ -1844,17 +1885,14 @@ export default function Dashboard() {
       </aside>
 
       {/* ══════════════════════════════════════════════════════════════
-          4. MOBILE BOTTOM NAVIGATION BAR
+          4. MOBILE BOTTOM NAVIGATION DOCK (Perfect 5-Tab Symmetrical Layout with Dead-Center FAB)
           ══════════════════════════════════════════════════════════════ */}
-      {/* ══════════════════════════════════════════════════════════════
-          4. MOBILE BOTTOM NAVIGATION DOCK (Ultra-smooth Native Mobile Bar)
-          ══════════════════════════════════════════════════════════════ */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-slate-950/92 backdrop-blur-2xl border-t border-white/10 shadow-[0_-10px_35px_rgba(0,0,0,0.85)] px-1 sm:px-2 pt-1.5 pb-[max(0.65rem,env(safe-area-inset-bottom,0px))]">
-        <div className="flex items-center justify-between w-full max-w-lg mx-auto">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-slate-950/92 backdrop-blur-2xl border-t border-white/10 shadow-[0_-10px_35px_rgba(0,0,0,0.85)] px-2 pt-1.5 pb-[max(0.65rem,env(safe-area-inset-bottom,0px))]">
+        <div className="grid grid-cols-5 items-center justify-items-center w-full max-w-lg mx-auto">
           {/* 1. Dashboard Tab */}
           <button
             onClick={() => setNavTab('dashboard')}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
+            className={`w-full flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
               navTab === 'dashboard'
                 ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
                 : 'text-slate-400 hover:text-slate-200'
@@ -1875,7 +1913,7 @@ export default function Dashboard() {
               setNavTab('explore');
               setSelectedCategory('All');
             }}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
+            className={`w-full flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
               navTab === 'explore'
                 ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
                 : 'text-slate-400 hover:text-slate-200'
@@ -1890,24 +1928,24 @@ export default function Dashboard() {
             )}
           </button>
 
-          {/* 3. Center Elevated Floating Action Button (Create Room) */}
-          <div className="flex-1 min-w-0 flex flex-col items-center justify-center relative -mt-5">
+          {/* 3. DEAD-CENTER ELEVATED FAB (Goes to Post Creation) */}
+          <div className="w-full flex flex-col items-center justify-center relative -mt-5">
             <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-[0_4px_22px_rgba(245,158,11,0.5)] border-2 border-amber-300/50 ring-4 ring-slate-950 active:scale-90 hover:scale-105 transition-all duration-200"
-              title={tr('دروستکردنی ژوور', 'Create Arena')}
+              onClick={handleOpenCreatePost}
+              className="flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-[0_4px_22px_rgba(245,158,11,0.55)] border-2 border-amber-300/60 ring-4 ring-slate-950 active:scale-90 hover:scale-105 transition-all duration-200"
+              title={tr('پۆستکردن', 'Create Post')}
             >
               <Plus className="h-6 w-6 stroke-[2.5]" />
             </button>
             <span className="text-[9.5px] font-black text-amber-400 mt-1 truncate max-w-full tracking-tight">
-              {tr('دروستکردن', 'Create')}
+              {tr('پۆست', 'Post')}
             </span>
           </div>
 
           {/* 4. Direct Messages Mobile Tab with Real-time Unread Badge */}
           <button
             onClick={() => setIsChatCenterOpen(true)}
-            className="flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative text-slate-400 hover:text-cyan-300"
+            className="w-full flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all duration-200 active:scale-90 group relative text-slate-400 hover:text-cyan-300"
           >
             <div className="relative">
               <MessageSquare className="h-5 w-5 text-cyan-400 transition-transform duration-200 group-hover:scale-105" />
@@ -1922,43 +1960,124 @@ export default function Dashboard() {
             </span>
           </button>
 
-          {/* 5. Wallet Tab */}
-          <button
-            onClick={() => setNavTab('wallet')}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
-              navTab === 'wallet'
-                ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Wallet className={`h-5 w-5 transition-transform duration-200 ${navTab === 'wallet' ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'}`} />
-            <span className="text-[10px] tracking-tight truncate max-w-full mt-0.5">
-              {t('nav.wallet', 'جزدان')}
-            </span>
-            {navTab === 'wallet' && (
-              <span className="absolute -bottom-0.5 h-1 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
-            )}
-          </button>
-
-          {/* 6. Settings Tab */}
+          {/* 5. Settings / Account Tab */}
           <button
             onClick={() => setNavTab('settings')}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 px-0.5 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
-              navTab === 'settings'
+            className={`w-full flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all duration-200 active:scale-90 group relative ${
+              navTab === 'settings' || navTab === 'wallet'
                 ? 'text-amber-400 font-bold bg-amber-400/10 border border-amber-400/25 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Settings className={`h-5 w-5 transition-transform duration-200 ${navTab === 'settings' ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'}`} />
+            <Settings className={`h-5 w-5 transition-transform duration-200 ${navTab === 'settings' || navTab === 'wallet' ? 'scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'group-hover:scale-105'}`} />
             <span className="text-[10px] tracking-tight truncate max-w-full mt-0.5">
               {t('settings.title', 'ڕێکخستن')}
             </span>
-            {navTab === 'settings' && (
+            {(navTab === 'settings' || navTab === 'wallet') && (
               <span className="absolute -bottom-0.5 h-1 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]" />
             )}
           </button>
         </div>
       </nav>
+
+      {/* ── CREATE POST MODAL ── */}
+      <AnimatePresence>
+        {isCreatePostModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 p-0 sm:p-4 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="w-full max-w-lg overflow-hidden rounded-t-[32px] sm:rounded-3xl border border-amber-500/30 bg-slate-900 p-5 sm:p-6 shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 text-black shadow-lg shadow-amber-500/20">
+                    <PenSquare className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-sm sm:text-base font-black text-white">
+                      {tr('دروستکردنی پۆستی نوێ', 'Create New Post')}
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      {tr('بیرۆکە و پەیامەکانت لەگەڵ ئەندامان بەش بکە', 'Share ideas and updates with the community')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCreatePostModalOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await handlePublishPost(e);
+                  setIsCreatePostModalOpen(false);
+                }}
+                className="mt-4 space-y-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full overflow-hidden border border-amber-500/30 bg-slate-800">
+                    {user.avatar || user.profileImage ? (
+                      <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
+                    ) : (
+                      (user.username || 'U').charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <textarea
+                      ref={postTextareaRef}
+                      rows={4}
+                      maxLength={400}
+                      autoFocus
+                      value={newPostContent}
+                      onChange={(e) => setNewPostContent(e.target.value)}
+                      placeholder={tr('پۆستێک، بیرۆکەیەک یان بانگهێشتێکی یاری بڵاوبکەرەوە…', 'Share a post, idea, or arena invite…')}
+                      className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5 text-xs sm:text-sm font-medium text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
+                    />
+                    {publishPostError && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-rose-400">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        <span>{publishPostError}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-800/80 pt-3">
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {newPostContent.length}/400
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatePostModalOpen(false)}
+                      className="rounded-2xl border border-slate-800 bg-slate-800/60 px-4 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-800 transition"
+                    >
+                      {tr('پەشیمانبوونەوە', 'Cancel')}
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={!newPostContent.trim() || isPublishingPost}
+                      className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 px-5 py-2.5 text-xs font-black text-black shadow-lg shadow-amber-500/25 transition active:scale-95 disabled:opacity-40"
+                    >
+                      <Send className="h-4 w-4" />
+                      <span>{isPublishingPost ? tr('خەریکی بڵاوکردنەوەیە…', 'Publishing…') : tr('بڵاوکردنەوە', 'Publish')}</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ── CREATE ARENA MODAL ── */}
       <AnimatePresence>
