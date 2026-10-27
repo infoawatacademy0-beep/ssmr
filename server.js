@@ -28,8 +28,8 @@ const archiveS3 = new AWS.S3({
 });
 
 // Credentials
-const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || 'API7QMERjkNUN7j';
-const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || 'pFc6g6JdfXCOVbRLeRWmj3q4bgKPnyvPO15eqa5NfEoD';
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || 'APIDK99UVGG44Xy';
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || 'maOH065lVZBlCxGHQeUb0El0kS4bxelTwn1xA7MqONs';
 
 app.use(cors());
 app.use(express.json());

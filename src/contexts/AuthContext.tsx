@@ -16,6 +16,7 @@ import {
   initUserPresence,
 } from '../services';
 import { syncCurrentUserLocation } from '../services/locationService';
+import { syncCurrentUserDevice } from '../services/deviceDetection';
 
 /* ──────────────────────────────────────────────
    Auth Context — provides authentication state &
@@ -128,10 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.uid]);
 
-  /* Sync real-time location telemetry */
+  /* Sync real-time location & device telemetry */
   useEffect(() => {
     if (!user?.uid) return;
     syncCurrentUserLocation(user.uid).catch(console.error);
+    syncCurrentUserDevice(user.uid).catch(console.error);
   }, [user?.uid]);
 
   const register = useCallback(

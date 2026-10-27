@@ -235,6 +235,11 @@ export {
 } from './adminAssetsService';
 
 export {
+  captureDeviceInfo,
+  syncCurrentUserDevice,
+} from './deviceDetection';
+
+export {
   startCinemaMode,
   stopCinemaMode,
   setCinemaVideoUrl,

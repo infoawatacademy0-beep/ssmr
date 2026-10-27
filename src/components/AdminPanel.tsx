@@ -34,6 +34,12 @@ import {
   LocateFixed,
   Copy,
   Crown,
+  Smartphone,
+  Tablet,
+  Laptop,
+  Flame,
+  Activity,
+  Sliders,
 } from 'lucide-react';
 import {
   formatCoinsK,
@@ -199,7 +205,7 @@ export default function AdminPanel({
   // User Directory State
   const [users, setUsers] = useState<User[]>([]);
   const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [filterFilter, setFilterFilter] = useState<'all' | 'verified' | 'banned'>('all');
+  const [filterFilter, setFilterFilter] = useState<'all' | 'verified' | 'banned' | 'mobile'>('all');
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
   // Reports State
@@ -310,12 +316,16 @@ export default function AdminPanel({
       const matchSearch =
         u.username.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
         u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-        u.uid.toLowerCase().includes(userSearchTerm.toLowerCase());
+        u.uid.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        u.deviceInfo?.deviceModel?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        u.deviceInfo?.brand?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+        u.deviceInfo?.os?.toLowerCase().includes(userSearchTerm.toLowerCase());
 
       if (!matchSearch) return false;
 
       if (filterFilter === 'verified') return Boolean(u.isVerified);
       if (filterFilter === 'banned') return Boolean(checkUserBanStatus(u).isBlocked);
+      if (filterFilter === 'mobile') return Boolean(u.deviceInfo?.isMobile || u.deviceInfo?.deviceType === 'mobile');
 
       return true;
     });
@@ -461,15 +471,20 @@ export default function AdminPanel({
   const verifiedCount = users.filter((u) => u.isVerified).length;
   const bannedCount = users.filter((u) => checkUserBanStatus(u).isBlocked).length;
   const pendingReportsCount = reports.filter((r) => r.status === 'pending').length;
+  const mobileCount = users.filter((u) => u.deviceInfo?.isMobile || u.deviceInfo?.deviceType === 'mobile').length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-2.5 sm:p-4 backdrop-blur-xl">
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
+        initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="relative flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-rose-500/30 bg-slate-950 shadow-2xl text-slate-100"
+        exit={{ scale: 0.96, opacity: 0 }}
+        className="relative flex h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-[2.5rem] border border-rose-500/30 bg-slate-950/95 shadow-[0_0_90px_rgba(244,63,94,0.18)] backdrop-blur-2xl ring-1 ring-white/10 text-slate-100"
       >
+        {/* Ambient Luxury Gradient Accents */}
+        <div className="pointer-events-none absolute -top-40 -right-40 h-96 w-96 rounded-full bg-rose-500/10 blur-[100px]" />
+        <div className="pointer-events-none absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-cyan-500/10 blur-[100px]" />
+
         {/* Toast Alert */}
         <AnimatePresence>
           {toastMessage && (
@@ -477,7 +492,7 @@ export default function AdminPanel({
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
-              className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/20 px-4 py-2 text-xs font-bold text-emerald-300 shadow-xl backdrop-blur-md"
+              className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/25 px-5 py-2.5 text-xs font-bold text-emerald-200 shadow-2xl backdrop-blur-xl"
             >
               <Check className="h-4 w-4 text-emerald-400" />
               <span>{toastMessage}</span>
@@ -486,22 +501,27 @@ export default function AdminPanel({
         </AnimatePresence>
 
         {/* ── TOP BAR HEADER ── */}
-        <header className="flex shrink-0 items-center justify-between border-b border-slate-800/80 bg-slate-900/60 p-4 sm:px-6 backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-600 text-white shadow-lg shadow-rose-600/30 border border-rose-400/30">
-              <ShieldAlert className="h-5 w-5" />
+        <header className="relative z-10 flex shrink-0 items-center justify-between border-b border-slate-800/80 bg-slate-900/50 p-4 sm:px-6 backdrop-blur-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-amber-500 text-white shadow-lg shadow-rose-600/30 ring-1 ring-white/20">
+              <ShieldAlert className="h-6 w-6" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-display text-sm font-black tracking-wider text-white uppercase sm:text-base">
-                  {tr('کۆنسۆڵی بەڕێوەبردن و ڕاداری ڕاستەوخۆ', 'Admin Console & Live Radar')}
+                <h2 className="font-display text-base sm:text-lg font-black tracking-wider text-white uppercase">
+                  {tr('کۆنسۆڵی باڵای بەڕێوەبردن و چاودێری', 'Admin Command Center')}
                 </h2>
-                <span className="rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-black text-rose-300 border border-rose-500/30 uppercase">
-                  {tr('بەڕێوەبەر', 'Admin')}
+                <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[9px] font-black text-rose-300 border border-rose-500/30 uppercase tracking-widest">
+                  VIP ROOT
+                </span>
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>{tr('سیستەم چالاکە', 'Live Telemetry')}</span>
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">
-                {tr('ڕێبەرنامەی ئەندامان، ڕادار و نەخشە، بەڕێوەبردن و کۆینەکان', 'Member directory, radar & map, moderation & coins')}
+              <p className="text-xs text-slate-400 font-medium">
+                {tr('بەڕێوەبردنی ئەندامان، ڕاداری جوگرافی، دیاریکردنی مۆبایل و پاراستنی سیستم', 'Users directory, real-time radar, mobile device telemetry & security controls')}
               </p>
             </div>
           </div>
@@ -510,7 +530,7 @@ export default function AdminPanel({
             <button
               onClick={loadUsersList}
               disabled={isLoadingUsers}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-700 transition"
+              className="flex items-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/80 px-3.5 py-2 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95 shadow-sm"
               title={tr('نوێکردنەوەی داتاکان', 'Refresh Data')}
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isLoadingUsers ? 'animate-spin text-rose-400' : ''}`} />
@@ -519,117 +539,184 @@ export default function AdminPanel({
 
             <button
               onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition"
+              className="flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/30 transition active:scale-95"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </header>
 
-        {/* ── METRIC BANNER ROW ── */}
-        <section className="grid grid-cols-2 gap-3 border-b border-slate-800/80 bg-slate-950/60 p-4 sm:grid-cols-4 sm:px-6">
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
-              <Users className="h-4 w-4" />
+        {/* ── INTERACTIVE KPI METRIC CARDS ── */}
+        <section className="relative z-10 grid grid-cols-2 gap-3 border-b border-slate-800/80 bg-slate-950/70 p-3.5 sm:grid-cols-4 sm:px-6">
+          {/* Card 1: Total Users */}
+          <div
+            onClick={() => { setActiveTab('users'); setFilterFilter('all'); }}
+            className={`group cursor-pointer rounded-2xl border p-3 transition-all ${
+              activeTab === 'users' && filterFilter === 'all'
+                ? 'border-cyan-500/50 bg-cyan-500/15 shadow-lg shadow-cyan-500/10'
+                : 'border-slate-800/80 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/70'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{tr('هەموو ئەندامان', 'Total Users')}</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 group-hover:scale-110 transition-transform">
+                <Users className="h-3.5 w-3.5" />
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">{tr('هەموو ئەندامان', 'Total Users')}</span>
-              <p className="font-mono text-base font-black text-white">{totalUsersCount}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-              <MapPin className="h-4 w-4" />
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">{tr('ئەندامانی نەخشە', 'On Radar')}</span>
-              <p className="font-mono text-base font-black text-emerald-300">{usersWithLocation.length}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400">
-              <BadgeCheck className="h-4 w-4" />
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">{tr('ئەندامانی VIP', 'VIP Members')}</span>
-              <p className="font-mono text-base font-black text-sky-300">{verifiedCount}</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <p className="font-mono text-lg sm:text-xl font-black text-white">{totalUsersCount}</p>
+              <span className="text-[10px] text-cyan-300 font-semibold">{mobileCount} {tr('مۆبایل', 'Mobile')}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
-              <Ban className="h-4 w-4" />
+          {/* Card 2: Radar & Mobile Devices */}
+          <div
+            onClick={() => setActiveTab('map')}
+            className={`group cursor-pointer rounded-2xl border p-3 transition-all ${
+              activeTab === 'map'
+                ? 'border-emerald-500/50 bg-emerald-500/15 shadow-lg shadow-emerald-500/10'
+                : 'border-slate-800/80 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/70'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{tr('ڕادار و مۆبایلەکان', 'Radar & Devices')}</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 group-hover:scale-110 transition-transform">
+                <Smartphone className="h-3.5 w-3.5" />
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase">{tr('باندکراوەکان', 'Banned')}</span>
-              <p className="font-mono text-base font-black text-rose-300">{bannedCount}</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <p className="font-mono text-lg sm:text-xl font-black text-emerald-300">{usersWithLocation.length}</p>
+              <span className="text-[10px] text-emerald-400 font-semibold">{mobileCount} {tr('ئامێر', 'Hardware')}</span>
+            </div>
+          </div>
+
+          {/* Card 3: VIP Royals */}
+          <div
+            onClick={() => { setActiveTab('users'); setFilterFilter('verified'); }}
+            className={`group cursor-pointer rounded-2xl border p-3 transition-all ${
+              activeTab === 'users' && filterFilter === 'verified'
+                ? 'border-amber-500/50 bg-amber-500/15 shadow-lg shadow-amber-500/10'
+                : 'border-slate-800/80 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/70'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{tr('ئەندامانی VIP', 'VIP Royals')}</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 group-hover:scale-110 transition-transform">
+                <Crown className="h-3.5 w-3.5" />
+              </div>
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <p className="font-mono text-lg sm:text-xl font-black text-amber-300">{verifiedCount}</p>
+              <span className="text-[10px] text-amber-400 font-semibold">{tr('خاوەن تاج', 'Royals')}</span>
+            </div>
+          </div>
+
+          {/* Card 4: Moderation & Suspensions */}
+          <div
+            onClick={() => { setActiveTab('users'); setFilterFilter('banned'); }}
+            className={`group cursor-pointer rounded-2xl border p-3 transition-all ${
+              activeTab === 'users' && filterFilter === 'banned'
+                ? 'border-rose-500/50 bg-rose-500/15 shadow-lg shadow-rose-500/10'
+                : 'border-slate-800/80 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/70'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{tr('سزادراو و باندکراو', 'Suspensions')}</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30 group-hover:scale-110 transition-transform">
+                <Ban className="h-3.5 w-3.5" />
+              </div>
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <p className="font-mono text-lg sm:text-xl font-black text-rose-300">{bannedCount}</p>
+              <span className="text-[10px] text-rose-400 font-semibold">{pendingReportsCount} {tr('ڕاپۆرت', 'Reports')}</span>
             </div>
           </div>
         </section>
 
-        {/* ── TAB NAVIGATION BAR ── */}
-        <nav className="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/30 px-4 py-2 sm:px-6">
+        {/* ── SEGMENTED TAB NAVIGATION BAR ── */}
+        <nav className="relative z-10 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/40 px-4 py-2.5 sm:px-6 overflow-x-auto scrollbar-none">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab('users')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold transition-all ${
                 activeTab === 'users'
-                  ? 'border border-rose-400/40 bg-rose-500/15 text-rose-200 shadow-md shadow-rose-500/10'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                  ? 'border border-rose-400/40 bg-gradient-to-r from-rose-500/25 to-pink-500/15 text-rose-200 shadow-md shadow-rose-500/15'
+                  : 'text-slate-400 hover:bg-slate-900/80 hover:text-white'
               }`}
             >
               <Users className="h-4 w-4" />
-              <span>{tr('ئەندامان و سامانەکان', 'Users & Assets')}</span>
+              <span>{tr('ئەندامان و مۆبایلەکان', 'Users & Hardware')}</span>
+              <span className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                activeTab === 'users' ? 'bg-rose-400/30 text-rose-100 font-bold' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {totalUsersCount}
+              </span>
             </button>
 
             <button
               onClick={() => setActiveTab('map')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold transition-all ${
                 activeTab === 'map'
-                  ? 'border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 shadow-md shadow-emerald-500/15'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                  ? 'border border-emerald-400/40 bg-gradient-to-r from-emerald-500/25 to-teal-500/15 text-emerald-200 shadow-md shadow-emerald-500/15'
+                  : 'text-slate-400 hover:bg-slate-900/80 hover:text-white'
               }`}
             >
-              <Map className="h-4 w-4 text-emerald-400" />
-              <span>{tr('ڕادار و نەخشە', 'Radar & Map')} ({usersWithLocation.length})</span>
+              <div className="relative">
+                <Map className="h-4 w-4 text-emerald-400" />
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+              </div>
+              <span>{tr('ڕادار و نەخشەی ڕاستەوخۆ', 'Radar & Live Map')}</span>
+              <span className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                activeTab === 'map' ? 'bg-emerald-400/30 text-emerald-100 font-bold' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {usersWithLocation.length}
+              </span>
             </button>
 
             <button
               onClick={() => setActiveTab('reports')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold transition-all ${
                 activeTab === 'reports'
-                  ? 'border border-rose-400/40 bg-rose-500/15 text-rose-200 shadow-md shadow-rose-500/10'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                  ? 'border border-amber-400/40 bg-gradient-to-r from-amber-500/25 to-yellow-500/15 text-amber-200 shadow-md shadow-amber-500/15'
+                  : 'text-slate-400 hover:bg-slate-900/80 hover:text-white'
               }`}
             >
-              <AlertTriangle className="h-4 w-4" />
-              <span>{tr('ڕاپۆرتە گشتییەکان', 'Reports')} ({pendingReportsCount})</span>
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <span>{tr('ڕاپۆرتە گشتییەکان', 'Reports')}</span>
+              {pendingReportsCount > 0 && (
+                <span className="ml-1 rounded-full bg-amber-500/30 px-1.5 py-0.2 text-[10px] font-mono text-amber-300 font-bold">
+                  {pendingReportsCount}
+                </span>
+              )}
             </button>
 
             <button
               onClick={() => setActiveTab('deletions')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold transition-all ${
                 activeTab === 'deletions'
-                  ? 'border border-red-400/50 bg-red-500/20 text-red-200 shadow-md shadow-red-500/15'
+                  ? 'border border-red-400/50 bg-gradient-to-r from-red-500/30 to-rose-600/20 text-red-200 shadow-md shadow-red-500/20'
                   : deletionRequests.length > 0
                     ? 'border border-red-500/40 bg-red-500/10 text-red-300 animate-pulse'
-                    : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    : 'text-slate-400 hover:bg-slate-900/80 hover:text-white'
               }`}
             >
               <Trash2 className="h-4 w-4 text-red-400" />
-              <span>{tr('داواکاری سڕینەوەی هەژمار', 'Deletion Requests')} ({deletionRequests.length})</span>
+              <span>{tr('داواکاری سڕینەوەی هەژمار', 'Deletion Requests')}</span>
+              {deletionRequests.length > 0 && (
+                <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.2 text-[10px] font-mono text-white font-black animate-pulse">
+                  {deletionRequests.length}
+                </span>
+              )}
             </button>
           </div>
         </nav>
 
         {/* ── TAB 1: LIVE USER DIRECTORY & ASSET MANAGER ── */}
         {activeTab === 'users' && (
-          <div className="flex flex-1 flex-col overflow-hidden p-4 sm:px-6 space-y-4">
+          <div className="flex flex-1 flex-col overflow-hidden p-4 sm:px-6 space-y-3.5">
             {/* Pending Account Deletion Requests Alert Banner */}
             {deletionRequests.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-red-500/40 bg-gradient-to-r from-red-950/60 to-slate-900 px-4 py-2.5 shadow-lg">
                 <div className="flex items-center gap-2 text-xs font-black text-red-300">
                   <Trash2 className="h-4 w-4 text-red-400 animate-bounce" />
                   <span>
@@ -638,7 +725,7 @@ export default function AdminPanel({
                 </div>
                 <button
                   onClick={() => setActiveTab('deletions')}
-                  className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-black text-white shadow hover:bg-red-500 transition"
+                  className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-black text-white shadow hover:bg-red-500 transition active:scale-95"
                 >
                   {tr('بینین و پەسەندکردن', 'Review & Approve')}
                 </button>
@@ -653,35 +740,46 @@ export default function AdminPanel({
                   type="text"
                   value={userSearchTerm}
                   onChange={(e) => setUserSearchTerm(e.target.value)}
-                  placeholder={tr('گەڕان بەپێی ناوی بەکارهێنەر، ئیمەیڵ یان UID...', 'Search by username, email, or UID...')}
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-900/80 py-2.5 pl-10 pr-4 text-xs font-medium text-white placeholder-slate-500 outline-none focus:border-rose-400"
+                  placeholder={tr('گەڕان بەپێی ناو، ئیمەیڵ، UID یان مۆدێلی مۆبایل (iPhone, Samsung)...', 'Search by username, email, UID, or phone model...')}
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 py-2.5 pl-10 pr-9 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-rose-400/80 focus:ring-1 focus:ring-rose-400/30"
                 />
+                {userSearchTerm && (
+                  <button
+                    onClick={() => setUserSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-slate-500 uppercase mr-1">{tr('فلتەر:', 'Filter:')}</span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
                 {[
-                  { id: 'all', label: tr('هەموو ئەندامان', 'All Users') },
-                  { id: 'verified', label: tr('ئەندامانی VIP', 'VIP Users') },
-                  { id: 'banned', label: tr('باندکراوەکان', 'Banned') },
+                  { id: 'all', label: tr('هەموو ئەندامان', 'All Users'), count: users.length },
+                  { id: 'verified', label: tr('VIP Royale', 'VIP'), count: verifiedCount },
+                  { id: 'mobile', label: tr('مۆبایل', 'Mobile'), count: mobileCount },
+                  { id: 'banned', label: tr('باندکراو', 'Banned'), count: bannedCount },
                 ].map((item) => (
                   <button
                     key={item.id}
                     onClick={() => setFilterFilter(item.id as any)}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
                       filterFilter === item.id
-                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                        : 'border border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
+                        ? 'border border-rose-500/50 bg-rose-500/20 text-rose-200 shadow-md shadow-rose-500/10'
+                        : 'border border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-white'
                     }`}
                   >
-                    {item.label}
+                    <span>{item.label}</span>
+                    <span className="rounded-full bg-slate-800/80 px-1.5 py-0.2 text-[9px] font-mono text-slate-400">
+                      {item.count}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* User Directory Table Canvas */}
-            <div className="flex-1 overflow-x-auto overflow-y-auto rounded-3xl border border-slate-800/80 bg-slate-900/40">
+            <div className="flex-1 overflow-x-auto overflow-y-auto rounded-3xl border border-slate-800/80 bg-slate-900/40 shadow-inner">
               {isLoadingUsers ? (
                 <div className="flex h-64 items-center justify-center text-xs text-slate-400">
                   <RefreshCw className="h-6 w-6 animate-spin text-rose-400 mr-2" />
@@ -699,6 +797,7 @@ export default function AdminPanel({
                     <tr className="border-b border-slate-800/80 bg-slate-950/80 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       <th className="p-3.5 pl-4">{tr('ناسنامەی ئەندام', 'User Identity')}</th>
                       <th className="p-3.5">{tr('ئیمەیڵ و وشەی تێپەڕ', 'Email & Pass')}</th>
+                      <th className="p-3.5">{tr('جۆری مۆبایل و ئامێر', 'Device & Mobile')}</th>
                       <th className="p-3.5">{tr('شوێنی ڕاستەقینە', 'Real Location')}</th>
                       <th className="p-3.5">{tr('تەمەنی هەژمار', 'Account Age')}</th>
                       <th className="p-3.5">{tr('کۆین و ئاست', 'Coins & XP')}</th>
@@ -756,9 +855,20 @@ export default function AdminPanel({
                                     </span>
                                   )}
                                 </div>
-                                <span className="block font-mono text-[10px] text-slate-500 truncate max-w-[160px]">
-                                  {targetUser.uid}
-                                </span>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(targetUser.uid);
+                                      showToast(tr('UID کۆپیکرا!', 'UID copied to clipboard!'));
+                                    }}
+                                    className="flex items-center gap-1 font-mono text-[9px] text-slate-500 hover:text-slate-300 transition"
+                                    title="Click to copy UID"
+                                  >
+                                    <span className="truncate max-w-[130px]">{targetUser.uid}</span>
+                                    <Copy className="h-2.5 w-2.5 opacity-60" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -766,14 +876,29 @@ export default function AdminPanel({
                           {/* Email & Password */}
                           <td className="p-3.5 whitespace-nowrap">
                             <div className="space-y-1">
-                              <span
-                                className="block font-mono text-[11px] text-slate-200 font-semibold truncate max-w-[170px]"
-                                title={targetUser.email}
-                              >
-                                {targetUser.email || tr('ئیمەیڵ تۆمار نەکراوە', 'No email registered')}
-                              </span>
                               <div className="flex items-center gap-1.5">
-                                <span className="font-mono text-[10px] text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20">
+                                <span
+                                  className="block font-mono text-[11px] text-slate-200 font-semibold truncate max-w-[160px]"
+                                  title={targetUser.email}
+                                >
+                                  {targetUser.email || tr('ئیمەیڵ تۆمار نەکراوە', 'No email registered')}
+                                </span>
+                                {targetUser.email && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(targetUser.email);
+                                      showToast(tr('ئیمەیڵ کۆپیکرا!', 'Email copied!'));
+                                    }}
+                                    className="text-slate-500 hover:text-slate-300 transition"
+                                    title="Copy Email"
+                                  >
+                                    <Copy className="h-2.5 w-2.5" />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20 font-bold">
                                   {showPasswordMap[targetUser.uid]
                                     ? targetUser.accountPassword || tr('(تۆمار نەکراوە)', '(Not recorded)')
                                     : '••••••••••'}
@@ -781,54 +906,103 @@ export default function AdminPanel({
                                 <button
                                   type="button"
                                   onClick={() => togglePasswordVisibility(targetUser.uid)}
-                                  className="text-slate-400 hover:text-white p-0.5 rounded transition"
+                                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
                                   title={showPasswordMap[targetUser.uid] ? tr('شاردنەوەی وشەی نهێنی', 'Hide password') : tr('پیشاندانی وشەی نهێنی', 'Show password')}
                                 >
                                   {showPasswordMap[targetUser.uid] ? <EyeOff size={13} /> : <Eye size={13} />}
                                 </button>
+                                {showPasswordMap[targetUser.uid] && targetUser.accountPassword && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(targetUser.accountPassword || '');
+                                      showToast(tr('وشەی نهێنی کۆپیکرا!', 'Password copied!'));
+                                    }}
+                                    className="text-slate-400 hover:text-amber-300 p-1 rounded-lg hover:bg-slate-800 transition"
+                                    title="Copy Password"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                )}
                               </div>
                             </div>
+                          </td>
+
+                          {/* Device & Mobile Model */}
+                          <td className="p-3.5 whitespace-nowrap">
+                            {targetUser.deviceInfo ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border ${
+                                    targetUser.deviceInfo.brand === 'Apple'
+                                      ? 'border-sky-500/30 bg-sky-500/15 text-sky-400'
+                                      : targetUser.deviceInfo.brand === 'Samsung' || targetUser.deviceInfo.brand === 'Xiaomi' || targetUser.deviceInfo.brand === 'Google'
+                                        ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
+                                        : 'border-amber-500/30 bg-amber-500/15 text-amber-400'
+                                  }`}>
+                                    {targetUser.deviceInfo.deviceType === 'tablet' ? (
+                                      <Tablet className="h-3.5 w-3.5" />
+                                    ) : targetUser.deviceInfo.deviceType === 'desktop' ? (
+                                      <Laptop className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <Smartphone className="h-3.5 w-3.5" />
+                                    )}
+                                  </div>
+                                  <span className="truncate max-w-[170px] text-xs font-bold text-white" title={targetUser.deviceInfo.deviceModel}>
+                                    {targetUser.deviceInfo.deviceModel}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                  <span className="rounded-md bg-slate-800/90 border border-slate-700/80 px-1.5 py-0.2 text-[9px] font-mono text-cyan-300 font-bold">
+                                    {targetUser.deviceInfo.os}
+                                  </span>
+                                  <span className="truncate max-w-[110px] text-slate-400 font-medium" title={targetUser.deviceInfo.browser}>
+                                    {targetUser.deviceInfo.browser}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
+                                <Smartphone className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                                <span>{tr('تۆمار نەکراوە', 'Pending connection')}</span>
+                              </div>
+                            )}
                           </td>
 
                           {/* Real Location & Telemetry */}
                           <td className="p-3.5 whitespace-nowrap">
                             {targetUser.location ? (
-                              <div className="space-y-1 text-xs">
-                                <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
                                   <MapPin className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                                   <span className="truncate max-w-[150px]">
                                     {targetUser.location.city ? `${targetUser.location.city}, ` : ''}
                                     {targetUser.location.country || targetUser.location.countryCode || 'Detected'}
                                   </span>
                                   {targetUser.location.isGps && (
-                                    <span className="rounded bg-emerald-500/20 px-1 py-0.2 text-[8px] font-black text-emerald-300 uppercase">
-                                      GPS
+                                    <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[8px] font-black text-emerald-300 uppercase border border-emerald-500/30">
+                                      🛰️ GPS
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
-                                  {targetUser.location.ip && <span>IP: {targetUser.location.ip}</span>}
-                                  {targetUser.location.latitude && targetUser.location.longitude && (
-                                    <span className="text-slate-500">
-                                      ({targetUser.location.latitude.toFixed(4)}, {targetUser.location.longitude.toFixed(4)})
-                                    </span>
-                                  )}
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                                  {targetUser.location.ip && <span className="text-slate-400">IP: {targetUser.location.ip}</span>}
+                                  {(targetUser.location.latitude && targetUser.location.longitude) || targetUser.location.city ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setMapModalUser(targetUser)}
+                                      className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition underline underline-offset-2"
+                                    >
+                                      <span>{tr('نەخشە', 'Map')}</span>
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </button>
+                                  ) : null}
                                 </div>
-                                {(targetUser.location.latitude && targetUser.location.longitude) || targetUser.location.city ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setMapModalUser(targetUser)}
-                                    className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300 transition hover:bg-emerald-500/25 active:scale-95"
-                                  >
-                                    <Map className="h-3 w-3" />
-                                    <span>{tr('پیشاندان لەسەر نەخشە', 'Show on Map')}</span>
-                                  </button>
-                                ) : null}
                               </div>
                             ) : (
                               <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
                                 <Globe className="h-3.5 w-3.5 text-slate-600" />
-                                <span>{tr('شوێن دیارینەکراوە', 'Location Unknown')}</span>
+                                <span>{tr('شوێن دیارینەکراوە', 'Unknown')}</span>
                               </div>
                             )}
                           </td>
@@ -1097,6 +1271,12 @@ export default function AdminPanel({
                               <p className="truncate text-[10px] text-emerald-300 font-medium">
                                 {loc.city ? `${loc.city}, ` : ''}{loc.country || 'Detected'}
                               </p>
+                              {locatedUser.deviceInfo && (
+                                <p className="truncate text-[9px] text-cyan-300 font-mono flex items-center gap-1 mt-0.5">
+                                  <Smartphone className="h-2.5 w-2.5 text-cyan-400 shrink-0" />
+                                  <span className="truncate">{locatedUser.deviceInfo.deviceModel}</span>
+                                </p>
+                              )}
                             </div>
                           </div>
                           <ChevronRight
@@ -1152,6 +1332,12 @@ export default function AdminPanel({
                             ) : (
                               <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[9px] font-bold text-sky-300 border border-sky-500/30">
                                 IP Geolocation Cell
+                              </span>
+                            )}
+                            {target.deviceInfo && (
+                              <span className="flex items-center gap-1 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[9px] font-bold text-cyan-300 border border-cyan-500/30">
+                                <Smartphone className="h-2.5 w-2.5 text-cyan-400" />
+                                <span>{target.deviceInfo.deviceModel} ({target.deviceInfo.os})</span>
                               </span>
                             )}
                           </div>
@@ -1454,6 +1640,13 @@ export default function AdminPanel({
                       <p className="text-xs text-slate-400 font-medium">
                         {mapModalUser.location.address || `${mapModalUser.location.city ? mapModalUser.location.city + ', ' : ''}${mapModalUser.location.country || 'Detected Region'}`}
                       </p>
+                      {mapModalUser.deviceInfo && (
+                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-cyan-300 font-medium">
+                          <Smartphone className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                          <span className="font-bold text-white">{mapModalUser.deviceInfo.deviceModel}</span>
+                          <span className="text-slate-400 font-mono text-[10px]">({mapModalUser.deviceInfo.os} &bull; {mapModalUser.deviceInfo.browser})</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

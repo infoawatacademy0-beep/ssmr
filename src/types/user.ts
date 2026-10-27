@@ -188,6 +188,19 @@ export interface User {
     address?: string;
     detectedAt?: number;
   } | null;
+  deviceInfo?: UserDeviceInfo | null;
+}
+
+/** Device and mobile hardware telemetry detected on user connection. */
+export interface UserDeviceInfo {
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  deviceModel: string;
+  brand: string;
+  os: string;
+  browser: string;
+  screen?: string;
+  isMobile: boolean;
+  detectedAt?: number;
 }
 
 /** Payload used to create a brand-new user profile. */

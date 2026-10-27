@@ -7,6 +7,7 @@ export type {
   AccountDeletionRequest,
   VipFrameStyle,
   VipFrameOption,
+  UserDeviceInfo,
 } from './user';
 export { buildDefaultUser, formatCoinsK, VIP_FRAME_CATALOG, getVipAvatarClass } from './user';
 

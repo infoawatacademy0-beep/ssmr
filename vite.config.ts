@@ -26,8 +26,8 @@ function livekitTokenPlugin(): Plugin {
           }
 
           const at = new AccessToken(
-            'API7QMERjkNUN7j',
-            'pFc6g6JdfXCOVbRLeRWmj3q4bgKPnyvPO15eqa5NfEoD',
+            'APIDK99UVGG44Xy',
+            'maOH065lVZBlCxGHQeUb0El0kS4bxelTwn1xA7MqONs',
             {
               identity: uid,
               name: username,

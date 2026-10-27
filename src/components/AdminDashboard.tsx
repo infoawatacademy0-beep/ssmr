@@ -282,6 +282,11 @@ export default function AdminDashboard({ currentUser, onClose }: AdminDashboardP
                       <p className="text-[10px] text-slate-500">
                         Level {u.level || 1} &bull; {u.coins?.toLocaleString() || 0} Coins
                       </p>
+                      {u.deviceInfo && (
+                        <p className="text-[10px] text-cyan-300 font-medium truncate max-w-[180px]">
+                          📱 {u.deviceInfo.deviceModel} ({u.deviceInfo.os})
+                        </p>
+                      )}
                     </div>
                   </div>
 
