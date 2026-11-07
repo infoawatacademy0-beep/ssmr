@@ -179,16 +179,14 @@ export default function FriendsModal({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-base font-black text-white">
-                  {isViewingSelf
-                    ? tr('لیستی هاوڕێ و فۆڵۆوەکانم', 'My Friends & Follows')
-                    : tr(`هاوڕێ و فۆڵۆوەکانی ${activeUser.username}`, `${activeUser.username}'s Connections`)}
+                  {tr('لیستی هاوڕێکانم', 'My Friends')}
                 </h2>
                 <span className="rounded-md bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black text-amber-400 uppercase border border-amber-400/20">
-                  {friendsCount + followersCount}
+                  {friendsCount}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">
-                {tr('هاوڕێیانی دوولایەنە، فۆڵۆوکاران و فۆڵۆوکراوەکان', 'Mutual friends, followers and following')}
+                {tr('هاوڕێیانی دوولایەنە', 'Mutual friends')}
               </p>
             </div>
           </div>
@@ -198,54 +196,6 @@ export default function FriendsModal({
             className="rounded-full p-2 text-slate-400 transition hover:bg-white/[0.08] hover:text-white"
           >
             <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Subtabs Bar */}
-        <div className="grid grid-cols-3 border-b border-white/[0.06] bg-slate-950/40 p-1.5 gap-1.5">
-          <button
-            onClick={() => setActiveTab('friends')}
-            className={`flex items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-bold transition-all ${
-              activeTab === 'friends'
-                ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/40 text-amber-300 shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]'
-            }`}
-          >
-            <HeartHandshake className="h-3.5 w-3.5 text-amber-400" />
-            <span>{tr('هاوڕێکان', 'Friends')}</span>
-            <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[10px] font-mono text-amber-300">
-              {friendsCount}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('followers')}
-            className={`flex items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-bold transition-all ${
-              activeTab === 'followers'
-                ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/40 text-amber-300 shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]'
-            }`}
-          >
-            <Users className="h-3.5 w-3.5 text-cyan-400" />
-            <span>{tr('فۆڵۆوکاران', 'Followers')}</span>
-            <span className="rounded-full bg-cyan-500/20 px-1.5 py-0.2 text-[10px] font-mono text-cyan-300">
-              {followersCount}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('following')}
-            className={`flex items-center justify-center gap-2 rounded-2xl py-2.5 text-xs font-bold transition-all ${
-              activeTab === 'following'
-                ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-400/40 text-amber-300 shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]'
-            }`}
-          >
-            <UserCheck className="h-3.5 w-3.5 text-purple-400" />
-            <span>{tr('فۆڵۆوکراوان', 'Following')}</span>
-            <span className="rounded-full bg-purple-500/20 px-1.5 py-0.2 text-[10px] font-mono text-purple-300">
-              {followingCount}
-            </span>
           </button>
         </div>
 

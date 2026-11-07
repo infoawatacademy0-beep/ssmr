@@ -471,17 +471,19 @@ export default function UserProfileManager({
             <span>{tr("ناسنامەی پڕۆفایل", "Profile Identity")}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('friends')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
-              activeTab === 'friends'
-                ? 'border-amber-400 text-amber-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <HeartHandshake className="h-3.5 w-3.5" />
-            <span>{tr("هاوڕێ و فۆڵۆوەکان", "Friends & Follows")} ({friendsCount + followersCount})</span>
-          </button>
+          {isViewingSelf && (
+            <button
+              onClick={() => setActiveTab('friends')}
+              className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
+                activeTab === 'friends'
+                  ? 'border-amber-400 text-amber-300'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <HeartHandshake className="h-3.5 w-3.5" />
+              <span>{tr("هاوڕێکان", "Friends")} ({friendsCount})</span>
+            </button>
+          )}
 
           {isViewingSelf && (
             <button
@@ -633,59 +635,25 @@ export default function UserProfileManager({
                       </div>
                     </div>
 
-                    {/* Prominent Follower & Following Stats */}
-                    <div className="mt-3.5 grid grid-cols-3 gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('friends');
-                          setFriendsSubTab('followers');
-                        }}
-                        className="flex flex-col items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-2 transition hover:scale-105 hover:border-cyan-400/50"
-                      >
-                        <div className="flex items-center gap-1 text-cyan-400">
-                          <Users className="h-3.5 w-3.5" />
-                          <span className="font-mono text-sm font-black text-white">{followersCount}</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-tight">
-                          {tr("فۆڵۆوکاران", "Followers")}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('friends');
-                          setFriendsSubTab('following');
-                        }}
-                        className="flex flex-col items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/10 p-2 transition hover:scale-105 hover:border-purple-400/50"
-                      >
-                        <div className="flex items-center gap-1 text-purple-400">
-                          <UserCheck className="h-3.5 w-3.5" />
-                          <span className="font-mono text-sm font-black text-white">{followingCount}</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-purple-300 uppercase tracking-tight">
-                          {tr("فۆڵۆوکراوان", "Following")}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('friends');
-                          setFriendsSubTab('friends');
-                        }}
-                        className="flex flex-col items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 p-2 transition hover:scale-105 hover:border-amber-400/50"
-                      >
-                        <div className="flex items-center gap-1 text-amber-400">
-                          <HeartHandshake className="h-3.5 w-3.5" />
+                    {/* Friends Stat (Visible only to account owner) */}
+                    {isViewingSelf && (
+                      <div className="mt-3.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('friends');
+                            setFriendsSubTab('friends');
+                          }}
+                          className="flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 transition hover:scale-105 hover:border-amber-400/50"
+                        >
+                          <HeartHandshake className="h-4 w-4 text-amber-400" />
                           <span className="font-mono text-sm font-black text-white">{friendsCount}</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-amber-300 uppercase tracking-tight">
-                          {tr("هاوڕێکان", "Friends")}
-                        </span>
-                      </button>
-                    </div>
+                          <span className="text-xs font-bold text-amber-300">
+                            {tr("هاوڕێکان", "Friends")}
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -867,53 +835,8 @@ export default function UserProfileManager({
             </>
           )}
 
-          {activeTab === 'friends' && (
+          {isViewingSelf && activeTab === 'friends' && (
             <div className="space-y-3">
-              {/* Sub-pills (Friends / Followers / Following) */}
-              <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-slate-950/60 p-1 border border-white/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => setFriendsSubTab('friends')}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                    friendsSubTab === 'friends'
-                      ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <HeartHandshake className="h-3 w-3 text-amber-400" />
-                  <span>{tr('هاوڕێکان', 'Friends')}</span>
-                  <span className="text-[10px] font-mono opacity-80">({friendsCount})</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFriendsSubTab('followers')}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                    friendsSubTab === 'followers'
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Users className="h-3 w-3 text-cyan-400" />
-                  <span>{tr('فۆڵۆوکاران', 'Followers')}</span>
-                  <span className="text-[10px] font-mono opacity-80">({followersCount})</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFriendsSubTab('following')}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                    friendsSubTab === 'following'
-                      ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <UserCheck className="h-3 w-3 text-purple-400" />
-                  <span>{tr('فۆڵۆوکراوان', 'Following')}</span>
-                  <span className="text-[10px] font-mono opacity-80">({followingCount})</span>
-                </button>
-              </div>
-
               {/* Quick Search inside Friends list */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />

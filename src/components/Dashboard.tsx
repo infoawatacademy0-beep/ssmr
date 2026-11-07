@@ -547,7 +547,7 @@ export default function Dashboard() {
                 items: [
                   { key: 'dm', icon: MessageSquare, label: t('nav.messages', 'نامەی تایبەتی'), badge: unreadDMsCount > 0 ? String(unreadDMsCount) : inboxThreadsCount > 0 ? String(inboxThreadsCount) : '', hot: unreadDMsCount > 0, onClick: () => setIsChatCenterOpen(true) },
                   { key: 'notifs', icon: Bell, label: t('nav.notifications', 'ئاگادارکردنەوەکان'), badge: unreadNotifsCount > 0 ? String(unreadNotifsCount) : '', hot: true, onClick: () => setIsNotificationsOpen(true) },
-                  { key: 'friends', icon: HeartHandshake, label: t('nav.friends', 'هاوڕێ و فۆڵۆوەکان'), badge: String(friendsCount + followersCount), onClick: () => setIsFriendsModalOpen(true) },
+                  { key: 'friends', icon: HeartHandshake, label: tr('هاوڕێکان', 'Friends'), badge: String(friendsCount), onClick: () => setIsFriendsModalOpen(true) },
                 ],
               },
               {
@@ -704,9 +704,9 @@ export default function Dashboard() {
               title={tr('هاوڕێکان', 'Friends')}
             >
               <HeartHandshake className="h-4 w-4" />
-              {friendsCount + followersCount > 0 && (
+              {friendsCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] px-0.5 items-center justify-center rounded-full bg-amber-400 text-[8px] font-black text-black shadow">
-                  {friendsCount + followersCount > 9 ? '9+' : friendsCount + followersCount}
+                  {friendsCount > 9 ? '9+' : friendsCount}
                 </span>
               )}
             </button>
@@ -1898,22 +1898,6 @@ export default function Dashboard() {
               <span className="font-mono text-sm font-black text-amber-300">{formatCoinsK(user.coins)}</span>
             </button>
 
-            <div className="grid grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-slate-950/50 rtl:divide-x-reverse">
-              {[
-                { n: followersCount, l: tr('فۆڵۆوکار', 'Followers') },
-                { n: followingCount, l: tr('فۆڵۆوکراو', 'Following') },
-                { n: friendsCount, l: tr('هاوڕێکان', 'Friends') },
-              ].map((s) => (
-                <button
-                  key={s.l}
-                  onClick={() => setIsFriendsModalOpen(true)}
-                  className="flex flex-col items-center py-2.5 transition hover:bg-white/5"
-                >
-                  <span className="font-mono text-sm font-black text-white">{s.n}</span>
-                  <span className="text-[10px] font-semibold text-slate-400">{s.l}</span>
-                </button>
-              ))}
-            </div>
 
             <button
               onClick={() => openUserProfile(user.uid)}
