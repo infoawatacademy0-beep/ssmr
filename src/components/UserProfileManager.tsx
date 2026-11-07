@@ -230,13 +230,17 @@ export default function UserProfileManager({
     };
   }, [activeUid, isViewingSelf, currentUser]);
 
-  // 2. Real-time subscription to recent visitors
+  // 2. Real-time subscription to recent visitors (Strictly owner-only privacy)
   useEffect(() => {
+    if (!isViewingSelf) {
+      setVisitors([]);
+      return;
+    }
     const unsubscribe = subscribeToUserVisitors(activeUid, (updatedVisitors) => {
       setVisitors(updatedVisitors);
     });
     return () => unsubscribe();
-  }, [activeUid]);
+  }, [activeUid, isViewingSelf]);
 
   // 3. Real-time presence subscription
   useEffect(() => {
@@ -479,17 +483,19 @@ export default function UserProfileManager({
             <span>{tr("هاوڕێ و فۆڵۆوەکان", "Friends & Follows")} ({friendsCount + followersCount})</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('visitors')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
-              activeTab === 'visitors'
-                ? 'border-amber-400 text-amber-300'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span>{tr("سەردانیکەرانی ئەم دواییە", "Recent Visitors")} ({visitors.length})</span>
-          </button>
+          {isViewingSelf && (
+            <button
+              onClick={() => setActiveTab('visitors')}
+              className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
+                activeTab === 'visitors'
+                  ? 'border-amber-400 text-amber-300'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>{tr("سەردانیکەرانی ئەم دواییە", "Recent Visitors")} ({visitors.length})</span>
+            </button>
+          )}
         </div>
 
         {/* ── BODY CONTENT ── */}
@@ -1100,14 +1106,14 @@ export default function UserProfileManager({
             </div>
           )}
 
-          {activeTab === 'visitors' && (
+          {isViewingSelf && activeTab === 'visitors' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   {tr("تۆماری سەردانیکەران", "Visitors History")}
                 </span>
                 <span className="text-[10px] text-slate-500">
-                  {tr("تۆمارکردنی ئۆتۆماتیکی هەر ٥ خولەک جارێک", "Recorded automatically every 5 minutes")}
+                  {tr("تەنها خۆت دەیبینیت", "Only visible to you")}
                 </span>
               </div>
 
@@ -1144,9 +1150,14 @@ export default function UserProfileManager({
                         </div>
 
                         <div>
-                          <h4 className="text-xs font-bold text-white">
-                            {visitor.visitorName}
-                          </h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-white">
+                              {visitor.visitorName}
+                            </h4>
+                            <span className="rounded-full border border-amber-400/30 bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-300">
+                              {visitor.visitCount || 1} {tr("جار", "visits")}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-slate-400">
                             {tr("سەردانی پڕۆفایلەکەتی کرد", "Visited your profile")}
                           </span>

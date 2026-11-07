@@ -1961,6 +1961,7 @@ export default function Dashboard() {
                     <span className="text-xs font-bold text-slate-200 truncate max-w-[100px]">
                       {visitor.visitorName}
                     </span>
+                    <span className="rounded-full border border-amber-400/30 bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-black text-amber-300">{visitor.visitCount || 1} {tr('جار', 'visits')}</span>
                   </div>
 
                   <span className="text-[10px] text-slate-500 font-medium">

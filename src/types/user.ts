@@ -23,6 +23,7 @@ export interface ProfileVisitor {
   visitorName: string;
   avatar: string | null;
   timestamp: number;
+  visitCount?: number;
 }
 
 export type VipFrameStyle =

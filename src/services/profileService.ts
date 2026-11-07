@@ -30,13 +30,14 @@ export function normalizeVisitors(rawVisitors: unknown): ProfileVisitor[] {
       visitorName: String(v.visitorName || 'Visitor'),
       avatar: v.avatar ? String(v.avatar) : null,
       timestamp: Number(v.timestamp) || Date.now(),
+      visitCount: Math.max(1, Number(v.visitCount) || 1),
     }))
     .sort((a, b) => b.timestamp - a.timestamp);
 }
 
 /**
  * Logs a profile view when User A checks User B's profile.
- * Prevents consecutive duplicate logging within a 5-minute cooldown.
+ * Increments visitCount every time the profile is opened.
  */
 export async function viewUserProfile(
   targetUid: string,
@@ -53,22 +54,16 @@ export async function viewUserProfile(
     const visitors = normalizeVisitors(currentData);
     const now = Date.now();
 
-    // Check if the most recent visitor is already this user within the last 5 minutes
-    const latestFromThisUser = visitors.find((v) => v.visitorUid === visitorUser.uid);
-    if (latestFromThisUser && now - latestFromThisUser.timestamp < 5 * 60 * 1000) {
-      // Cooldown active: update timestamp of existing entry without inflating list
-      latestFromThisUser.timestamp = now;
-      latestFromThisUser.visitorName = visitorUser.username;
-      latestFromThisUser.avatar = visitorUser.avatar || null;
-      return visitors.sort((a, b) => b.timestamp - a.timestamp);
-    }
+    const existing = visitors.find((v) => v.visitorUid === visitorUser.uid);
+    const nextCount = (existing?.visitCount || 0) + 1;
 
-    // Add new visitor at the top
+    // Add updated visitor record at the top with incremented visit count
     const newVisitor: ProfileVisitor = {
       visitorUid: visitorUser.uid,
       visitorName: visitorUser.username,
       avatar: visitorUser.avatar || null,
       timestamp: now,
+      visitCount: nextCount,
     };
 
     const updated = [newVisitor, ...visitors.filter((v) => v.visitorUid !== visitorUser.uid)];
