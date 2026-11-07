@@ -6,6 +6,7 @@
  * Implements:
  * - Rule 1: Room Entry Broadcast to ALL members (action = "room_entry")
  * - Rule 2: Direct/Private Chat Message to ONLY recipient Member B (action = "private_message")
+ * - Profile Visit Notification to ONLY profile owner (action = "profile_visit")
  * - Rule 3: Notification Dismissal / Clearance when Member B reads chat (action = "dismiss_chat")
  */
 
@@ -20,15 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 define('ONESIGNAL_APP_ID', 'b93b7d97-85fb-4b90-9639-94800375ba63');
-define('ONESIGNAL_REST_API_KEY', getenv('ONESIGNAL_REST_API_KEY') ?: 'YOUR_ONESIGNAL_REST_API_KEY');
+define('ONESIGNAL_REST_API_KEY', getenv('ONESIGNAL_REST_API_KEY') ?: '');
+define('ONESIGNAL_PUBLIC_KEY_PEM', "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIAePpAesCmbZIJ1i7b505etLNN+q\nm575890tN1jcPTPCXRVrmBwXhaesv5BrGqPd1UsGir7mgpuM4ZBLJ1JPjA==\n-----END PUBLIC KEY-----");
 
 $rawBody = file_get_contents('php://input');
 $input = json_decode($rawBody, true) ?: [];
 $action = $input['action'] ?? ($_GET['action'] ?? '');
 
-/**
- * Helper to call OneSignal REST API
- */
 function callOneSignalApi(string $endpoint, string $method = 'POST', ?array $payload = null): array {
     $ch = curl_init("https://api.onesignal.com" . $endpoint);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -50,6 +49,28 @@ function callOneSignalApi(string $endpoint, string $method = 'POST', ?array $pay
         'status' => $status,
         'body' => json_decode($response, true) ?: $response
     ];
+}
+
+function sendOneSignalToSingleUser(string $targetUid, array $basePayload): array {
+    $tagPayload = array_merge($basePayload, [
+        'app_id' => ONESIGNAL_APP_ID,
+        'target_channel' => 'push',
+        'filters' => [
+            ['field' => 'tag', 'key' => 'uid', 'relation' => '=', 'value' => $targetUid]
+        ]
+    ]);
+    $res = callOneSignalApi('/notifications', 'POST', $tagPayload);
+    if (empty($res['body']['id'])) {
+        $aliasPayload = array_merge($basePayload, [
+            'app_id' => ONESIGNAL_APP_ID,
+            'target_channel' => 'push',
+            'include_aliases' => [
+                'external_id' => [$targetUid]
+            ]
+        ]);
+        return callOneSignalApi('/notifications', 'POST', $aliasPayload);
+    }
+    return $res;
 }
 
 // ============================================================================
@@ -74,8 +95,7 @@ if ($action === 'room_entry') {
             'en' => "{$username} just joined the room \"{$roomName}\". Tap to join the voice chat!",
             'ckb' => "{$username} چووە ناو ژووری «{$roomName}». کلیک بکە بۆ چوونە ژوورەوە!"
         ],
-        'web_push_topic' => "room_entry_{$roomId}",
-        'collapse_id' => "room_entry_{$roomId}",
+        'web_push_topic' => "room_entry_{$roomId}_" . time(),
         'url' => $siteUrl ? rtrim($siteUrl, '/') . "/room/{$roomId}" : null,
         'data' => [
             'type' => 'room_entry',
@@ -85,13 +105,6 @@ if ($action === 'room_entry') {
             'username' => $username
         ]
     ];
-
-    // Exclude the user who entered so they don't receive their own entry push
-    if (!empty($userId)) {
-        $payload['filters'] = [
-            ['field' => 'tag', 'key' => 'uid', 'relation' => '!=', 'value' => $userId]
-        ];
-    }
 
     $result = callOneSignalApi('/notifications', 'POST', $payload);
     echo json_encode(['success' => true, 'rule' => 'room_entry', 'onesignal' => $result['body']]);
@@ -117,14 +130,7 @@ if ($action === 'private_message') {
     }
 
     $topicTag = "dm_{$threadId}";
-
-    $payload = [
-        'app_id' => ONESIGNAL_APP_ID,
-        'target_channel' => 'push',
-        // Target ONLY Member B by external_id alias
-        'include_aliases' => [
-            'external_id' => [$recipientUid]
-        ],
+    $result = sendOneSignalToSingleUser($recipientUid, [
         'headings' => [
             'en' => "💬 {$senderName}",
             'ckb' => "💬 نامەی نوێ لەلایەن {$senderName}"
@@ -133,8 +139,6 @@ if ($action === 'private_message') {
             'en' => "{$senderName}: {$messagePreview}",
             'ckb' => "{$senderName}: {$messagePreview}"
         ],
-        // collapse_id & web_push_topic group/replace notifications per chat thread
-        // so Rule 3 can overwrite or dismiss them immediately on the device tray
         'collapse_id' => $topicTag,
         'web_push_topic' => $topicTag,
         'chrome_web_icon' => !empty($senderAvatar) ? $senderAvatar : null,
@@ -146,12 +150,58 @@ if ($action === 'private_message') {
             'senderName' => $senderName,
             'recipientUid' => $recipientUid
         ]
-    ];
+    ]);
 
-    $result = callOneSignalApi('/notifications', 'POST', $payload);
     echo json_encode([
         'success' => true,
         'rule' => 'private_message',
+        'notificationId' => $result['body']['id'] ?? null,
+        'onesignal' => $result['body']
+    ]);
+    exit;
+}
+
+// ============================================================================
+// PROFILE VISIT NOTIFICATION (Sent ONLY to Profile Owner)
+// ============================================================================
+if ($action === 'profile_visit') {
+    $visitorUid    = trim($input['visitorUid'] ?? '');
+    $visitorName   = trim($input['visitorName'] ?? 'ئەندامێک');
+    $visitorAvatar = trim($input['visitorAvatar'] ?? '');
+    $targetUid     = trim($input['targetUid'] ?? '');
+    $siteUrl       = trim($input['siteUrl'] ?? '');
+
+    if (empty($targetUid)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'targetUid is required']);
+        exit;
+    }
+
+    $topicTag = "visit_{$targetUid}_{$visitorUid}";
+    $result = sendOneSignalToSingleUser($targetUid, [
+        'headings' => [
+            'en' => "👁️ Profile Visitor: {$visitorName}",
+            'ckb' => "👁️ سەردانی پڕۆفایل لەلایەن {$visitorName}"
+        ],
+        'contents' => [
+            'en' => "{$visitorName} just visited your profile!",
+            'ckb' => "{$visitorName} سەردانی پڕۆفایلەکەتی کرد!"
+        ],
+        'collapse_id' => $topicTag,
+        'web_push_topic' => $topicTag,
+        'chrome_web_icon' => !empty($visitorAvatar) ? $visitorAvatar : null,
+        'url' => $siteUrl ?: null,
+        'data' => [
+            'type' => 'profile_visit',
+            'visitorUid' => $visitorUid,
+            'visitorName' => $visitorName,
+            'targetUid' => $targetUid
+        ]
+    ]);
+
+    echo json_encode([
+        'success' => true,
+        'rule' => 'profile_visit',
         'notificationId' => $result['body']['id'] ?? null,
         'onesignal' => $result['body']
     ]);
@@ -191,4 +241,4 @@ if ($action === 'dismiss_chat') {
 }
 
 http_response_code(400);
-echo json_encode(['success' => false, 'error' => 'Invalid action. Use room_entry, private_message, or dismiss_chat.']);
+echo json_encode(['success' => false, 'error' => 'Invalid action']);

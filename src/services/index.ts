@@ -265,6 +265,7 @@ export {
   logoutOneSignalUser,
   triggerRoomEntryPushNotification,
   triggerPrivateMessagePushNotification,
+  triggerProfileVisitPushNotification,
   clearPrivateChatNotifications,
 } from './oneSignalService';
 

@@ -71,6 +71,18 @@ export async function viewUserProfile(
     // Keep top 30 most recent visitors
     return updated.slice(0, 30);
   });
+
+  // Send OneSignal Web Push notification to the profile owner even when their app/browser is closed
+  import('./oneSignalService')
+    .then(({ triggerProfileVisitPushNotification }) =>
+      triggerProfileVisitPushNotification({
+        visitorUid: visitorUser.uid,
+        visitorName: visitorUser.username,
+        visitorAvatar: visitorUser.avatar || null,
+        targetUid,
+      }),
+    )
+    .catch(() => {});
 }
 
 /**

@@ -34,12 +34,16 @@ const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || 'maOH065lVZBlCxGHQe
 // OneSignal Configuration (App ID: b93b7d97-85fb-4b90-9639-94800375ba63)
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || 'b93b7d97-85fb-4b90-9639-94800375ba63';
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || '';
+const ONESIGNAL_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIAePpAesCmbZIJ1i7b505etLNN+q
+m575890tN1jcPTPCXRVrmBwXhaesv5BrGqPd1UsGir7mgpuM4ZBLJ1JPjA==
+-----END PUBLIC KEY-----`;
 
 app.use(cors());
 app.use(express.json());
 
 /**
- * Helper to call OneSignal REST API v1
+ * Helper to call OneSignal REST API
  */
 async function sendOneSignalRequest(endpoint, method = 'POST', payload = null) {
   if (!ONESIGNAL_REST_API_KEY) {
@@ -58,10 +62,38 @@ async function sendOneSignalRequest(endpoint, method = 'POST', payload = null) {
 }
 
 /**
+ * Helper to send a push notification to a single target user (by UID tag + external_id alias)
+ */
+async function sendOneSignalToUser(targetUid, basePayload) {
+  // 1. Send via tag filter (matches immediately on all devices where OneSignal.User.addTag('uid', targetUid) ran)
+  const tagPayload = {
+    ...basePayload,
+    app_id: ONESIGNAL_APP_ID,
+    target_channel: 'push',
+    filters: [{ field: 'tag', key: 'uid', relation: '=', value: String(targetUid) }],
+  };
+  const resTag = await sendOneSignalRequest('/notifications', 'POST', tagPayload);
+
+  // 2. If tag filter matched 0 recipients, also try external_id alias
+  if (!resTag?.data?.id) {
+    const aliasPayload = {
+      ...basePayload,
+      app_id: ONESIGNAL_APP_ID,
+      target_channel: 'push',
+      include_aliases: {
+        external_id: [String(targetUid)],
+      },
+    };
+    return await sendOneSignalRequest('/notifications', 'POST', aliasPayload);
+  }
+  return resTag;
+}
+
+/**
  * RULE 1: Room Entry Push Notification
  * POST /api/onesignal/room-entry
  * Automatically broadcasts a push notification to ALL subscribed members
- * including the user's name and the room's title.
+ * for ANY room (including rooms owned by other users), showing the user's name and room title.
  */
 app.post('/api/onesignal/room-entry', async (req, res) => {
   try {
@@ -82,8 +114,7 @@ app.post('/api/onesignal/room-entry', async (req, res) => {
         en: `${username} just entered the room "${roomName}". Tap to join the voice chat!`,
         ckb: `${username} چووە ناو ژووری «${roomName}». کلیک بکە بۆ بەشداریکردن!`,
       },
-      web_push_topic: `room_entry_${roomId || 'general'}`,
-      collapse_id: `room_entry_${roomId || 'general'}`,
+      web_push_topic: `room_entry_${roomId || 'general'}_${Date.now()}`,
       url: siteUrl ? `${siteUrl.replace(/\/$/, '')}/room/${roomId}` : undefined,
       data: {
         type: 'room_entry',
@@ -93,13 +124,6 @@ app.post('/api/onesignal/room-entry', async (req, res) => {
         roomName,
       },
     };
-
-    // Exclude the entering user from receiving their own room-entry push
-    if (userId) {
-      payload.filters = [
-        { field: 'tag', key: 'uid', relation: '!=', value: String(userId) },
-      ];
-    }
 
     const result = await sendOneSignalRequest('/notifications', 'POST', payload);
     return res.json({ success: true, rule: 'room_entry', result });
@@ -132,14 +156,9 @@ app.post('/api/onesignal/private-message', async (req, res) => {
 
     const cleanThreadId = threadId || [senderUid, recipientUid].sort().join('_');
     const topicTag = `dm_${cleanThreadId}`;
-    const preview = messagePreview || 'Sent you a message';
+    const preview = messagePreview || 'نامەیەکی نوێت بۆ هات';
 
-    const payload = {
-      app_id: ONESIGNAL_APP_ID,
-      target_channel: 'push',
-      include_aliases: {
-        external_id: [String(recipientUid)],
-      },
+    const result = await sendOneSignalToUser(recipientUid, {
       headings: {
         en: `💬 ${senderName}`,
         ckb: `💬 نامەی نوێ لەلایەن ${senderName}`,
@@ -159,9 +178,8 @@ app.post('/api/onesignal/private-message', async (req, res) => {
         senderName,
         recipientUid: String(recipientUid),
       },
-    };
+    });
 
-    const result = await sendOneSignalRequest('/notifications', 'POST', payload);
     return res.json({
       success: true,
       rule: 'private_message',
@@ -171,6 +189,52 @@ app.post('/api/onesignal/private-message', async (req, res) => {
   } catch (err) {
     console.error('OneSignal private-message error:', err);
     return res.status(500).json({ error: err.message || 'Failed to send private message push' });
+  }
+});
+
+/**
+ * Profile Visit Push Notification
+ * POST /api/onesignal/profile-visit
+ * Sends a push notification ONLY to the profile owner (targetUid) when someone visits their profile.
+ */
+app.post('/api/onesignal/profile-visit', async (req, res) => {
+  try {
+    const { visitorUid, visitorName, visitorAvatar, targetUid, siteUrl } = req.body || {};
+    if (!targetUid || !visitorName) {
+      return res.status(400).json({ error: 'targetUid and visitorName are required' });
+    }
+
+    const topicTag = `visit_${targetUid}_${visitorUid || 'user'}`;
+    const result = await sendOneSignalToUser(targetUid, {
+      headings: {
+        en: `👁️ Profile Visitor: ${visitorName}`,
+        ckb: `👁️ سەردانی پڕۆفایل لەلایەن ${visitorName}`,
+      },
+      contents: {
+        en: `${visitorName} just visited your profile!`,
+        ckb: `${visitorName} سەردانی پڕۆفایلەکەتی کرد!`,
+      },
+      collapse_id: topicTag,
+      web_push_topic: topicTag,
+      chrome_web_icon: visitorAvatar || undefined,
+      url: siteUrl || undefined,
+      data: {
+        type: 'profile_visit',
+        visitorUid: visitorUid || '',
+        visitorName,
+        targetUid: String(targetUid),
+      },
+    });
+
+    return res.json({
+      success: true,
+      rule: 'profile_visit',
+      notificationId: result?.data?.id || null,
+      result,
+    });
+  } catch (err) {
+    console.error('OneSignal profile-visit error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to send profile visit push' });
   }
 });
 
