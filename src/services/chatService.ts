@@ -9,6 +9,10 @@ import {
 } from 'firebase/database';
 import { database } from '../config/firebase';
 import type { DirectMessage, DirectMessageType, ChatThreadMeta, UserInboxItem } from '../types';
+import {
+  triggerPrivateMessagePushNotification,
+  clearPrivateChatNotifications,
+} from './oneSignalService';
 
 /**
  * Derives a deterministic lexicographical thread ID from two user UIDs.
@@ -192,6 +196,17 @@ export async function sendDirectMessage(params: {
         unread: true,
         unreadCount: prevRecipientUnread + 1,
       });
+
+      // Rule 2 (OneSignal): Send push notification ONLY to Member B (recipientUid)
+      // containing Member A's name and the message preview
+      triggerPrivateMessagePushNotification({
+        threadId,
+        senderUid,
+        senderName,
+        senderAvatar: senderAvatar || null,
+        recipientUid: targetUid,
+        messagePreview: previewText,
+      }).catch(() => {});
     } catch (inboxErr) {
       console.warn('Inbox metadata update non-critical warning:', inboxErr);
     }
@@ -201,7 +216,8 @@ export async function sendDirectMessage(params: {
 }
 
 /**
- * Marks a direct message thread as read by the current user.
+ * Marks a direct message thread as read by the current user
+ * and automatically clears/dismisses OneSignal push notifications (Rule 3).
  */
 export async function markThreadAsRead(currentUid: string, otherUid: string): Promise<void> {
   if (!currentUid || !otherUid) return;
@@ -212,6 +228,15 @@ export async function markThreadAsRead(currentUid: string, otherUid: string): Pr
       unreadCount: 0,
       lastReadTimestamp: Date.now(),
     });
+
+    // Rule 3 (OneSignal): Automatically dismiss/clear the push notification from
+    // Member B's device tray and OneSignal queue when Member B reads the chat
+    const threadId = getThreadId(currentUid, otherUid);
+    clearPrivateChatNotifications({
+      recipientUid: currentUid,
+      senderUid: otherUid,
+      threadId,
+    }).catch(() => {});
   } catch (err) {
     console.warn('Failed to mark thread as read:', err);
   }

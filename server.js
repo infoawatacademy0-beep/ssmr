@@ -31,8 +31,183 @@ const archiveS3 = new AWS.S3({
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || 'APIDK99UVGG44Xy';
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || 'maOH065lVZBlCxGHQeUb0El0kS4bxelTwn1xA7MqONs';
 
+// OneSignal Configuration (App ID: b93b7d97-85fb-4b90-9639-94800375ba63)
+const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || 'b93b7d97-85fb-4b90-9639-94800375ba63';
+const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || '';
+
 app.use(cors());
 app.use(express.json());
+
+/**
+ * Helper to call OneSignal REST API v1
+ */
+async function sendOneSignalRequest(endpoint, method = 'POST', payload = null) {
+  if (!ONESIGNAL_REST_API_KEY) {
+    return { skipped: true, reason: 'ONESIGNAL_REST_API_KEY not configured on server' };
+  }
+  const response = await fetch(`https://api.onesignal.com${endpoint}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Key ${ONESIGNAL_REST_API_KEY}`,
+    },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  return { status: response.status, data };
+}
+
+/**
+ * RULE 1: Room Entry Push Notification
+ * POST /api/onesignal/room-entry
+ * Automatically broadcasts a push notification to ALL subscribed members
+ * including the user's name and the room's title.
+ */
+app.post('/api/onesignal/room-entry', async (req, res) => {
+  try {
+    const { userId, username, roomId, roomName, siteUrl } = req.body || {};
+    if (!username || !roomName) {
+      return res.status(400).json({ error: 'username and roomName are required' });
+    }
+
+    const payload = {
+      app_id: ONESIGNAL_APP_ID,
+      target_channel: 'push',
+      included_segments: ['Total Subscriptions'],
+      headings: {
+        en: `🎙️ ${username} entered ${roomName}`,
+        ckb: `🎙️ ${username} چووە ناو ژووری ${roomName}`,
+      },
+      contents: {
+        en: `${username} just entered the room "${roomName}". Tap to join the voice chat!`,
+        ckb: `${username} چووە ناو ژووری «${roomName}». کلیک بکە بۆ بەشداریکردن!`,
+      },
+      web_push_topic: `room_entry_${roomId || 'general'}`,
+      collapse_id: `room_entry_${roomId || 'general'}`,
+      url: siteUrl ? `${siteUrl.replace(/\/$/, '')}/room/${roomId}` : undefined,
+      data: {
+        type: 'room_entry',
+        userId: userId || '',
+        username,
+        roomId: roomId || '',
+        roomName,
+      },
+    };
+
+    // Exclude the entering user from receiving their own room-entry push
+    if (userId) {
+      payload.filters = [
+        { field: 'tag', key: 'uid', relation: '!=', value: String(userId) },
+      ];
+    }
+
+    const result = await sendOneSignalRequest('/notifications', 'POST', payload);
+    return res.json({ success: true, rule: 'room_entry', result });
+  } catch (err) {
+    console.error('OneSignal room-entry error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to send room entry notification' });
+  }
+});
+
+/**
+ * RULE 2: Direct / Private Chat Message Push Notification
+ * POST /api/onesignal/private-message
+ * Sends a push notification ONLY to Member B (recipientUid) with Member A's name and message preview.
+ */
+app.post('/api/onesignal/private-message', async (req, res) => {
+  try {
+    const {
+      senderUid,
+      senderName,
+      senderAvatar,
+      recipientUid,
+      messagePreview,
+      threadId,
+      siteUrl,
+    } = req.body || {};
+
+    if (!recipientUid || !senderName) {
+      return res.status(400).json({ error: 'recipientUid and senderName are required' });
+    }
+
+    const cleanThreadId = threadId || [senderUid, recipientUid].sort().join('_');
+    const topicTag = `dm_${cleanThreadId}`;
+    const preview = messagePreview || 'Sent you a message';
+
+    const payload = {
+      app_id: ONESIGNAL_APP_ID,
+      target_channel: 'push',
+      include_aliases: {
+        external_id: [String(recipientUid)],
+      },
+      headings: {
+        en: `💬 ${senderName}`,
+        ckb: `💬 نامەی نوێ لەلایەن ${senderName}`,
+      },
+      contents: {
+        en: `${senderName}: ${preview}`,
+        ckb: `${senderName}: ${preview}`,
+      },
+      collapse_id: topicTag,
+      web_push_topic: topicTag,
+      chrome_web_icon: senderAvatar || undefined,
+      url: siteUrl || undefined,
+      data: {
+        type: 'private_message',
+        threadId: cleanThreadId,
+        senderUid: senderUid || '',
+        senderName,
+        recipientUid: String(recipientUid),
+      },
+    };
+
+    const result = await sendOneSignalRequest('/notifications', 'POST', payload);
+    return res.json({
+      success: true,
+      rule: 'private_message',
+      notificationId: result?.data?.id || null,
+      result,
+    });
+  } catch (err) {
+    console.error('OneSignal private-message error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to send private message push' });
+  }
+});
+
+/**
+ * RULE 3: Notification Dismissal / Clearance
+ * POST /api/onesignal/dismiss-chat
+ * Cancels/deletes unread OneSignal notifications when Member B opens or reads the chat.
+ */
+app.post('/api/onesignal/dismiss-chat', async (req, res) => {
+  try {
+    const { notificationIds = [], recipientUid, threadId } = req.body || {};
+    const cancelled = [];
+
+    if (Array.isArray(notificationIds)) {
+      for (const notifId of notificationIds) {
+        if (notifId && typeof notifId === 'string') {
+          const delRes = await sendOneSignalRequest(
+            `/notifications/${encodeURIComponent(notifId)}?app_id=${encodeURIComponent(ONESIGNAL_APP_ID)}`,
+            'DELETE',
+          );
+          cancelled.push({ id: notifId, status: delRes.status });
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      rule: 'dismiss_chat',
+      recipientUid,
+      threadId,
+      cancelled,
+    });
+  } catch (err) {
+    console.error('OneSignal dismiss-chat error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to dismiss notifications' });
+  }
+});
 
 /**
  * GET/POST /api/livekit/token

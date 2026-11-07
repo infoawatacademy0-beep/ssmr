@@ -14,6 +14,7 @@ import {
 import { database } from '../config/firebase';
 import type { Room, Seat, ChatMessage, RoomCategory, RoomEntranceEvent, VoiceEffectMode } from '../types';
 import { buildInitialSeats } from '../types';
+import { triggerRoomEntryPushNotification } from './oneSignalService';
 
 /* ─────────────────────────────────────────────────────────────
    Firebase Real-Time Voice Room Service
@@ -480,6 +481,21 @@ export async function broadcastUserEntrance(
     timestamp: Date.now(),
   };
   await set(entranceRef, entranceEvent);
+
+  // Rule 1 (OneSignal): Automatically send push notification to ALL members
+  // containing the entering user's name AND the name/title of the room
+  try {
+    const roomNameSnap = await get(ref(database, `rooms/${roomId}/roomName`));
+    const roomName = roomNameSnap.exists() ? String(roomNameSnap.val()) : 'Voice Room';
+    await triggerRoomEntryPushNotification({
+      userId: user.uid,
+      username: user.username,
+      roomId,
+      roomName,
+    });
+  } catch (err) {
+    console.warn('Room entry OneSignal push warning:', err);
+  }
 }
 
 /**

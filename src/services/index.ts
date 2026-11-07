@@ -259,4 +259,14 @@ export {
   switchCinemaMovie,
 } from './cinemaService';
 
+export {
+  ONESIGNAL_APP_ID,
+  initOneSignalForUser,
+  logoutOneSignalUser,
+  triggerRoomEntryPushNotification,
+  triggerPrivateMessagePushNotification,
+  clearPrivateChatNotifications,
+} from './oneSignalService';
+
+
 

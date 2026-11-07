@@ -14,6 +14,8 @@ import {
   onAuthChange,
   subscribeToUserProfile,
   initUserPresence,
+  initOneSignalForUser,
+  logoutOneSignalUser,
 } from '../services';
 import { syncCurrentUserLocation } from '../services/locationService';
 import { syncCurrentUserDevice } from '../services/deviceDetection';
@@ -129,12 +131,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.uid]);
 
-  /* Sync real-time location & device telemetry */
+  /* Sync real-time location, device telemetry & OneSignal Web Push subscription */
   useEffect(() => {
     if (!user?.uid) return;
     syncCurrentUserLocation(user.uid).catch(console.error);
     syncCurrentUserDevice(user.uid).catch(console.error);
-  }, [user?.uid]);
+    initOneSignalForUser(user.uid, user.username);
+  }, [user?.uid, user?.username]);
 
   const register = useCallback(
     async (email: string, password: string, username: string, locationData?: any) => {
@@ -150,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    logoutOneSignalUser();
     await logoutUser();
     setUser(null);
   }, []);
