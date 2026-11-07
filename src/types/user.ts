@@ -104,28 +104,46 @@ export const VIP_FRAME_CATALOG: VipFrameOption[] = [
 ];
 
 export function getVipAvatarClass(
-  isVip?: boolean,
-  vipFrame?: VipFrameStyle | string | null,
+  _isVip?: boolean,
+  _vipFrame?: VipFrameStyle | string | null,
 ): string {
-  if (!isVip && !vipFrame) return '';
-  switch (vipFrame) {
-    case 'pink':
-      return 'vip-fire-avatar vip-frame-pink';
-    case 'crimson':
-      return 'vip-fire-avatar vip-frame-crimson';
-    case 'cyan':
-      return 'vip-fire-avatar vip-frame-cyan';
-    case 'purple':
-      return 'vip-fire-avatar vip-frame-purple';
-    case 'emerald':
-      return 'vip-fire-avatar vip-frame-emerald';
-    case 'gold':
-      return 'vip-fire-avatar vip-frame-gold';
-    case 'rainbow':
-      return 'vip-fire-avatar vip-frame-rainbow';
-    default:
-      return 'vip-fire-avatar';
+  // Per user request: VIP status should NOT force a colored animated ring around the avatar;
+  // only the clean VIP Level badge (e.g. VIP 1, VIP 5) is displayed.
+  return '';
+}
+
+export const VIP_LEVEL_THRESHOLDS: { level: number; minXp: number; nameKu: string; nameEn: string }[] = [
+  { level: 1, minXp: 99, nameKu: 'ڤایپ ١', nameEn: 'VIP 1' },
+  { level: 2, minXp: 500, nameKu: 'ڤایپ ٢', nameEn: 'VIP 2' },
+  { level: 3, minXp: 1500, nameKu: 'ڤایپ ٣', nameEn: 'VIP 3' },
+  { level: 4, minXp: 5000, nameKu: 'ڤایپ ٤', nameEn: 'VIP 4' },
+  { level: 5, minXp: 10000, nameKu: 'ڤایپ ٥', nameEn: 'VIP 5' },
+  { level: 6, minXp: 55000, nameKu: 'ڤایپ ٦', nameEn: 'VIP 6' },
+  { level: 7, minXp: 150000, nameKu: 'ڤایپ ٧', nameEn: 'VIP 7' },
+  { level: 8, minXp: 350000, nameKu: 'ڤایپ ٨', nameEn: 'VIP 8' },
+  { level: 9, minXp: 750000, nameKu: 'ڤایپ ٩', nameEn: 'VIP 9' },
+  { level: 10, minXp: 1500000, nameKu: 'ڤایپ ١٠', nameEn: 'VIP 10' },
+];
+
+export function calculateVipLevelFromXp(vipXp: number = 0, isVerified?: boolean, explicitVipLevel?: number): number {
+  let computed = 0;
+  for (const tier of VIP_LEVEL_THRESHOLDS) {
+    if (vipXp >= tier.minXp) {
+      computed = tier.level;
+    }
   }
+  if (explicitVipLevel && explicitVipLevel > computed) {
+    computed = explicitVipLevel;
+  }
+  if (isVerified && computed < 1) {
+    computed = 1;
+  }
+  return Math.min(10, Math.max(0, computed));
+}
+
+export function getUserVipLevel(user?: Partial<User> | null): number {
+  if (!user) return 0;
+  return calculateVipLevelFromXp(user.vipXp ?? 0, user.isVerified, user.vipLevel);
 }
 
 /** A pending or resolved account deletion request sent from Settings to Admin. */
@@ -159,6 +177,8 @@ export interface User {
   coins: number;
   level: number;
   xp: number;
+  vipLevel?: number;
+  vipXp?: number;
   badges: Badge[];
   giftsReceived: GiftReceived[];
   createdAt: number;

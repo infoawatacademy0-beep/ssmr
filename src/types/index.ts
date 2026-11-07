@@ -9,7 +9,15 @@ export type {
   VipFrameOption,
   UserDeviceInfo,
 } from './user';
-export { buildDefaultUser, formatCoinsK, VIP_FRAME_CATALOG, getVipAvatarClass } from './user';
+export {
+  buildDefaultUser,
+  formatCoinsK,
+  VIP_FRAME_CATALOG,
+  getVipAvatarClass,
+  VIP_LEVEL_THRESHOLDS,
+  calculateVipLevelFromXp,
+  getUserVipLevel,
+} from './user';
 
 export type { Post, CreatePostPayload, PostComment, CreateCommentPayload } from './post';
 

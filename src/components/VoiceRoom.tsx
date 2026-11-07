@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ref, onValue, goOnline } from 'firebase/database';
 import { getRoomById } from '../services/roomService';
 import { database } from '../config/firebase';
-import { AvatarFrameOverlay } from './AvatarFrameOverlay';
+import { AvatarFrameOverlay, VipLevelBadge } from './AvatarFrameOverlay';
 import {
   Mic,
   MicOff,
@@ -315,6 +315,7 @@ export default function VoiceRoom() {
 
   // Real-time map of VIP (isVerified), VIP Frame styles, and avatars across all users
   const [vipUsersMap, setVipUsersMap] = useState<Record<string, boolean>>({});
+  const [vipLevelsMap, setVipLevelsMap] = useState<Record<string, number>>({});
   const [vipFramesMap, setVipFramesMap] = useState<Record<string, string>>({});
   const [usersAvatarMap, setUsersAvatarMap] = useState<Record<string, string>>({});
   const [usersLevelMap, setUsersLevelMap] = useState<Record<string, number>>({});
@@ -326,18 +327,21 @@ export default function VoiceRoom() {
       if (!snap.exists()) return;
       const val = snap.val() as Record<string, any>;
       const vMap: Record<string, boolean> = {};
+      const vLvlMap: Record<string, number> = {};
       const fMap: Record<string, string> = {};
       const aMap: Record<string, string> = {};
       const lMap: Record<string, number> = {};
       const lfMap: Record<string, string> = {};
       Object.entries(val).forEach(([uid, u]) => {
-        if (u?.isVerified) vMap[uid] = true;
+        if (u?.isVerified || Number(u?.vipLevel) > 0) vMap[uid] = true;
+        vLvlMap[uid] = Number(u?.vipLevel) || (u?.isVerified ? 1 : 0);
         if (u?.vipFrame) fMap[uid] = u.vipFrame;
         if (u?.avatar || u?.profileImage) aMap[uid] = u.avatar || u.profileImage;
         lMap[uid] = Number(u?.level) || 1;
         if (u?.avatarFrame) lfMap[uid] = u.avatarFrame;
       });
       setVipUsersMap(vMap);
+      setVipLevelsMap(vLvlMap);
       setVipFramesMap(fMap);
       setUsersAvatarMap(aMap);
       setUsersLevelMap(lMap);
@@ -1505,13 +1509,6 @@ export default function VoiceRoom() {
                             >
                               <Shield className="h-3 w-3 text-black fill-black" strokeWidth={2.5} />
                             </div>
-                          ) : isSeatVip ? (
-                            <div
-                              title="VIP Royale"
-                              className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 via-orange-500 to-red-600 shadow-[0_0_10px_#f97316] z-20"
-                            >
-                              <Crown className="h-3 w-3 text-black fill-black" strokeWidth={2.5} />
-                            </div>
                           ) : (
                             isOccupied &&
                             !isHostSeat && (
@@ -1603,8 +1600,12 @@ export default function VoiceRoom() {
                       <Diamond className="h-2.5 w-2.5 shrink-0 text-cyan-400 fill-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.8)]" />
                     ) : seat.isIron ? (
                       <Shield className="h-2.5 w-2.5 shrink-0 text-slate-300 fill-slate-300 drop-shadow-[0_0_4px_rgba(203,213,225,0.8)]" />
-                    ) : (isSeatVip || seat.isVip) ? (
-                      <Crown className="h-2.5 w-2.5 shrink-0 text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_#f59e0b]" />
+                    ) : isOccupied && isSeatVip && seat.userId ? (
+                      <VipLevelBadge
+                        isVip={true}
+                        vipLevel={vipLevelsMap[seat.userId] || 1}
+                        compact
+                      />
                     ) : null}
                     <span
                       className={`truncate text-center text-[11px] leading-tight max-w-[72px] ${
@@ -1854,11 +1855,7 @@ export default function VoiceRoom() {
                         }
                       }}
                       title={tr(`بینینی پڕۆفایل و چاتکردن لەگەڵ ${msg.senderName}`, `View profile & chat with ${msg.senderName}`)}
-                      className={`relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow ${
-                        isSenderVip
-                          ? 'border-2 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.45)]'
-                          : 'border border-white/15'
-                      }`}
+                      className="relative m-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[10px] font-bold text-white shadow border border-white/15"
                     >
                       <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                         {msgAvatarUrl ? (
@@ -1871,11 +1868,10 @@ export default function VoiceRoom() {
                           (msg.senderName || 'U').charAt(0).toUpperCase()
                         )}
                       </div>
-                      {isSenderVip && (
-                        <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 shadow">
-                          <Crown className="h-2 w-2 text-black fill-black" strokeWidth={3} />
-                        </span>
-                      )}
+                      <AvatarFrameOverlay
+                        frameId={(isMe ? user?.avatarFrame : undefined) || usersLevelFrameMap[msg.senderId]}
+                        level={(isMe ? user?.level : undefined) || usersLevelMap[msg.senderId] || 1}
+                      />
                     </button>
 
                     <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
@@ -1893,12 +1889,11 @@ export default function VoiceRoom() {
                         >
                           {isMe ? tr('تۆ', 'You') : msg.senderName}
                         </button>
-                        {isSenderVip && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-red-500/25 border border-amber-400/50 px-1.5 py-0.2 text-[8px] font-black text-amber-300">
-                            <Crown className="h-2 w-2 text-amber-400 fill-amber-400" />
-                            <span>VIP</span>
-                          </span>
-                        )}
+                        <VipLevelBadge
+                          isVip={isSenderVip}
+                          vipLevel={vipLevelsMap[msg.senderId] || (isSenderVip ? 1 : 0)}
+                          compact
+                        />
                         {isHostSender && (
                           <span className="flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.2 text-[8px] font-bold text-amber-300">
                             <Crown className="h-2 w-2" /> {tr('خاوەن', 'Host')}

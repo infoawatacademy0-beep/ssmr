@@ -1,6 +1,6 @@
 import { ref, update, get, set, remove, onValue, type Unsubscribe } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { User, VoiceEffectMode, AccountDeletionRequest, VipFrameStyle } from '../types';
+import { calculateVipLevelFromXp, type User, type VoiceEffectMode, type AccountDeletionRequest, type VipFrameStyle } from '../types';
 
 /**
  * Permanently bans a user account.
@@ -64,7 +64,7 @@ export async function unbanUserAccount(targetUid: string): Promise<void> {
 }
 
 /**
- * Grants or revokes the official Verified Badge (Blue Tick) on a user's profile.
+ * Grants or revokes the official VIP status on a user's profile without adding colored covers.
  */
 export async function toggleVerificationBadge(
   targetUid: string,
@@ -73,9 +73,22 @@ export async function toggleVerificationBadge(
   if (!targetUid) throw new Error('Target UID is required.');
 
   const userRef = ref(database, `users/${targetUid}`);
-  await update(userRef, {
+  const snap = await get(userRef);
+  const current = snap.exists() ? (snap.val() as User) : null;
+
+  const updates: Record<string, any> = {
     isVerified,
-  });
+    vipLevel: isVerified ? Math.max(1, current?.vipLevel || 1) : 0,
+  };
+  if (!isVerified) {
+    updates.vipXp = 0;
+  }
+  // Clean up any auto-assigned gradient cover if present
+  if (current?.profileCover && current.profileCover.startsWith('linear-gradient')) {
+    updates.profileCover = null;
+  }
+
+  await update(userRef, updates);
 }
 
 /**
@@ -109,6 +122,7 @@ export async function assignPremiumCosmetics(
 
 /**
  * Modifies a user's coin balance from the admin console.
+ * When coins are added, VIP Exp (vipXp), VIP Level (vipLevel), and Account Level (level) increase automatically!
  */
 export async function modifyUserCoins(
   targetUid: string,
@@ -116,9 +130,31 @@ export async function modifyUserCoins(
 ): Promise<void> {
   if (!targetUid) throw new Error('Target UID is required.');
   const userRef = ref(database, `users/${targetUid}`);
-  await update(userRef, {
-    coins: Math.max(0, Math.floor(newBalance)),
-  });
+  const snap = await get(userRef);
+  const current = snap.exists() ? (snap.val() as User) : null;
+  const oldCoins = current?.coins ?? 0;
+  const safeBalance = Math.max(0, Math.floor(newBalance));
+  const deltaCoins = safeBalance - oldCoins;
+
+  const updates: Record<string, any> = {
+    coins: safeBalance,
+  };
+
+  if (deltaCoins > 0) {
+    const addedVipXp = Math.max(99, Math.floor(deltaCoins / 150));
+    const nextVipXp = (current?.vipXp ?? 0) + addedVipXp;
+    const nextVipLevel = calculateVipLevelFromXp(nextVipXp, true, current?.vipLevel);
+    const nextXp = (current?.xp ?? 0) + Math.max(500, Math.floor(deltaCoins / 15));
+    const nextLevel = Math.min(100, Math.max(current?.level ?? 1, Math.floor(nextXp / 500) + 1));
+
+    updates.vipXp = nextVipXp;
+    updates.vipLevel = nextVipLevel;
+    updates.isVerified = true;
+    updates.xp = nextXp;
+    updates.level = nextLevel;
+  }
+
+  await update(userRef, updates);
 }
 
 /**

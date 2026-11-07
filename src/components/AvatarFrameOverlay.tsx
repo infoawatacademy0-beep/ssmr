@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { ref, update } from 'firebase/database';
 import { database } from '../config/firebase';
-import { Lock, Check, Sparkles, Flame, Crown, Image as ImageIcon } from 'lucide-react';
+import { Lock, Check, Sparkles, Flame, Crown, Image as ImageIcon, Shield, Gem } from 'lucide-react';
 import { CURATED_ANIMATED_THEMES, AnimatedThemeOverlay } from './AnimatedThemeEffect';
+import { calculateVipLevelFromXp } from '../types';
 
 export interface LevelFrameDef {
   id: string;
@@ -871,6 +872,103 @@ export function LevelFramesShowcase({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Clean TopTop-style inline VIP Level badge (e.g. "VIP 1", "VIP 5") without any crown on avatar.
+ */
+export function VipLevelBadge({
+  isVip,
+  vipLevel,
+  vipXp,
+  compact = false,
+  onClick,
+}: {
+  isVip?: boolean;
+  vipLevel?: number;
+  vipXp?: number;
+  compact?: boolean;
+  onClick?: () => void;
+}) {
+  const vLvl = calculateVipLevelFromXp(vipXp ?? 0, isVip, vipLevel);
+  if (vLvl <= 0) return null;
+
+  return (
+    <span
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 rounded-md border border-emerald-400/50 bg-gradient-to-r from-[#1a2e22] via-[#1f3b2c] to-[#122219] font-black tracking-wider text-emerald-300 shadow-sm ${
+        onClick ? 'cursor-pointer hover:brightness-110' : ''
+      } ${compact ? 'px-1.5 py-0.5 text-[8px]' : 'px-2 py-0.5 text-[10px]'}`}
+    >
+      <Shield className={compact ? 'h-2.5 w-2.5 text-emerald-400 fill-emerald-400/30' : 'h-3 w-3 text-emerald-400 fill-emerald-400/30'} />
+      <span className="italic">VIP {vLvl}</span>
+    </span>
+  );
+}
+
+/**
+ * TopTop-style 3 Metallic Prestige Cards shown on Profile (M-Tier + Lv.X + VIP X), matching Screenshot 2.
+ */
+export function TopTopPrestigeBadges({
+  level = 1,
+  coins = 0,
+  isVip = false,
+  vipLevel,
+  vipXp,
+  onOpenVipCenter,
+}: {
+  level?: number;
+  coins?: number;
+  isVip?: boolean;
+  vipLevel?: number;
+  vipXp?: number;
+  onOpenVipCenter?: () => void;
+}) {
+  const vLvl = calculateVipLevelFromXp(vipXp ?? 0, isVip, vipLevel);
+  const mTier = Math.max(1, Math.min(10, Math.floor((coins || 0) / 25000) + (vLvl > 0 ? vLvl : 1)));
+
+  return (
+    <div className="grid grid-cols-3 gap-2 pt-2">
+      {/* 1. Wealth / M-Tier Metallic Bronze Card */}
+      <div
+        onClick={onOpenVipCenter}
+        className="relative flex cursor-pointer items-center justify-between overflow-hidden rounded-xl border border-amber-500/45 bg-gradient-to-r from-[#3a2008] via-[#5c340e] to-[#291504] px-2.5 py-2 shadow-md transition hover:scale-[1.02]"
+      >
+        <span className="font-display text-xs sm:text-sm font-black tracking-wide text-amber-100 drop-shadow">
+          M{mTier}
+        </span>
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sky-300/50 bg-gradient-to-b from-sky-400/30 to-blue-900/60 shadow-inner">
+          <Gem className="h-4 w-4 text-sky-300" />
+        </div>
+      </div>
+
+      {/* 2. Level (Lv.X) Metallic Purple Card */}
+      <div
+        onClick={onOpenVipCenter}
+        className="relative flex cursor-pointer items-center justify-between overflow-hidden rounded-xl border border-purple-400/55 bg-gradient-to-r from-[#581c87] via-[#7e22ce] to-[#3b0764] px-2.5 py-2 shadow-md transition hover:scale-[1.02]"
+      >
+        <span className="font-display text-xs sm:text-sm font-black tracking-wide text-white drop-shadow">
+          Lv.{level || 1}
+        </span>
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyan-300/60 bg-gradient-to-b from-cyan-400/30 to-indigo-950/80 shadow-inner">
+          <Sparkles className="h-4 w-4 text-cyan-200" />
+        </div>
+      </div>
+
+      {/* 3. VIP Level (VIP X) Metallic Dark Bronze/Emerald Shield Card */}
+      <div
+        onClick={onOpenVipCenter}
+        className="relative flex cursor-pointer items-center justify-between overflow-hidden rounded-xl border border-amber-400/50 bg-gradient-to-r from-[#261f14] via-[#382e1e] to-[#17130c] px-2.5 py-2 shadow-md transition hover:scale-[1.02]"
+      >
+        <span className="font-display text-xs sm:text-sm font-black italic tracking-wide text-amber-100 drop-shadow">
+          VIP {vLvl}
+        </span>
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-400/60 bg-gradient-to-b from-emerald-500/35 to-emerald-950/90 shadow-inner">
+          <Shield className="h-4 w-4 text-emerald-300 fill-emerald-400/30" />
+        </div>
+      </div>
     </div>
   );
 }

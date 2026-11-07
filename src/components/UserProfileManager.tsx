@@ -32,6 +32,8 @@ import {
   LevelFramesShowcase,
   saveUserSelectedLevelFrame,
   saveUserSelectedAnimatedCover,
+  VipLevelBadge,
+  TopTopPrestigeBadges,
 } from './AvatarFrameOverlay';
 import { useLanguage } from '../contexts';
 import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
@@ -535,59 +537,31 @@ export default function UserProfileManager({
 
           {activeTab === 'profile' && (
             <>
-              {/* Profile Card Header Preview (with Custom Profile Cover if present) */}
-              <div className={`relative overflow-hidden rounded-3xl border bg-slate-900/60 shadow-xl transition-all duration-300 ${
-                profileData.isVerified
-                  ? 'border-amber-400/50 shadow-amber-500/20 vip-border-glow'
-                  : 'border-white/[0.08]'
-              }`}>
-                {profileData.profileCover || profileData.isVerified ? (
+              {/* Profile Card Header Preview (Only shows cover if user explicitly set one; VIP alone does NOT force a colored animated cover) */}
+              <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-slate-900/60 shadow-xl transition-all duration-300">
+                {profileData.profileCover && !profileData.profileCover.startsWith('linear-gradient') ? (
                   <div
-                    className={`relative h-32 w-full overflow-hidden transition-all duration-500 ${
-                      profileData.isVerified ? 'vip-animated-cover vip-shine-effect' : ''
-                    }`}
+                    className="relative h-32 w-full overflow-hidden transition-all duration-500"
                     style={
-                      profileData.profileCover
-                        ? profileData.profileCover.startsWith('http') || profileData.profileCover.startsWith('data:')
-                          ? { backgroundImage: `url(${profileData.profileCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                          : { background: profileData.profileCover }
-                        : { background: 'linear-gradient(180deg, #1a0500 0%, #450a0a 35%, #9a3412 70%, #ea580c 90%, #fde047 100%)' }
+                      profileData.profileCover.startsWith('http') || profileData.profileCover.startsWith('data:')
+                        ? { backgroundImage: `url(${profileData.profileCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                        : { background: profileData.profileCover }
                     }
                   >
-                    {(!profileData.profileCover ||
-                      (!profileData.profileCover.startsWith('http') &&
-                        !profileData.profileCover.startsWith('data:'))) && (
-                      <AnimatedThemeOverlay
-                        themeValue={profileData.profileCover || 'real_fire'}
-                      />
-                    )}
+                    {!profileData.profileCover.startsWith('http') &&
+                      !profileData.profileCover.startsWith('data:') && (
+                        <AnimatedThemeOverlay themeValue={profileData.profileCover} />
+                      )}
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/20 to-slate-950" />
-                    {profileData.isVerified && (
-                      <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-amber-400/60 shadow-xl shadow-amber-500/30">
-                        <Crown className="h-4 w-4 text-amber-400 fill-amber-400 vip-crown-animation" />
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 bg-clip-text text-transparent">
-                          VIP ROYALE
-                        </span>
-                      </div>
-                    )}
                   </div>
                 ) : (
-                  <div className="h-10 w-full bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-transparent" />
+                  <div className="h-12 w-full bg-gradient-to-r from-slate-900 via-slate-800/80 to-slate-900" />
                 )}
 
                 <div className="p-5 pt-0 relative z-10">
                   <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 -mt-8 sm:-mt-6">
-                    {/* Avatar Display with Presence Indicator & VIP Blazing Fire Stroke */}
-                    <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full p-0.5 shadow-xl ring-4 ring-slate-950 ${
-                      profileData.isVerified
-                        ? `${getVipAvatarClass(profileData.isVerified, profileData.vipFrame)} bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600`
-                        : 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/20'
-                    }`}>
-                      {profileData.isVerified && (
-                        <div className="absolute -top-3.5 -right-1 z-20 pointer-events-none flex items-center gap-0.5">
-                          <Crown className="h-6 w-6 text-amber-400 fill-amber-400 vip-crown-animation drop-shadow-[0_2px_8px_rgba(251,191,36,0.95)]" />
-                        </div>
-                      )}
+                    {/* Avatar Display (No Crown on top of profile photo, clean circular border + Level Frame) */}
+                    <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 p-0.5 shadow-xl ring-4 ring-slate-950">
                       <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#0d0d16]">
                         {avatarInput ? (
                           <img
@@ -614,37 +588,34 @@ export default function UserProfileManager({
                       />
                     </div>
 
-                    <div className="flex-1 text-center sm:text-left space-y-1 sm:pt-4">
+                    <div className="flex-1 text-center sm:text-left space-y-1.5 sm:pt-4">
                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                         <h3 className="font-display text-base font-black text-white">
                           {displayedUsername}
                         </h3>
-                        {profileData.isVerified && (
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              title="Verified Elite VIP Profile"
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/10 border border-amber-400/40 text-amber-300 text-[10px] font-black tracking-wider uppercase shadow-sm shadow-amber-500/20"
-                            >
-                              <Crown className="h-3 w-3 text-amber-400 fill-amber-400" />
-                              <span>VIP</span>
-                            </span>
-                            <span title="Verified Elite Profile" className="inline-flex items-center">
-                              <BadgeCheck
-                                size={16}
-                                className="text-sky-400 fill-sky-400/20 shrink-0"
-                              />
-                            </span>
-                          </div>
-                        )}
+                        <VipLevelBadge
+                          isVip={profileData.isVerified}
+                          vipLevel={profileData.vipLevel}
+                          vipXp={profileData.vipXp}
+                        />
                         <ShieldCheck className="h-4 w-4 text-cyan-400" />
                         <span className="text-[10px] font-semibold text-slate-400">
                           ({presence.statusText})
                         </span>
                       </div>
 
-                    <p className="text-xs text-slate-300 font-medium italic">
-                      "{bioInput || profileData.bio || tr('ئەندامی ژووری دەنگی SSMR.', 'SSMR Voice Arena Member.')}"
-                    </p>
+                      <p className="text-xs text-slate-300 font-medium italic">
+                        "{bioInput || profileData.bio || tr('ئەندامی ژووری دەنگی SSMR.', 'SSMR Voice Arena Member.')}"
+                      </p>
+
+                      {/* TopTop-Style 3 Prestige Metallic Badges (M-Tier, Lv.X, VIP X) */}
+                      <TopTopPrestigeBadges
+                        level={profileData.level || 1}
+                        coins={profileData.coins || 0}
+                        isVip={Boolean(profileData.isVerified)}
+                        vipLevel={profileData.vipLevel}
+                        vipXp={profileData.vipXp}
+                      />
 
                     <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                       <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300">
@@ -960,14 +931,8 @@ export default function UserProfileManager({
                           className="flex items-center justify-between gap-2.5 rounded-2xl border border-white/[0.06] bg-slate-900/40 p-2.5 transition hover:border-amber-400/30 hover:bg-slate-900/70"
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            {/* Avatar with VIP border */}
-                            <div
-                              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full p-0.5 ${
-                                user.isVerified
-                                  ? `${getVipAvatarClass(user.isVerified, user.vipFrame)} bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600`
-                                  : 'bg-gradient-to-tr from-amber-500 to-yellow-600'
-                              }`}
-                            >
+                            {/* Avatar with Level Frame */}
+                            <div className="relative m-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 p-0.5">
                               <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-950">
                                 {user.avatar || user.profileImage ? (
                                   <img
@@ -981,8 +946,9 @@ export default function UserProfileManager({
                                   </span>
                                 )}
                               </div>
+                              <AvatarFrameOverlay frameId={user.avatarFrame} level={user.level || 1} />
                               <span
-                                className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${
+                                className={`absolute bottom-0 right-0 z-30 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${
                                   user.isOnline ? 'bg-emerald-400' : 'bg-slate-500'
                                 }`}
                               />
@@ -994,11 +960,14 @@ export default function UserProfileManager({
                                 <h4 className="truncate text-xs font-bold text-white">
                                   {user.username}
                                 </h4>
-                                {user.isVerified && (
-                                  <BadgeCheck size={13} className="text-sky-400 fill-sky-400/20 shrink-0" />
-                                )}
-                                <span className="rounded-md bg-white/[0.06] px-1 py-0.2 text-[8px] font-bold text-slate-300">
-                                  {tr('ئاستی', 'Level')} {user.level || 1}
+                                <VipLevelBadge
+                                  isVip={user.isVerified}
+                                  vipLevel={user.vipLevel}
+                                  vipXp={user.vipXp}
+                                  compact
+                                />
+                                <span className="rounded-md bg-purple-500/20 border border-purple-400/30 px-1.5 py-0.2 text-[8px] font-black text-purple-200">
+                                  Lv.{user.level || 1}
                                 </span>
                               </div>
                               <p className="truncate text-[10px] text-slate-400">
@@ -1105,16 +1074,19 @@ export default function UserProfileManager({
                       className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-amber-400/30 hover:bg-white/[0.04]"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md">
-                          {visitor.avatar ? (
-                            <img
-                              src={visitor.avatar}
-                              alt={visitor.visitorName}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            visitor.visitorName.charAt(0).toUpperCase()
-                          )}
+                        <div className="relative m-1 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md">
+                          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
+                            {visitor.avatar ? (
+                              <img
+                                src={visitor.avatar}
+                                alt={visitor.visitorName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              visitor.visitorName.charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <AvatarFrameOverlay level={1} />
                         </div>
 
                         <div>

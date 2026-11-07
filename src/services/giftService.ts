@@ -29,12 +29,10 @@ export async function sendGift(
     }
 
     senderData.coins = currentCoins - gift.cost;
-    // Award sender +25 XP for social generosity
-    senderData.xp = (senderData.xp ?? 0) + 25;
     return senderData;
   });
 
-  // 2. Add gift & tip to recipient
+  // 2. Add gift & tip to recipient (Levels & VIP Levels only increase via VIP Coin purchases)
   const recipientRef = ref(database, `users/${recipient.uid}`);
   await runTransaction(recipientRef, (recipientData: User | null) => {
     if (!recipientData) return recipientData;
@@ -54,13 +52,9 @@ export async function sendGift(
       : [];
 
     recipientData.giftsReceived = [...currentGifts, newGift];
-    // Recipient receives 50% coin cash-out tip + 50 XP (unless sending to self)
     if (!isSelf) {
       recipientData.coins = (recipientData.coins ?? 0) + Math.floor(gift.cost * 0.5);
     }
-    const newXp = (recipientData.xp ?? 0) + 50;
-    recipientData.xp = newXp;
-    recipientData.level = Math.max(recipientData.level ?? 1, Math.floor(newXp / 500) + 1);
 
     return recipientData;
   });

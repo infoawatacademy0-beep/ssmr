@@ -10,6 +10,7 @@ import {
 import type { User, UserInboxItem } from '../types';
 import { subscribeToUserInbox, searchUsersByUsername, markThreadAsRead } from '../services';
 import { useLanguage } from '../contexts';
+import { AvatarFrameOverlay, VipLevelBadge } from './AvatarFrameOverlay';
 
 interface ChatCenterModalProps {
   currentUser: User;
@@ -214,18 +215,21 @@ export default function ChatCenterModal({
                           : 'border-slate-800/80 bg-slate-900/50 hover:border-cyan-500/40 hover:bg-slate-900/90'
                       }`}
                     >
-                      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 font-bold text-white shadow-md">
-                        {item.recipientAvatar ? (
-                          <img
-                            src={item.recipientAvatar}
-                            alt={item.recipientName}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          item.recipientName.charAt(0).toUpperCase()
-                        )}
+                      <div className="relative m-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 font-bold text-white shadow-md">
+                        <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+                          {item.recipientAvatar ? (
+                            <img
+                              src={item.recipientAvatar}
+                              alt={item.recipientName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            item.recipientName.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <AvatarFrameOverlay level={1} />
                         {isUnread && (
-                          <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-950 animate-pulse" />
+                          <span className="absolute top-0 right-0 z-30 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-slate-950 animate-pulse" />
                         )}
                       </div>
 
@@ -291,21 +295,35 @@ export default function ChatCenterModal({
                     className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-3 transition hover:border-slate-700 hover:bg-slate-900/70"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 font-bold text-black shadow-md">
-                        {targetUser.avatar || (targetUser as any).profileImage ? (
-                          <img
-                            src={targetUser.avatar || (targetUser as any).profileImage}
-                            alt={targetUser.username}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          targetUser.username.charAt(0).toUpperCase()
-                        )}
+                      <div className="relative m-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 font-bold text-black shadow-md">
+                        <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+                          {targetUser.avatar || (targetUser as any).profileImage ? (
+                            <img
+                              src={targetUser.avatar || (targetUser as any).profileImage}
+                              alt={targetUser.username}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            targetUser.username.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <AvatarFrameOverlay
+                          frameId={targetUser.avatarFrame}
+                          level={targetUser.level || 1}
+                        />
                       </div>
                       <div className="min-w-0">
-                        <span className="font-bold text-xs text-white block truncate">
-                          {targetUser.username}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-xs text-white block truncate">
+                            {targetUser.username}
+                          </span>
+                          <VipLevelBadge
+                            isVip={targetUser.isVerified}
+                            vipLevel={targetUser.vipLevel}
+                            vipXp={targetUser.vipXp}
+                            compact
+                          />
+                        </div>
                         <span className="text-[10px] text-slate-500 block truncate">
                           {tr('ئاستی', 'Level')} {targetUser.level || 1} &bull; {(targetUser.coins ?? 0).toLocaleString()} {tr('کۆین', 'Coins')}
                         </span>

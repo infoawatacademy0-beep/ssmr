@@ -89,7 +89,7 @@ import SettingsModal from './SettingsModal';
 import FriendsModal from './FriendsModal';
 import IncomingChatToast from './IncomingChatToast';
 import PostCommentsSection from './PostCommentsSection';
-import { AvatarFrameOverlay } from './AvatarFrameOverlay';
+import { AvatarFrameOverlay, VipLevelBadge, TopTopPrestigeBadges } from './AvatarFrameOverlay';
 import { ref as dbRef, onValue as dbOnValue } from 'firebase/database';
 import { database as rtdb } from '../config/firebase';
 import { useLanguage } from '../contexts';
@@ -210,6 +210,7 @@ export default function Dashboard() {
   const [visitors, setVisitors] = useState<ProfileVisitor[]>([]);
   const [usersLevelMap, setUsersLevelMap] = useState<Record<string, number>>({});
   const [usersFrameMap, setUsersFrameMap] = useState<Record<string, string>>({});
+  const [usersVipLevelMap, setUsersVipLevelMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const unsub = dbOnValue(dbRef(rtdb, 'users'), (snap) => {
@@ -217,12 +218,15 @@ export default function Dashboard() {
       const val = snap.val() as Record<string, any>;
       const lMap: Record<string, number> = {};
       const fMap: Record<string, string> = {};
+      const vMap: Record<string, number> = {};
       Object.entries(val).forEach(([uid, u]) => {
         lMap[uid] = Number(u?.level) || 1;
         if (u?.avatarFrame) fMap[uid] = u.avatarFrame;
+        vMap[uid] = Number(u?.vipLevel) || (u?.isVerified ? 1 : 0);
       });
       setUsersLevelMap(lMap);
       setUsersFrameMap(fMap);
+      setUsersVipLevelMap(vMap);
     });
     return () => unsub();
   }, []);
@@ -1089,11 +1093,6 @@ export default function Dashboard() {
                               frameId={isAuthor ? user.avatarFrame : usersFrameMap[post.authorUid]}
                               level={isAuthor ? user.level || 1 : usersLevelMap[post.authorUid] || 1}
                             />
-                            {isPostVip && (
-                              <span className="absolute -top-1 -right-1 z-30 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
-                                <Crown className="h-2 w-2 text-black fill-black" />
-                              </span>
-                            )}
                           </div>
 
                           <div>
@@ -1101,12 +1100,11 @@ export default function Dashboard() {
                               <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
                                 {post.authorName}
                               </h4>
-                              {isPostVip && (
-                                <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.2 text-[8px] font-black text-amber-300">
-                                  <Crown className="h-2 w-2 text-amber-400 fill-amber-400" />
-                                  VIP
-                                </span>
-                              )}
+                              <VipLevelBadge
+                                isVip={isPostVip}
+                                vipLevel={isAuthor ? user.vipLevel : usersVipLevelMap[post.authorUid]}
+                                compact
+                              />
                               {isAuthor && (
                                 <span className="rounded-md bg-white/[0.06] px-1.5 py-0.2 text-[9px] font-semibold text-slate-400">
                                   {tr('تۆ', 'You')}
@@ -1809,57 +1807,33 @@ export default function Dashboard() {
           ══════════════════════════════════════════════════════════════ */}
       <aside className="hidden w-84 shrink-0 flex-col overflow-y-auto border-l border-slate-800/80 bg-slate-950/80 p-5 space-y-5 backdrop-blur-2xl xl:flex">
         {/* User Identity Card */}
-        <div className={`overflow-hidden rounded-3xl border bg-slate-900/50 shadow-xl transition-all ${
-          user.isVerified
-            ? 'border-amber-500/40 shadow-amber-500/10 vip-border-glow'
-            : 'border-slate-800/80'
-        }`}>
-          {/* VIP / Custom Cover Preview if verified or has cover */}
-          {(user.profileCover || user.isVerified) && (
+        <div className="overflow-hidden rounded-3xl border border-slate-800/80 bg-slate-900/50 shadow-xl transition-all">
+          {/* Custom Cover Preview ONLY if user explicitly has a cover (never auto-assign colored cover for VIP) */}
+          {user.profileCover && !user.profileCover.startsWith('linear-gradient') && (
             <div
-              className={`relative h-24 w-full overflow-hidden transition-all duration-500 ${
-                user.isVerified ? 'vip-animated-cover vip-shine-effect' : ''
-              }`}
+              className="relative h-24 w-full overflow-hidden transition-all duration-500"
               style={
-                user.profileCover
-                  ? user.profileCover.startsWith('http') || user.profileCover.startsWith('data:')
-                    ? { backgroundImage: `url(${user.profileCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                    : { background: user.profileCover }
-                  : { background: 'linear-gradient(180deg, #1a0500 0%, #450a0a 35%, #9a3412 70%, #ea580c 90%, #fde047 100%)' }
+                user.profileCover.startsWith('http') || user.profileCover.startsWith('data:')
+                  ? { backgroundImage: `url(${user.profileCover})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  : { background: user.profileCover }
               }
             >
-              {(!user.profileCover ||
-                (!user.profileCover.startsWith('http') && !user.profileCover.startsWith('data:'))) && (
+              {!user.profileCover.startsWith('http') && !user.profileCover.startsWith('data:') && (
                 <AnimatedThemeOverlay
-                  themeValue={user.profileCover || 'real_fire'}
+                  themeValue={user.profileCover}
                   compact
                 />
               )}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/40 to-slate-950" />
-              {user.isVerified && (
-                <div className="absolute top-2 right-2 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-amber-400/50 text-amber-300 shadow-md">
-                  <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
-                  <span className="text-[9px] font-black tracking-wider uppercase bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-500 bg-clip-text text-transparent">VIP</span>
-                </div>
-              )}
             </div>
           )}
 
-          <div className={`p-5 ${user.profileCover || user.isVerified ? '-mt-6 relative z-10 pt-0' : ''}`}>
+          <div className={`p-5 ${user.profileCover && !user.profileCover.startsWith('linear-gradient') ? '-mt-6 relative z-10 pt-0' : ''}`}>
             <div className="flex items-start gap-3.5">
               <div
                 onClick={() => openUserProfile(user.uid)}
-                className={`relative m-1 flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-full p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
-                  user.isVerified
-                    ? `${getVipAvatarClass(user.isVerified, user.vipFrame)} bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600`
-                    : 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15'
-                }`}
+                className="relative m-1 flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-full p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15"
               >
-                {user.isVerified && (
-                  <div className="absolute -top-2.5 -right-1 z-30 pointer-events-none">
-                    <Crown className="h-5 w-5 text-amber-400 fill-amber-400 vip-crown-animation drop-shadow-[0_2px_6px_rgba(251,191,36,0.8)]" />
-                  </div>
-                )}
                 <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-950">
                   {user.avatar || user.profileImage ? (
                     <img
@@ -1882,19 +1856,18 @@ export default function Dashboard() {
                   <h3 className="font-display text-base font-black text-white">
                     {user.username}
                   </h3>
+                  <VipLevelBadge
+                    isVip={user.isVerified}
+                    vipLevel={user.vipLevel}
+                    vipXp={user.vipXp}
+                  />
                   {user.isVerified && (
-                    <div className="flex items-center gap-1">
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-black text-amber-300 uppercase">
-                        <Crown className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
-                        VIP
-                      </span>
-                      <span title="Verified Elite Profile" className="inline-flex items-center">
-                        <BadgeCheck
-                          size={15}
-                          className="text-sky-400 fill-sky-400/20 shrink-0"
-                        />
-                      </span>
-                    </div>
+                    <span title="Verified Elite Profile" className="inline-flex items-center">
+                      <BadgeCheck
+                        size={15}
+                        className="text-sky-400 fill-sky-400/20 shrink-0"
+                      />
+                    </span>
                   )}
                   <ShieldCheck className="h-4 w-4 text-cyan-400" />
                 </div>
@@ -1903,6 +1876,15 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
+
+            <TopTopPrestigeBadges
+              level={user.level || 1}
+              coins={user.coins || 0}
+              isVip={Boolean(user.isVerified)}
+              vipLevel={user.vipLevel}
+              vipXp={user.vipXp}
+              onOpenVipCenter={() => setIsShopOpen(true)}
+            />
 
           {/* Compact stats: level, coins, social */}
           <div className="mt-4 space-y-3">

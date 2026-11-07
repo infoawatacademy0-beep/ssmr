@@ -197,9 +197,12 @@ export {
 
 export {
   SHOP_CATALOG,
+  TOPTOP_COIN_PACKS,
   purchaseShopItem,
+  rechargeTopTopCoinPack,
   userOwnsItem,
 } from './shopService';
+export type { TopTopCoinPack } from './shopService';
 
 export {
   createStory,

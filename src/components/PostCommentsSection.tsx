@@ -17,6 +17,7 @@ import {
   deletePostComment,
 } from '../services';
 import { useLanguage } from '../contexts';
+import { AvatarFrameOverlay, VipLevelBadge } from './AvatarFrameOverlay';
 
 interface PostCommentsSectionProps {
   postId: string;
@@ -112,16 +113,19 @@ export default function PostCommentsSection({
 
       {/* Comment Input Composer */}
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-[10px] font-black text-black shadow-sm">
-          {currentUser.avatar || currentUser.profileImage ? (
-            <img
-              src={currentUser.avatar || currentUser.profileImage}
-              alt={currentUser.username}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            currentUser.username.charAt(0).toUpperCase()
-          )}
+        <div className="relative m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-[10px] font-black text-black shadow-sm">
+          <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+            {currentUser.avatar || currentUser.profileImage ? (
+              <img
+                src={currentUser.avatar || currentUser.profileImage}
+                alt={currentUser.username}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              currentUser.username.charAt(0).toUpperCase()
+            )}
+          </div>
+          <AvatarFrameOverlay frameId={currentUser.avatarFrame} level={currentUser.level || 1} />
         </div>
 
         <div className="relative flex-1">
@@ -184,22 +188,23 @@ export default function PostCommentsSection({
                   {/* Author Avatar */}
                   <div
                     onClick={() => onOpenUserProfile?.(comment.authorUid)}
-                    className="relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-slate-800 text-[10px] font-black text-white shadow-sm ring-1 ring-white/10 hover:opacity-90"
+                    className="relative m-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-800 text-[10px] font-black text-white shadow-sm ring-1 ring-white/10 hover:opacity-90"
                   >
-                    {comment.authorAvatar ? (
-                      <img
-                        src={comment.authorAvatar}
-                        alt={comment.authorName}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      comment.authorName.charAt(0).toUpperCase()
-                    )}
-                    {comment.authorIsVerified && (
-                      <span className="absolute -top-0.5 -right-0.5 z-10 flex h-3 w-3 items-center justify-center rounded-full bg-amber-400 shadow">
-                        <Crown className="h-1.5 w-1.5 text-black fill-black" />
-                      </span>
-                    )}
+                    <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
+                      {comment.authorAvatar ? (
+                        <img
+                          src={comment.authorAvatar}
+                          alt={comment.authorName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        comment.authorName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <AvatarFrameOverlay
+                      frameId={isMine ? currentUser.avatarFrame : undefined}
+                      level={isMine ? currentUser.level || 1 : 1}
+                    />
                   </div>
 
                   {/* Comment Details */}
@@ -213,12 +218,12 @@ export default function PostCommentsSection({
                           {comment.authorName}
                         </span>
 
-                        {comment.authorIsVerified && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-1 py-0.2 text-[7px] font-black text-amber-300">
-                            <Crown className="h-1.5 w-1.5 text-amber-400 fill-amber-400" />
-                            VIP
-                          </span>
-                        )}
+                        <VipLevelBadge
+                          isVip={comment.authorIsVerified}
+                          vipLevel={isMine ? currentUser.vipLevel : undefined}
+                          vipXp={isMine ? currentUser.vipXp : undefined}
+                          compact
+                        />
 
                         {isMine && (
                           <span className="rounded-md bg-white/[0.06] px-1 py-0.2 text-[8px] font-semibold text-slate-400">

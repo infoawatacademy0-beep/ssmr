@@ -43,6 +43,7 @@ import ChatAudioPlayer from './ChatAudioPlayer';
 import ChatThemeModal from './ChatThemeModal';
 import ImageLightboxModal from './ImageLightboxModal';
 import { renderTextWithLinks } from '../utils/linkify';
+import { AvatarFrameOverlay, VipLevelBadge } from './AvatarFrameOverlay';
 
 interface PrivateChatProps {
   currentUser: User;
@@ -99,6 +100,10 @@ export default function PrivateChat({
     recipientUser.avatar || null,
   );
   const [recipientIsVip, setRecipientIsVip] = useState<boolean>(false);
+  const [recipientLevel, setRecipientLevel] = useState<number>(1);
+  const [recipientAvatarFrame, setRecipientAvatarFrame] = useState<string | undefined>(undefined);
+  const [recipientVipLevel, setRecipientVipLevel] = useState<number>(0);
+  const [recipientVipXp, setRecipientVipXp] = useState<number>(0);
 
   useEffect(() => {
     const userRef = ref(database, `users/${recipientUser.uid}`);
@@ -109,6 +114,10 @@ export default function PrivateChat({
           setRecipientLiveAvatar(val.avatar || val.profileImage);
         }
         setRecipientIsVip(Boolean(val.isVerified));
+        setRecipientLevel(Number(val.level) || 1);
+        setRecipientAvatarFrame(val.avatarFrame || undefined);
+        setRecipientVipLevel(Number(val.vipLevel) || (val.isVerified ? 1 : 0));
+        setRecipientVipXp(Number(val.vipXp) || 0);
       }
     });
     return () => unsub();
@@ -477,11 +486,7 @@ export default function PrivateChat({
           className={`relative z-10 flex items-center justify-between border-b p-4 backdrop-blur-xl ${currentTheme.headerBg}`}
         >
           <div className="flex items-center gap-3">
-            <div
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
-                recipientIsVip ? 'border-2 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : ''
-              }`}
-            >
+            <div className="relative m-1 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md">
               <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                 {recipientLiveAvatar || recipientUser.avatar ? (
                   <img
@@ -493,23 +498,27 @@ export default function PrivateChat({
                   recipientUser.username.charAt(0).toUpperCase()
                 )}
               </div>
-              {recipientIsVip && (
-                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
-                  <Crown className="h-2.5 w-2.5 text-black fill-black" strokeWidth={2.5} />
-                </span>
-              )}
+              <AvatarFrameOverlay frameId={recipientAvatarFrame} level={recipientLevel} />
               {/* Presence Indicator Dot */}
               <span
-                className={`absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ring-slate-950 ${
+                className={`absolute bottom-0 right-0 z-30 h-3 w-3 rounded-full ring-2 ring-slate-950 ${
                   presence.isOnline ? 'bg-emerald-400' : 'bg-slate-500'
                 }`}
               />
             </div>
 
             <div>
-              <h3 className="font-display text-sm font-bold text-white">
-                {recipientUser.username}
-              </h3>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-display text-sm font-bold text-white">
+                  {recipientUser.username}
+                </h3>
+                <VipLevelBadge
+                  isVip={recipientIsVip}
+                  vipLevel={recipientVipLevel}
+                  vipXp={recipientVipXp}
+                  compact
+                />
+              </div>
               <div className="flex items-center gap-1.5 text-[10px] font-medium">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
@@ -608,13 +617,7 @@ export default function PrivateChat({
                   className={`flex items-end gap-2.5 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   {/* Sender Profile Picture in Chat */}
-                  <div
-                    className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[11px] font-black text-white shadow ${
-                      isSenderVip
-                        ? 'border-2 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.45)]'
-                        : 'border border-white/15'
-                    }`}
-                  >
+                  <div className="relative m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-[11px] font-black text-white shadow border border-white/15">
                     <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
                       {senderAvatarUrl ? (
                         <img
@@ -626,11 +629,10 @@ export default function PrivateChat({
                         senderInitial
                       )}
                     </div>
-                    {isSenderVip && (
-                      <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
-                        <Crown className="h-2 w-2 text-black fill-black" strokeWidth={3} />
-                      </span>
-                    )}
+                    <AvatarFrameOverlay
+                      frameId={isMine ? currentUser.avatarFrame : recipientAvatarFrame}
+                      level={isMine ? currentUser.level || 1 : recipientLevel}
+                    />
                   </div>
 
                   <div className={`flex flex-col max-w-[78%] ${isMine ? 'items-end' : 'items-start'}`}>

@@ -392,19 +392,14 @@ export default function AdminPanel({
     }
   };
 
-  // 4. Verification Badge Toggle
+  // 4. Verification Badge Toggle (Grants clean VIP badge only, no colored animated cover)
   const handleToggleVerification = async (targetUser: User) => {
     const nextStatus = !targetUser.isVerified;
     try {
       await toggleVerificationBadge(targetUser.uid, nextStatus);
-      // Automatically assign Royal Gold VIP Animated Cover if user gets VIP and doesn't have one
-      if (nextStatus && !targetUser.profileCover) {
-        const defaultVipCover = ANIMATED_COVER_PRESETS[0].backgroundCss;
-        await assignPremiumCosmetics(targetUser.uid, defaultVipCover, defaultVipCover);
-      }
       showToast(
         nextStatus
-          ? `VIP Royale status & Animated Cover granted to ${targetUser.username}!`
+          ? `VIP status granted to ${targetUser.username}!`
           : `VIP status revoked from ${targetUser.username}.`,
       );
       await loadUsersList();

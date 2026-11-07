@@ -1,6 +1,105 @@
 import { ref, push, set, update, runTransaction, get } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { PurchaseRecord, ShopItem, ShopItemType } from '../types';
+import { calculateVipLevelFromXp, type PurchaseRecord, type ShopItem, type ShopItemType, type User } from '../types';
+
+export interface TopTopCoinPack {
+  id: string;
+  coins: number;
+  vipReward: number;
+  iqdPrice: string;
+  discount?: string;
+  levelBoost: number;
+  stackSize: 'single' | 'double' | 'pile';
+}
+
+export const TOPTOP_COIN_PACKS: TopTopCoinPack[] = [
+  {
+    id: 'pack_16875',
+    coins: 16875,
+    vipReward: 99,
+    iqdPrice: 'IQD 1,500',
+    levelBoost: 1,
+    stackSize: 'single',
+  },
+  {
+    id: 'pack_88425',
+    coins: 88425,
+    vipReward: 499,
+    iqdPrice: 'IQD 7,550',
+    discount: '5%OFF',
+    levelBoost: 3,
+    stackSize: 'single',
+  },
+  {
+    id: 'pack_184725',
+    coins: 184725,
+    vipReward: 999,
+    iqdPrice: 'IQD 15,100',
+    discount: '9%OFF',
+    levelBoost: 5,
+    stackSize: 'double',
+  },
+  {
+    id: 'pack_377775',
+    coins: 377775,
+    vipReward: 1999,
+    iqdPrice: 'IQD 30,200',
+    discount: '11%OFF',
+    levelBoost: 10,
+    stackSize: 'pile',
+  },
+  {
+    id: 'pack_964350',
+    coins: 964350,
+    vipReward: 4999,
+    iqdPrice: 'IQD 75,500',
+    discount: '13%OFF',
+    levelBoost: 20,
+    stackSize: 'pile',
+  },
+  {
+    id: 'pack_2009025',
+    coins: 2009025,
+    vipReward: 9999,
+    iqdPrice: 'IQD 151,000',
+    discount: '17%OFF',
+    levelBoost: 35,
+    stackSize: 'pile',
+  },
+];
+
+/**
+ * Recharges a TopTop-style VIP Coin Pack:
+ * - Adds coins to user's balance
+ * - Awards VIP Exp (خەڵاتی VIP) and increases VIP Level (VIP 1 .. VIP 10)
+ * - Increases user's Account Level (Lv.X) exclusively through VIP coin purchase
+ */
+export async function rechargeTopTopCoinPack(
+  buyerUid: string,
+  pack: TopTopCoinPack,
+): Promise<{ newCoins: number; newVipLevel: number; newLevel: number }> {
+  if (!buyerUid) throw new Error('User UID is required.');
+  const userRef = ref(database, `users/${buyerUid}`);
+  const snap = await get(userRef);
+  const current = snap.exists() ? (snap.val() as User) : null;
+
+  const newCoins = (current?.coins ?? 0) + pack.coins;
+  const newVipXp = (current?.vipXp ?? 0) + pack.vipReward;
+  const newVipLevel = calculateVipLevelFromXp(newVipXp, true, current?.vipLevel);
+  const newXp = (current?.xp ?? 0) + pack.levelBoost * 500;
+  const newLevel = Math.min(100, Math.max(current?.level ?? 1, (current?.level ?? 1) + pack.levelBoost));
+
+  await update(userRef, {
+    coins: newCoins,
+    vipXp: newVipXp,
+    vipLevel: newVipLevel,
+    isVerified: true,
+    xp: newXp,
+    level: newLevel,
+  });
+
+  return { newCoins, newVipLevel, newLevel };
+}
 
 // Static shop catalog — no database needed for catalog definition
 export const SHOP_CATALOG: ShopItem[] = [
