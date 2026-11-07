@@ -611,6 +611,16 @@ export default function Dashboard() {
         <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3 md:hidden">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
+              onClick={() => setIsFriendsModalOpen(true)}
+              className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-slate-950/50 px-3.5 py-2.5 transition hover:bg-white/5"
+            >
+              <span className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                <HeartHandshake className="h-4 w-4 text-amber-400" />
+                {tr('هاوڕێکان', 'Friends')}
+              </span>
+              <span className="font-mono text-sm font-black text-white">{friendsCount}</span>
+            </button>
+            <button
               onClick={() => openUserProfile(user.uid)}
               className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-xs font-bold text-white transition active:scale-95 ${
                 user.isVerified ? 'vip-fire-avatar' : 'overflow-hidden border border-amber-500/30 shadow-md shadow-amber-500/10'
