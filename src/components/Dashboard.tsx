@@ -798,7 +798,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
                   <Flame className="h-4 w-4 text-amber-400" />
-                  <h2 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
+                  <h2 className="font-display text-sm font-bold text-slate-100">
                     {tr('ژوورە چالاکەکان', 'Active Arenas')}
                   </h2>
                 </div>
@@ -975,10 +975,26 @@ export default function Dashboard() {
         <section className="space-y-4 pt-2">
           {/* Social Post Feed Cards */}
           <div className="space-y-3">
+            {/* Quick post composer */}
+            <button
+              onClick={() => setIsCreatePostModalOpen(true)}
+              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-3 text-start transition hover:border-amber-400/40"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-sm font-black text-black">
+                {user.avatar || user.profileImage ? (
+                  <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
+                ) : (
+                  (user.username || 'U').charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="flex-1 text-sm text-slate-500">{tr('چی لە مێشکتدایە؟ پۆستێک بنووسە...', "What's on your mind? Share a post...")}</span>
+              <span className="rounded-xl bg-amber-400 px-3.5 py-1.5 text-xs font-black text-black">{tr('پۆست', 'Post')}</span>
+            </button>
+
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-amber-400" />
-                <h3 className="font-display text-xs font-bold tracking-wider text-slate-300 uppercase">
+                <h3 className="font-display text-sm font-bold text-slate-100">
                   {tr('پۆستە گشتییەکان', 'Public Posts')} ({posts.length})
                 </h3>
               </div>
@@ -1079,7 +1095,7 @@ export default function Dashboard() {
                       </div>
 
                       {/* Post Content */}
-                      <p className="mt-3 text-xs leading-relaxed text-slate-200 whitespace-pre-wrap">
+                      <p className="mt-3 text-sm leading-relaxed text-slate-200 whitespace-pre-wrap">
                         {post.content}
                       </p>
 
@@ -1849,81 +1865,64 @@ export default function Dashboard() {
               </div>
             </div>
 
-          {/* Account Age Counter */}
-          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-[11px] text-slate-400 font-medium">
-            <Calendar className="h-3.5 w-3.5 text-amber-400" />
-            <span>{getAccountAge(user.createdAt, isEn)}</span>
-          </div>
+          {/* Compact stats: level, coins, social */}
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-amber-400" />{getAccountAge(user.createdAt, isEn)}</span>
+              <span className="flex items-center gap-1.5 font-bold text-purple-300"><Sparkles className="h-3.5 w-3.5 text-purple-400" />{tr('ئاستی', 'Level')} {user.level || 1}</span>
+            </div>
 
-          {/* Dynamic Tier Level & XP Progress Percentage Bar */}
-          <div className="mt-4 rounded-2xl border border-slate-800/60 bg-slate-950/50 p-3 space-y-2">
-            <div className="flex items-center justify-between text-xs font-bold">
-              <div className="flex items-center gap-1.5 text-purple-300">
-                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                <span>{tr('ئاستی', 'Level')} {user.level || 1}</span>
+            <div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${xpProgressPercentage}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="h-full bg-gradient-to-r from-amber-500 to-purple-500"
+                />
               </div>
-              <span className="font-mono text-amber-300 text-[11px]">{xpProgressPercentage}%</span>
+              <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-500">
+                <span>{xpInCurrentLevel} XP</span>
+                <span>{xpProgressPercentage}%</span>
+              </div>
             </div>
-
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${xpProgressPercentage}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-amber-500 to-purple-500"
-              />
-            </div>
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-              <span>{xpInCurrentLevel} XP</span>
-              <span>{isEn ? '1,000 XP to next level' : '١٠٠٠ XP بۆ ئاستی دواتر'}</span>
-            </div>
-          </div>
-
-          {/* Live Wallet Balance */}
-          <div className="mt-3 flex items-center justify-between rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3">
-            <div className="flex items-center gap-2">
-              <Coins className="h-4 w-4 text-amber-400" />
-              <span className="text-xs font-bold text-slate-300">{tr('باڵانسی جزدان', 'Wallet Balance')}</span>
-            </div>
-            <span className="font-mono text-sm font-black text-amber-300">
-              {formatCoinsK(user.coins)}
-            </span>
-          </div>
-
-          {/* Followers, Following & Friends Stats */}
-          <div className="mt-3 grid grid-cols-3 gap-1.5">
-            <button
-              onClick={() => setIsFriendsModalOpen(true)}
-              className="flex flex-col items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/5 py-2 px-1 transition hover:bg-cyan-500/15 hover:border-cyan-400/40"
-            >
-              <span className="font-mono text-xs font-black text-white">{followersCount}</span>
-              <span className="text-[9px] font-bold text-cyan-300">{tr('فۆڵۆوکار', 'Followers')}</span>
-            </button>
 
             <button
-              onClick={() => setIsFriendsModalOpen(true)}
-              className="flex flex-col items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/5 py-2 px-1 transition hover:bg-purple-500/15 hover:border-purple-400/40"
+              onClick={() => setNavTab('wallet')}
+              className="flex w-full items-center justify-between rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-3 transition hover:bg-amber-500/15"
             >
-              <span className="font-mono text-xs font-black text-white">{followingCount}</span>
-              <span className="text-[9px] font-bold text-purple-300">{tr('فۆڵۆوکراو', 'Following')}</span>
+              <span className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                <Coins className="h-4 w-4 text-amber-400" />
+                {tr('باڵانسی جزدان', 'Wallet Balance')}
+              </span>
+              <span className="font-mono text-sm font-black text-amber-300">{formatCoinsK(user.coins)}</span>
             </button>
+
+            <div className="grid grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-slate-950/50 rtl:divide-x-reverse">
+              {[
+                { n: followersCount, l: tr('فۆڵۆوکار', 'Followers') },
+                { n: followingCount, l: tr('فۆڵۆوکراو', 'Following') },
+                { n: friendsCount, l: tr('هاوڕێکان', 'Friends') },
+              ].map((s) => (
+                <button
+                  key={s.l}
+                  onClick={() => setIsFriendsModalOpen(true)}
+                  className="flex flex-col items-center py-2.5 transition hover:bg-white/5"
+                >
+                  <span className="font-mono text-sm font-black text-white">{s.n}</span>
+                  <span className="text-[10px] font-semibold text-slate-400">{s.l}</span>
+                </button>
+              ))}
+            </div>
 
             <button
-              onClick={() => setIsFriendsModalOpen(true)}
-              className="flex flex-col items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/5 py-2 px-1 transition hover:bg-amber-500/15 hover:border-amber-400/40"
+              onClick={() => openUserProfile(user.uid)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white/5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-amber-400 hover:text-black"
             >
-              <span className="font-mono text-xs font-black text-white">{friendsCount}</span>
-              <span className="text-[9px] font-bold text-amber-300">{tr('هاوڕێکان', 'Friends')}</span>
+              <UserIcon className="h-3.5 w-3.5" />
+              <span>{tr('دەستکاریکردنی پڕۆفایل', 'Edit Profile')}</span>
             </button>
           </div>
-
-          <button
-            onClick={() => openUserProfile(user.uid)}
-            className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 py-2.5 text-xs font-bold text-slate-200 transition hover:border-amber-400/40 hover:text-amber-300"
-          >
-            <UserIcon className="h-3.5 w-3.5" />
-            <span>{tr('دەستکاریکردنی پڕۆفایل', 'Edit Profile')}</span>
-          </button>
         </div>
       </div>
 
