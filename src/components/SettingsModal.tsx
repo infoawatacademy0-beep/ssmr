@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { User, AccountDeletionRequest } from '../types';
 import { useLanguage } from '../contexts';
+import { AvatarFrameOverlay, LevelFramesShowcase, saveUserSelectedLevelFrame } from './AvatarFrameOverlay';
 import {
   requestAccountDeletion,
   cancelAccountDeletionRequest,
@@ -70,6 +71,8 @@ export default function SettingsModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isRequestingDelete, setIsRequestingDelete] = useState(false);
   const [pendingDeletionReq, setPendingDeletionReq] = useState<AccountDeletionRequest | null>(null);
+  const [showFramesDrawer, setShowFramesDrawer] = useState(false);
+  const [selectedFrame, setSelectedFrame] = useState<string | null | undefined>(currentUser.avatarFrame);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
@@ -200,18 +203,21 @@ export default function SettingsModal({
           {/* 1. Account Summary Card */}
           <div className="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-4 space-y-3">
             <div className="flex items-center gap-3.5">
-              <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-600 font-bold text-black shadow-md">
-                {currentUser.avatar || currentUser.profileImage ? (
-                  <img
-                    src={currentUser.avatar || currentUser.profileImage}
-                    alt={currentUser.username}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="text-xl">
-                    {(currentUser.username || 'U').charAt(0).toUpperCase()}
-                  </span>
-                )}
+              <div className="relative m-1 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 font-bold text-black shadow-md">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
+                  {currentUser.avatar || currentUser.profileImage ? (
+                    <img
+                      src={currentUser.avatar || currentUser.profileImage}
+                      alt={currentUser.username}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xl">
+                      {(currentUser.username || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <AvatarFrameOverlay frameId={selectedFrame} level={currentUser.level || 1} />
               </div>
 
               <div className="flex-1 min-w-0">
@@ -245,6 +251,39 @@ export default function SettingsModal({
               </div>
               <ChevronRight className={`h-4 w-4 text-slate-500 ${isRTL ? 'rotate-180' : ''}`} />
             </button>
+
+            <button
+              type="button"
+              onClick={() => setShowFramesDrawer((v) => !v)}
+              className="flex w-full items-center justify-between rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-purple-500/10 px-4 py-2.5 text-xs font-black text-amber-300 transition hover:border-amber-400/60"
+            >
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-amber-400" />
+                <span>
+                  {language === 'en'
+                    ? 'Level Avatar Frames (Lv. 5 – 100)'
+                    : 'چوارچێوەی وێنەی پڕۆفایل بەپێی ئاست (Level 5 – 100)'}
+                </span>
+              </div>
+              <ChevronRight className={`h-4 w-4 text-amber-400 transition-transform ${showFramesDrawer ? 'rotate-90' : isRTL ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showFramesDrawer && (
+              <div className="pt-2">
+                <LevelFramesShowcase
+                  userLevel={currentUser.level || 1}
+                  selectedFrameId={selectedFrame}
+                  userAvatar={currentUser.avatar || currentUser.profileImage}
+                  username={currentUser.username}
+                  isOwner={true}
+                  onSelectFrame={async (fId) => {
+                    setSelectedFrame(fId || 'none');
+                    await saveUserSelectedLevelFrame(currentUser.uid, fId);
+                  }}
+                  tr={(ku, en) => (language === 'en' ? en : ku)}
+                />
+              </div>
+            )}
           </div>
 
           {/* ── 2. LANGUAGE PREFERENCE (زمانی سەرەکی: کوردی / ئینگلیزی) ── */}

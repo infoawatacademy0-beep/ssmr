@@ -27,6 +27,7 @@ import {
   Search,
 } from 'lucide-react';
 import { getVipAvatarClass, type User, type ProfileVisitor } from '../types';
+import { AvatarFrameOverlay, LevelFramesShowcase, saveUserSelectedLevelFrame } from './AvatarFrameOverlay';
 import { useLanguage } from '../contexts';
 import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
 import {
@@ -143,8 +144,8 @@ export default function UserProfileManager({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Active sub-tab in modal: 'profile' | 'friends' | 'visitors'
-  const [activeTab, setActiveTab] = useState<'profile' | 'friends' | 'visitors'>('profile');
+  // Active sub-tab in modal: 'profile' | 'frames' | 'friends' | 'visitors'
+  const [activeTab, setActiveTab] = useState<'profile' | 'frames' | 'friends' | 'visitors'>('profile');
   const [friendsSubTab, setFriendsSubTab] = useState<'friends' | 'followers' | 'following'>('friends');
   const [searchFriendsQuery, setSearchFriendsQuery] = useState('');
   const [friendsList, setFriendsList] = useState<User[]>([]);
@@ -471,6 +472,18 @@ export default function UserProfileManager({
             <span>{tr("ناسنامەی پڕۆفایل", "Profile Identity")}</span>
           </button>
 
+          <button
+            onClick={() => setActiveTab('frames')}
+            className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition-all ${
+              activeTab === 'frames'
+                ? 'border-amber-400 text-amber-300'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+            <span>{tr("چوارچێوەی ئاستەکان", "Level Frames")}</span>
+          </button>
+
           {isViewingSelf && (
             <button
               onClick={() => setActiveTab('friends')}
@@ -585,9 +598,14 @@ export default function UserProfileManager({
                       </div>
                       {/* Live Presence Circle Dot */}
                       <span
-                        className={`absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full ring-2 ring-[#0d0d16] ${
+                        className={`absolute bottom-1 right-1 z-30 h-3.5 w-3.5 rounded-full ring-2 ring-[#0d0d16] ${
                           presence.isOnline ? 'bg-emerald-400' : 'bg-slate-500'
                         }`}
+                      />
+                      {/* Level Ornate Frame Overlay */}
+                      <AvatarFrameOverlay
+                        frameId={profileData.avatarFrame}
+                        level={profileData.level || 1}
                       />
                     </div>
 
@@ -833,6 +851,22 @@ export default function UserProfileManager({
                 </form>
               )}
             </>
+          )}
+
+          {activeTab === 'frames' && (
+            <LevelFramesShowcase
+              userLevel={profileData.level || 1}
+              selectedFrameId={profileData.avatarFrame}
+              userAvatar={avatarInput || profileData.avatar || profileData.profileImage}
+              username={displayedUsername}
+              isOwner={isViewingSelf}
+              onSelectFrame={async (fId) => {
+                if (!isViewingSelf) return;
+                setProfileData((prev) => ({ ...prev, avatarFrame: fId || 'none' }));
+                await saveUserSelectedLevelFrame(currentUser.uid, fId);
+              }}
+              tr={tr}
+            />
           )}
 
           {isViewingSelf && activeTab === 'friends' && (

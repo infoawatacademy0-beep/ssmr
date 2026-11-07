@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ref, onValue, goOnline } from 'firebase/database';
 import { getRoomById } from '../services/roomService';
 import { database } from '../config/firebase';
+import { AvatarFrameOverlay } from './AvatarFrameOverlay';
 import {
   Mic,
   MicOff,
@@ -316,6 +317,8 @@ export default function VoiceRoom() {
   const [vipUsersMap, setVipUsersMap] = useState<Record<string, boolean>>({});
   const [vipFramesMap, setVipFramesMap] = useState<Record<string, string>>({});
   const [usersAvatarMap, setUsersAvatarMap] = useState<Record<string, string>>({});
+  const [usersLevelMap, setUsersLevelMap] = useState<Record<string, number>>({});
+  const [usersLevelFrameMap, setUsersLevelFrameMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const usersRef = ref(database, 'users');
@@ -325,14 +328,20 @@ export default function VoiceRoom() {
       const vMap: Record<string, boolean> = {};
       const fMap: Record<string, string> = {};
       const aMap: Record<string, string> = {};
+      const lMap: Record<string, number> = {};
+      const lfMap: Record<string, string> = {};
       Object.entries(val).forEach(([uid, u]) => {
         if (u?.isVerified) vMap[uid] = true;
         if (u?.vipFrame) fMap[uid] = u.vipFrame;
         if (u?.avatar || u?.profileImage) aMap[uid] = u.avatar || u.profileImage;
+        lMap[uid] = Number(u?.level) || 1;
+        if (u?.avatarFrame) lfMap[uid] = u.avatarFrame;
       });
       setVipUsersMap(vMap);
       setVipFramesMap(fMap);
       setUsersAvatarMap(aMap);
+      setUsersLevelMap(lMap);
+      setUsersLevelFrameMap(lfMap);
     });
     return () => unsub();
   }, []);
@@ -1452,6 +1461,14 @@ export default function VoiceRoom() {
                               </div>
                             );
                           })()}
+
+                          {/* Level Ornate Frame Overlay on Seat */}
+                          {seat.userId && (
+                            <AvatarFrameOverlay
+                              frameId={usersLevelFrameMap[seat.userId]}
+                              level={usersLevelMap[seat.userId] || 1}
+                            />
+                          )}
 
                           {/* Host Crown Indicator */}
                           {isHostSeat && (

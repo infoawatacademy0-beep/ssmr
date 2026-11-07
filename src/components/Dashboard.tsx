@@ -89,6 +89,9 @@ import SettingsModal from './SettingsModal';
 import FriendsModal from './FriendsModal';
 import IncomingChatToast from './IncomingChatToast';
 import PostCommentsSection from './PostCommentsSection';
+import { AvatarFrameOverlay } from './AvatarFrameOverlay';
+import { ref as dbRef, onValue as dbOnValue } from 'firebase/database';
+import { database as rtdb } from '../config/firebase';
 import { useLanguage } from '../contexts';
 
 const CATEGORIES: { label: string; value: RoomCategory | 'All'; icon: React.ElementType; color: string }[] = [
@@ -205,6 +208,24 @@ export default function Dashboard() {
 
   // Visitors State for Right Sidebar
   const [visitors, setVisitors] = useState<ProfileVisitor[]>([]);
+  const [usersLevelMap, setUsersLevelMap] = useState<Record<string, number>>({});
+  const [usersFrameMap, setUsersFrameMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const unsub = dbOnValue(dbRef(rtdb, 'users'), (snap) => {
+      if (!snap.exists()) return;
+      const val = snap.val() as Record<string, any>;
+      const lMap: Record<string, number> = {};
+      const fMap: Record<string, string> = {};
+      Object.entries(val).forEach(([uid, u]) => {
+        lMap[uid] = Number(u?.level) || 1;
+        if (u?.avatarFrame) fMap[uid] = u.avatarFrame;
+      });
+      setUsersLevelMap(lMap);
+      setUsersFrameMap(fMap);
+    });
+    return () => unsub();
+  }, []);
 
   // Create Room Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -990,12 +1011,15 @@ export default function Dashboard() {
               onClick={() => setIsCreatePostModalOpen(true)}
               className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-slate-900/60 p-3 text-start transition hover:border-amber-400/40"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-sm font-black text-black">
-                {user.avatar || user.profileImage ? (
-                  <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
-                ) : (
-                  (user.username || 'U').charAt(0).toUpperCase()
-                )}
+              <div className="relative m-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 text-sm font-black text-black">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
+                  {user.avatar || user.profileImage ? (
+                    <img src={user.avatar || user.profileImage} alt={user.username} className="h-full w-full object-cover" />
+                  ) : (
+                    (user.username || 'U').charAt(0).toUpperCase()
+                  )}
+                </div>
+                <AvatarFrameOverlay frameId={user.avatarFrame} level={user.level || 1} />
               </div>
               <span className="flex-1 text-sm text-slate-500">{tr('چی لە مێشکتدایە؟ پۆستێک بنووسە...', "What's on your mind? Share a post...")}</span>
               <span className="rounded-xl bg-amber-400 px-3.5 py-1.5 text-xs font-black text-black">{tr('پۆست', 'Post')}</span>
@@ -1044,10 +1068,10 @@ export default function Dashboard() {
                           className="group flex cursor-pointer items-center gap-2.5"
                         >
                           <div
-                            className={`relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
+                            className={`relative m-1 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-xs font-black text-white shadow-md ${
                               isPostVip
                                 ? getVipAvatarClass(true, isAuthor ? user.vipFrame : undefined)
-                                : 'overflow-hidden'
+                                : ''
                             }`}
                           >
                             <div className="h-full w-full overflow-hidden rounded-full flex items-center justify-center">
@@ -1061,8 +1085,12 @@ export default function Dashboard() {
                                 post.authorName.charAt(0).toUpperCase()
                               )}
                             </div>
+                            <AvatarFrameOverlay
+                              frameId={isAuthor ? user.avatarFrame : usersFrameMap[post.authorUid]}
+                              level={isAuthor ? user.level || 1 : usersLevelMap[post.authorUid] || 1}
+                            />
                             {isPostVip && (
-                              <span className="absolute -top-1 -right-1 z-20 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
+                              <span className="absolute -top-1 -right-1 z-30 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-400 shadow">
                                 <Crown className="h-2 w-2 text-black fill-black" />
                               </span>
                             )}
@@ -1821,14 +1849,14 @@ export default function Dashboard() {
             <div className="flex items-start gap-3.5">
               <div
                 onClick={() => openUserProfile(user.uid)}
-                className={`relative flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-full p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
+                className={`relative m-1 flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-full p-0.5 shadow-xl transition hover:scale-105 ring-2 ring-slate-950 ${
                   user.isVerified
                     ? `${getVipAvatarClass(user.isVerified, user.vipFrame)} bg-gradient-to-tr from-amber-300 via-orange-500 to-red-600`
-                    : 'overflow-hidden bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15'
+                    : 'bg-gradient-to-tr from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/15'
                 }`}
               >
                 {user.isVerified && (
-                  <div className="absolute -top-2.5 -right-1 z-20 pointer-events-none">
+                  <div className="absolute -top-2.5 -right-1 z-30 pointer-events-none">
                     <Crown className="h-5 w-5 text-amber-400 fill-amber-400 vip-crown-animation drop-shadow-[0_2px_6px_rgba(251,191,36,0.8)]" />
                   </div>
                 )}
@@ -1845,7 +1873,8 @@ export default function Dashboard() {
                     </span>
                   )}
                 </div>
-                <span className="absolute bottom-1 right-1 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
+                <AvatarFrameOverlay frameId={user.avatarFrame} level={user.level || 1} />
+                <span className="absolute bottom-1 right-1 z-30 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
               </div>
 
               <div className="flex-1 space-y-1">

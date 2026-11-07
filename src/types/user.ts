@@ -170,6 +170,7 @@ export interface User {
   banUntil?: number | null;
   isVerified?: boolean;
   vipFrame?: VipFrameStyle | null;
+  avatarFrame?: string | null;
   forcedVoiceEffect?: 'normal' | 'child' | 'venom' | null;
   allowDirectMessages?: boolean;
   activityNotifications?: boolean;

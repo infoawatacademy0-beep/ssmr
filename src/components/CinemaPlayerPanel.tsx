@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import type { RoomCinemaState, Seat, User, AudienceMember, ChatMessage, SavedCinemaMovie } from '../types';
 import { getVipAvatarClass } from '../types';
+import { AvatarFrameOverlay } from './AvatarFrameOverlay';
 import {
   updateCinemaPlayback,
   updateCinemaDuration,
