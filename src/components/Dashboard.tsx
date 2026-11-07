@@ -889,7 +889,7 @@ export default function Dashboard() {
                       {/* Active Arena Tag / Description */}
                       <p className="mt-1 text-xs text-slate-400 line-clamp-1">
                         {room.cinema?.isActive
-                          ? `🎬 ${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
+                          ? `${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
                           : tr('ژووری دەنگی و گەنگەشەی هاوڕێیان', 'Live voice arena and social lounge')}
                       </p>
 
@@ -1384,7 +1384,7 @@ export default function Dashboard() {
                     {/* Room Info Snippet */}
                     <p className="mt-1 text-xs text-slate-400 line-clamp-1">
                       {room.cinema?.isActive
-                        ? `🎬 ${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
+                        ? `${tr('سینەما چالاکە:', 'Cinema Live:')} ${room.cinema.title || tr('پەخشی ڤیدیۆ', 'Video Stream')}`
                         : room.description || tr('ژووری دەنگی و یارییە بەکۆمەڵەکان', 'Live voice arena and social lounge')}
                     </p>
 

@@ -42,6 +42,14 @@ import {
   Film,
   ArrowLeftRight,
   MoreVertical,
+  Armchair,
+  LogOut,
+  Link2,
+  AudioWaveform,
+  Baby,
+  Ghost,
+  Headphones,
+  Unlock,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, useLanguage } from '../contexts';
@@ -87,6 +95,7 @@ import {
   subscribeToRoomCinema,
   updateRoomSeatCount,
   moveUserToSeat,
+  toggleSeatLock,
   assignUserToSeat,
   subscribeToUnreadDirectMessagesCount,
 } from '../services';
@@ -1240,7 +1249,7 @@ export default function VoiceRoom() {
 
           <div className="flex items-center justify-between pb-2 px-1">
             <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-amber-300">
-              <span>🌻</span>
+              <Gift className="h-3.5 w-3.5" />
               <span>
                 {tr('کۆی دیاری', 'Total Gifts')}: {formatCoinsK(Object.values(seatGiftCoins).reduce((a, b) => a + b, 0))}
               </span>
@@ -1616,7 +1625,7 @@ export default function VoiceRoom() {
                 >
                   <div className="flex items-center gap-2">
                     <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-black font-black shadow">
-                      🃏
+                      <Gamepad2 className="h-4 w-4" />
                     </div>
                     <div>
                       <p className="text-xs font-black text-white flex items-center gap-1.5">
@@ -1934,14 +1943,13 @@ export default function VoiceRoom() {
               title={tr('دیاری (Gifts)', 'Gifts')}
               className="room-nav-btn !bg-transparent !border-transparent"
             >
-              <motion.img
-                src="https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/Wrapped%20gift/3D/wrapped_gift_3d.png"
-                alt="gift"
-                draggable={false}
+              <motion.span
                 animate={{ rotate: [0, -8, 8, -5, 0], scale: [1, 1.08, 1] }}
                 transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 1.2 }}
-                className="h-9 w-9 object-contain drop-shadow-[0_4px_8px_rgba(244,114,182,0.45)]"
-              />
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-pink-500 to-orange-400 text-white shadow-[0_4px_14px_rgba(244,114,182,0.5)] ring-1 ring-white/25"
+              >
+                <Gift className="h-5 w-5" strokeWidth={2.2} />
+              </motion.span>
             </button>
           )}
 
@@ -2071,49 +2079,49 @@ export default function VoiceRoom() {
                 {[
                   {
                     key: 'voice',
-                    emoji: mySeat?.voiceEffect === 'venom' ? '👹' : mySeat?.voiceEffect === 'child' ? '👶' : '🎙️',
+                    icon: AudioWaveform, grad: 'from-fuchsia-500 to-purple-600',
                     label: tr('گۆڕینی دەنگ', 'Voice FX'),
                     show: Boolean(mySeat),
                     onClick: () => setIsVoiceChangerOpen(true),
                   },
                   {
                     key: 'music',
-                    emoji: '🎵',
+                    icon: Music, grad: 'from-pink-500 to-rose-600',
                     label: tr('گۆرانییەکان', 'Music & Songs'),
                     show: true,
                     onClick: () => setIsMusicPanelVisible(true),
                   },
                   {
                     key: 'jackaroo',
-                    emoji: '🎮',
+                    icon: Gamepad2, grad: 'from-emerald-500 to-teal-600',
                     label: tr('جاکۆرۆ', 'Jackaroo'),
                     show: true,
                     onClick: () => setIsJackarooOpen(true),
                   },
                   {
                     key: 'invite',
-                    emoji: '📨',
+                    icon: UserPlus, grad: 'from-sky-500 to-blue-600',
                     label: tr('بانگهێشت', 'Invite'),
                     show: true,
                     onClick: () => setIsInviteModalOpen(true),
                   },
                   {
                     key: 'share',
-                    emoji: '🔗',
+                    icon: Link2, grad: 'from-amber-400 to-orange-500',
                     label: tr('هاوبەشکردن', 'Share'),
                     show: true,
                     onClick: () => handleShareRoom(),
                   },
                   {
                     key: 'leave-seat',
-                    emoji: '🪑',
+                    icon: Armchair, grad: 'from-indigo-500 to-violet-600',
                     label: tr('هەستان لە کورسی', 'Leave Seat'),
                     show: Boolean(mySeat),
                     onClick: () => handleLeaveMySeat(),
                   },
                   {
                     key: 'leave-room',
-                    emoji: '🚪',
+                    icon: LogOut, grad: 'from-red-500 to-rose-700',
                     label: tr('چوونەدەرەوە', 'Exit Room'),
                     show: true,
                     onClick: () => handleLeaveRoom(),
@@ -2133,8 +2141,8 @@ export default function VoiceRoom() {
                       }}
                       className="flex flex-col items-center gap-1.5 rounded-2xl p-2 transition hover:bg-white/[0.06] active:scale-90"
                     >
-                      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.05] text-2xl shadow-inner">
-                        {a.emoji}
+                      <span className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${a.grad} text-white shadow-lg shadow-black/40 ring-1 ring-white/20`}>
+                        <a.icon className="h-6 w-6" strokeWidth={2.1} />
                       </span>
                       <span className="text-center text-[10px] font-semibold text-slate-300">{a.label}</span>
                     </motion.button>
@@ -2232,16 +2240,16 @@ export default function VoiceRoom() {
                           ? selectedSeat.username
                           : selectedSeat.isPlatinum
                           ? selectedSeat.vipAssignedName
-                            ? `💎 ${selectedSeat.vipAssignedName}`
-                            : `💎 Platinum #${selectedSeat.seatNo}`
+                            ? `${selectedSeat.vipAssignedName}`
+                            : `Platinum #${selectedSeat.seatNo}`
                           : selectedSeat.isIron
                           ? selectedSeat.vipAssignedName
-                            ? `🛡️ ${selectedSeat.vipAssignedName}`
-                            : `🛡️ Iron #${selectedSeat.seatNo}`
+                            ? `${selectedSeat.vipAssignedName}`
+                            : `Iron #${selectedSeat.seatNo}`
                           : selectedSeat.vipAssignedName
-                          ? `👑 ${selectedSeat.vipAssignedName}`
+                          ? `${selectedSeat.vipAssignedName}`
                           : selectedSeat.isVip
-                          ? `👑 VIP #${selectedSeat.seatNo}`
+                          ? `VIP #${selectedSeat.seatNo}`
                           : `${tr('کورسی بەتاڵ', 'Empty Seat')} #${selectedSeat.seatNo}`}
                       </h3>
                       {selectedSeat.isPlatinum ? (
@@ -2450,7 +2458,7 @@ export default function VoiceRoom() {
                     {user.isAdmin && selectedSeat.userId && (
                       <div className="space-y-2 rounded-2xl border border-amber-500/35 bg-amber-500/10 p-3 mb-2">
                         <div className="flex items-center justify-between text-[10px] font-black text-amber-300">
-                          <span>{tr('🎙️ گۆڕینی دەنگی ئەندام (بێ مۆڵەت · ئەدمین)', '🎙️ Change Member Voice (Admin Override)')}</span>
+                          <span>{tr('گۆڕینی دەنگی ئەندام (بێ مۆڵەت · ئەدمین)', 'Change Member Voice (Admin Override)')}</span>
                           <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[8px] uppercase">
                             {selectedSeat.voiceEffect || 'normal'}
                           </span>
@@ -2458,9 +2466,9 @@ export default function VoiceRoom() {
                         <div className="grid grid-cols-3 gap-1.5">
                           {(
                             [
-                              { id: 'normal', label: tr('🎙️ ئاسایی', '🎙️ Normal') },
-                              { id: 'child', label: tr('👶 منداڵان', '👶 Child') },
-                              { id: 'venom', label: tr('👹 ڤینۆم', '👹 Venom') },
+                              { id: 'normal', label: tr('ئاسایی', 'Normal') },
+                              { id: 'child', label: tr('منداڵان', 'Child') },
+                              { id: 'venom', label: tr('ڤینۆم', 'Venom') },
                             ] as const
                           ).map((vOpt) => {
                             const isAct = (selectedSeat.voiceEffect || 'normal') === vOpt.id;
@@ -2669,7 +2677,7 @@ export default function VoiceRoom() {
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-pink-500 text-lg shadow-lg">
-                    🎙️
+                    <AudioWaveform className="h-5 w-5 text-white" />
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-white flex items-center gap-1.5">
@@ -2696,7 +2704,7 @@ export default function VoiceRoom() {
                     {tr('ئەم تایبەتمەندییە تەنها بۆ ئەندامانی VIP بەردەستە!', 'This feature is exclusive to VIP members!')}
                   </p>
                   <p className="text-[11px] text-slate-300 leading-relaxed">
-                    {tr('کاتێک ئەدمین نیشانەی VIP ـت پێ دەبەخشێت، دەتوانیت دەنگی خۆت لە کاتی قسەکردندا بگۆڕیت بۆ دەنگی منداڵان 👶 یان ڤینۆم 👹.', 'When granted VIP status by an admin, you can change your live voice to Child 👶 or Venom 👹.')}
+                    {tr('کاتێک ئەدمین نیشانەی VIP ـت پێ دەبەخشێت، دەتوانیت دەنگی خۆت لە کاتی قسەکردندا بگۆڕیت بۆ دەنگی منداڵان یان ڤینۆم.', 'When granted VIP status by an admin, you can change your live voice to Child or Venom.')}
                   </p>
                 </div>
               ) : (
@@ -2705,21 +2713,21 @@ export default function VoiceRoom() {
                     [
                       {
                         id: 'normal',
-                        icon: '🎙️',
+                        icon: Mic,
                         title: tr('دەنگی ئاسایی (Normal)', 'Normal Voice'),
                         desc: tr('دەنگی سروشتی و ڕاستەقینەی خۆت', 'Your natural, authentic voice'),
                         border: 'border-emerald-400/50 bg-emerald-500/15',
                       },
                       {
                         id: 'child',
-                        icon: '👶',
+                        icon: Baby,
                         title: tr('دەنگی منداڵان (Child / Baby)', 'Child / Baby Voice'),
                         desc: tr('دەنگێکی ناسک و خۆشی منداڵانە لە کاتی قسەکردن', 'A sweet and cute baby voice while speaking'),
                         border: 'border-pink-400/60 bg-gradient-to-r from-pink-500/20 to-amber-500/15',
                       },
                       {
                         id: 'venom',
-                        icon: '👹',
+                        icon: Ghost,
                         title: tr('دەنگی ڤینۆم (Venom Monster)', 'Venom Monster Voice'),
                         desc: tr('دەنگی قووڵ و ترسناکی دێوی ڤینۆم بە نەڕەی دووانە', 'Deep and menacing demon voice with dual growl'),
                         border: 'border-purple-400/60 bg-gradient-to-r from-purple-900/40 to-rose-900/30',
@@ -2741,7 +2749,7 @@ export default function VoiceRoom() {
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{opt.icon}</span>
+                          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/15"><opt.icon className="h-5 w-5" /></span>
                           <div>
                             <p className="text-xs font-black text-white">{opt.title}</p>
                             <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
@@ -2759,7 +2767,7 @@ export default function VoiceRoom() {
                   {/* Self-Monitor Test Toggle */}
                   <div className="pt-2 border-t border-white/10 flex items-center justify-between">
                     <span className="text-[11px] text-slate-300 font-semibold">
-                      🎧 {tr('تاقیکردنەوەی دەنگی خۆم (گوێگرتن):', 'Voice Self-Monitoring (Listen):')}
+                      <Headphones className="mr-1 inline h-3.5 w-3.5" /> {tr('تاقیکردنەوەی دەنگی خۆم (گوێگرتن):', 'Voice Self-Monitoring (Listen):')}
                     </span>
                     <button
                       type="button"
@@ -2996,7 +3004,7 @@ export default function VoiceRoom() {
             </p>
 
             <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
-              {seats.map((targetSeat) => {
+              {room.seats.map((targetSeat) => {
                 const isCurrent = targetSeat.seatNo === selectedSeat.seatNo;
                 return (
                   <button
