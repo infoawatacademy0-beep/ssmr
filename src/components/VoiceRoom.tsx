@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, goOnline } from 'firebase/database';
+import { getRoomById } from '../services/roomService';
 import { database } from '../config/firebase';
 import {
   Mic,
@@ -436,6 +437,40 @@ export default function VoiceRoom() {
       if (unregisterPresence) unregisterPresence();
     };
   }, [roomId, user?.uid]);
+
+  // When the user leaves the app/tab and comes back (or the network reconnects), the
+  // realtime socket may have been suspended and missed chat messages. Reconnect and
+  // re-fetch the room so the full chat history is always shown.
+  useEffect(() => {
+    if (!roomId) return;
+
+    const resync = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        goOnline(database);
+        const fresh = await getRoomById(roomId);
+        if (fresh) {
+          setRoom((prev) =>
+            prev ? { ...prev, activeChat: fresh.activeChat, seats: fresh.seats } : fresh,
+          );
+        }
+      } catch (err) {
+        console.warn('Room resync failed:', err);
+      }
+    };
+
+    resync();
+    document.addEventListener('visibilitychange', resync);
+    window.addEventListener('focus', resync);
+    window.addEventListener('online', resync);
+    window.addEventListener('pageshow', resync);
+    return () => {
+      document.removeEventListener('visibilitychange', resync);
+      window.removeEventListener('focus', resync);
+      window.removeEventListener('online', resync);
+      window.removeEventListener('pageshow', resync);
+    };
+  }, [roomId]);
 
   // Load Host custom room background and verification status
   useEffect(() => {
