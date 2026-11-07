@@ -510,7 +510,7 @@ export default function Dashboard() {
       {/* ══════════════════════════════════════════════════════════════
           1. LEFT NAVIGATION SIDEBAR (Desktop Workspace Panel)
           ══════════════════════════════════════════════════════════════ */}
-      <aside className="hidden w-64 shrink-0 flex-col justify-between border-r border-slate-800/80 bg-slate-950/90 p-5 backdrop-blur-2xl md:flex">
+      <aside className="hidden w-72 shrink-0 flex-col justify-between border-r border-slate-800/80 bg-slate-950/90 p-5 backdrop-blur-2xl md:flex">
         <div className="space-y-8">
           {/* Brand Identity */}
           <div className="flex items-center gap-3">
@@ -531,138 +531,63 @@ export default function Dashboard() {
           </div>
 
           {/* Navigation Links */}
-          <nav className="space-y-1.5">
-            <button
-              onClick={() => setNavTab('dashboard')}
-              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold transition-all ${
-                navTab === 'dashboard'
-                  ? 'border border-amber-400/30 bg-amber-400/15 text-amber-300 shadow-lg shadow-amber-500/10'
-                  : 'text-slate-400 hover:bg-slate-900/60 hover:text-white'
-              }`}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              <span>{t('nav.dashboard', 'سەرەکی')}</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setNavTab('explore');
-                setSelectedCategory('All');
-              }}
-              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold transition-all ${
-                navTab === 'explore'
-                  ? 'border border-amber-400/30 bg-amber-400/15 text-amber-300 shadow-lg shadow-amber-500/10'
-                  : 'text-slate-400 hover:bg-slate-900/60 hover:text-white'
-              }`}
-            >
-              <Compass className="h-4 w-4" />
-              <span>{t('nav.exploreRooms', 'گەڕان لە ژوورەکان')}</span>
-            </button>
-
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
-            >
-              <Search className="h-4 w-4" />
-              <span>{t('nav.discoverUsers', 'دۆزینەوەی ئەندامان')}</span>
-            </button>
-
-            <button
-              onClick={() => setIsLeaderboardOpen(true)}
-              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
-            >
-              <Trophy className="h-4 w-4 text-amber-400" />
-              <span>{t('nav.hallOfFame', 'ڕیزبەندی پاڵەوانان')}</span>
-            </button>
-
-            <button
-              onClick={() => setIsShopOpen(true)}
-              className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
-            >
-              <ShoppingBag className="h-4 w-4 text-purple-400" />
-              <span>{t('nav.shop', 'فرۆشگا و خەزێنە')}</span>
-            </button>
-
-            <button
-              onClick={() => setIsNotificationsOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
-            >
-              <div className="flex items-center gap-3">
-                <Bell className="h-4 w-4" />
-                <span>{t('nav.notifications', 'ئاگادارکردنەوەکان')}</span>
+          <nav className="space-y-5">
+            {([
+              {
+                title: tr('سەرەکی', 'Main'),
+                items: [
+                  { key: 'dashboard', icon: LayoutDashboard, label: t('nav.dashboard', 'سەرەکی'), active: navTab === 'dashboard', onClick: () => setNavTab('dashboard') },
+                  { key: 'explore', icon: Compass, label: t('nav.exploreRooms', 'گەڕان لە ژوورەکان'), active: navTab === 'explore', onClick: () => { setNavTab('explore'); setSelectedCategory('All'); } },
+                  { key: 'search', icon: Search, label: t('nav.discoverUsers', 'دۆزینەوەی ئەندامان'), onClick: () => setIsSearchOpen(true) },
+                  { key: 'leaderboard', icon: Trophy, label: t('nav.hallOfFame', 'ڕیزبەندی پاڵەوانان'), onClick: () => setIsLeaderboardOpen(true) },
+                ],
+              },
+              {
+                title: tr('کۆمەڵایەتی', 'Social'),
+                items: [
+                  { key: 'dm', icon: MessageSquare, label: t('nav.messages', 'نامەی تایبەتی'), badge: unreadDMsCount > 0 ? String(unreadDMsCount) : inboxThreadsCount > 0 ? String(inboxThreadsCount) : '', hot: unreadDMsCount > 0, onClick: () => setIsChatCenterOpen(true) },
+                  { key: 'notifs', icon: Bell, label: t('nav.notifications', 'ئاگادارکردنەوەکان'), badge: unreadNotifsCount > 0 ? String(unreadNotifsCount) : '', hot: true, onClick: () => setIsNotificationsOpen(true) },
+                  { key: 'friends', icon: HeartHandshake, label: t('nav.friends', 'هاوڕێ و فۆڵۆوەکان'), badge: String(friendsCount + followersCount), onClick: () => setIsFriendsModalOpen(true) },
+                ],
+              },
+              {
+                title: tr('هەژمار', 'Account'),
+                items: [
+                  { key: 'shop', icon: ShoppingBag, label: t('nav.shop', 'فرۆشگا و خەزێنە'), onClick: () => setIsShopOpen(true) },
+                  { key: 'wallet', icon: Wallet, label: t('nav.wallet', 'جزدان'), active: navTab === 'wallet', badge: formatCoinsK(user.coins), onClick: () => setNavTab('wallet') },
+                  { key: 'settings', icon: Settings, label: t('settings.title', 'ڕێکخستنەکان'), active: navTab === 'settings', onClick: () => setNavTab('settings') },
+                ],
+              },
+            ] as { title: string; items: { key: string; icon: React.ElementType; label: string; active?: boolean; badge?: string; hot?: boolean; onClick: () => void }[] }[]).map((group) => (
+              <div key={group.title} className="space-y-1">
+                <p className="px-3 pb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">{group.title}</p>
+                {group.items.map((item) => {
+                  const Ico = item.icon;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={item.onClick}
+                      className={`group relative flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all ${
+                        item.active
+                          ? 'bg-amber-400/10 text-amber-300'
+                          : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      {item.active && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-amber-400" />}
+                      <span className="flex items-center gap-3">
+                        <Ico className={`h-[18px] w-[18px] ${item.active ? 'text-amber-400' : 'text-slate-500 group-hover:text-slate-200'}`} />
+                        <span>{item.label}</span>
+                      </span>
+                      {item.badge ? (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${item.hot ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
-              {unreadNotifsCount > 0 && (
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
-                  {unreadNotifsCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setIsChatCenterOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <MessageSquare className="h-4 w-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-                  {unreadDMsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-rose-500 animate-ping" />
-                  )}
-                </div>
-                <span>{t('nav.messages', 'نامەی تایبەتی')}</span>
-              </div>
-              {unreadDMsCount > 0 ? (
-                <span className="flex h-5 min-w-[20px] px-1.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[9px] font-black shadow-md shadow-rose-500/30 animate-pulse border border-white/20">
-                  {unreadDMsCount} {tr('نوێ', 'New')}
-                </span>
-              ) : inboxThreadsCount > 0 ? (
-                <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold border border-slate-700/60">
-                  {inboxThreadsCount}
-                </span>
-              ) : null}
-            </button>
-
-            <button
-              onClick={() => setIsFriendsModalOpen(true)}
-              className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold text-slate-400 transition-all hover:bg-slate-900/60 hover:text-white"
-            >
-              <div className="flex items-center gap-3">
-                <HeartHandshake className="h-4 w-4 text-amber-400" />
-                <span>{t('nav.friends', 'هاوڕێ و فۆڵۆوەکان')}</span>
-              </div>
-              <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
-                {friendsCount + followersCount}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setNavTab('wallet')}
-              className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-xs font-bold transition-all ${
-                navTab === 'wallet'
-                  ? 'border border-amber-400/30 bg-amber-400/15 text-amber-300 shadow-lg shadow-amber-500/10'
-                  : 'text-slate-400 hover:bg-slate-900/60 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Wallet className="h-4 w-4" />
-                <span>{t('nav.wallet', 'جزدان')}</span>
-              </div>
-              <span className="font-mono text-[11px] font-bold text-amber-300">
-                {formatCoinsK(user.coins)}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setNavTab('settings')}
-              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-xs font-bold transition-all ${
-                navTab === 'settings'
-                  ? 'border border-amber-400/30 bg-amber-400/15 text-amber-300 shadow-lg shadow-amber-500/10'
-                  : 'text-slate-400 hover:bg-slate-900/60 hover:text-white'
-              }`}
-            >
-              <Settings className="h-4 w-4" />
-              <span>{t('settings.title', 'ڕێکخستنەکان')}</span>
-            </button>
+            ))}
           </nav>
         </div>
 
@@ -790,6 +715,47 @@ export default function Dashboard() {
 
         {navTab === 'dashboard' && (
           <>
+            {/* Welcome hero + quick actions */}
+            <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-amber-500/15 via-slate-900/60 to-indigo-500/10 p-5 sm:p-6">
+              <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+              <div className="relative flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-amber-300/80">{tr('بەخێربێیت', 'Welcome back')}</p>
+                  <h1 className="mt-0.5 truncate font-display text-xl font-black text-white sm:text-2xl">{user.username}</h1>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {allRooms.length} {tr('ژووری چالاک', 'live arenas')} · {formatCoinsK(user.coins)} {tr('دراو', 'coins')}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="flex items-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-black text-black shadow-lg shadow-amber-500/25 transition hover:bg-amber-300 active:scale-95"
+                >
+                  <Plus className="h-4 w-4" />
+                  {tr('کردنەوەی ژوور', 'Create Room')}
+                </button>
+              </div>
+              <div className="relative mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {[
+                  { icon: Compass, label: tr('گەڕان', 'Explore'), color: 'text-amber-400', onClick: () => { setNavTab('explore'); setSelectedCategory('All'); } },
+                  { icon: MessageSquare, label: tr('نامەکان', 'Messages'), color: 'text-cyan-400', onClick: () => setIsChatCenterOpen(true) },
+                  { icon: HeartHandshake, label: tr('هاوڕێکان', 'Friends'), color: 'text-pink-400', onClick: () => setIsFriendsModalOpen(true) },
+                  { icon: Trophy, label: tr('پاڵەوانان', 'Leaderboard'), color: 'text-yellow-400', onClick: () => setIsLeaderboardOpen(true) },
+                ].map((a) => {
+                  const Ico = a.icon;
+                  return (
+                    <button
+                      key={a.label}
+                      onClick={a.onClick}
+                      className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-slate-950/50 px-3.5 py-3 text-xs font-bold text-slate-200 transition hover:border-amber-400/40 hover:bg-slate-900 active:scale-95"
+                    >
+                      <Ico className={`h-4 w-4 ${a.color}`} />
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
             {/* 24-Hour Stories Bar */}
             <section className="rounded-3xl border border-slate-800/80 bg-slate-900/40 p-3.5 backdrop-blur-xl">
               <StoriesBar currentUser={user} />
@@ -927,56 +893,45 @@ export default function Dashboard() {
                           : tr('ژووری دەنگی و گەنگەشەی هاوڕێیان', 'Live voice arena and social lounge')}
                       </p>
 
-                      {/* ── SEAT OCCUPANCY STATUS: SHOW OCCUPIED SEATS & USERNAME ── */}
+                      {/* Seat occupancy: compact avatar stack */}
                       {(() => {
                         const occupiedSeats = (room.seats || []).filter((s) => Boolean(s.userId));
                         if (occupiedSeats.length > 0) {
                           return (
-                            <div className="mt-3 rounded-2xl bg-slate-950/70 border border-amber-500/30 p-2.5 shadow-inner">
-                              <div className="flex items-center justify-between mb-1.5">
-                                <div className="flex items-center gap-1.5 text-[11px] font-black text-amber-400">
-                                  <Mic className="h-3.5 w-3.5 animate-pulse text-amber-400" />
-                                  <span>{tr('لەسەر کورسییەکان:', 'On Stage Seats:')}</span>
-                                </div>
-                                <span className="text-[10px] font-bold text-amber-300/90 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/20">
-                                  {occupiedSeats.length} {tr('کورسی گیراوە', 'Seated')}
-                                </span>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1.5">
-                                {occupiedSeats.map((seat) => (
+                            <div className="mt-3 flex items-center gap-2.5">
+                              <div className="flex -space-x-2">
+                                {occupiedSeats.slice(0, 5).map((seat) => (
                                   <div
                                     key={seat.seatNo}
-                                    className="flex items-center gap-1.5 rounded-xl bg-slate-900/95 border border-amber-400/40 px-2 py-1 text-xs shadow-sm"
+                                    title={seat.username}
+                                    className="h-7 w-7 overflow-hidden rounded-full border-2 border-slate-900 bg-slate-800"
                                   >
-                                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-black text-black">
-                                      {seat.seatNo}
-                                    </span>
-                                    <div className="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-slate-800">
-                                      {seat.avatar ? (
-                                        <img src={seat.avatar} alt={seat.username || ''} className="h-full w-full object-cover" />
-                                      ) : (
-                                        <span className="flex h-full w-full items-center justify-center text-[8px] font-bold text-slate-300">
-                                          {(seat.username || '?').charAt(0).toUpperCase()}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-[11px] font-bold text-amber-300">
-                                      {tr('کورسی', 'Seat')} {seat.seatNo}:
-                                    </span>
-                                    <span className="text-[11px] font-bold text-white max-w-[85px] truncate">
-                                      {seat.username}
-                                    </span>
+                                    {seat.avatar ? (
+                                      <img src={seat.avatar} alt={seat.username || ''} className="h-full w-full object-cover" />
+                                    ) : (
+                                      <span className="flex h-full w-full items-center justify-center text-[10px] font-bold text-slate-300">
+                                        {(seat.username || '?').charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
                                   </div>
                                 ))}
+                                {occupiedSeats.length > 5 && (
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-slate-900 bg-slate-700 text-[10px] font-bold text-white">
+                                    +{occupiedSeats.length - 5}
+                                  </span>
+                                )}
                               </div>
+                              <span className="flex items-center gap-1 text-[11px] font-bold text-amber-300">
+                                <Mic className="h-3 w-3" />
+                                {occupiedSeats.length} {tr('کورسی گیراوە', 'on stage')}
+                              </span>
                             </div>
                           );
                         }
                         return (
-                          <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-slate-950/40 border border-slate-800/60 px-2.5 py-1.5 text-[11px] text-slate-400">
+                          <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-500">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
-                            <span>{tr('هەموو کورسییەکان بەتاڵن بۆ دانیشتن', 'All seats are vacant & ready to join')}</span>
+                            <span>{tr('هەموو کورسییەکان بەتاڵن بۆ دانیشتن', 'Seats open — be the first to join')}</span>
                           </div>
                         );
                       })()}
