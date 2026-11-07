@@ -79,7 +79,7 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
       username: rawSeat.username ?? null,
       avatar: rawSeat.avatar ?? null,
       isVerified: Boolean(rawSeat.isVerified),
-      level: typeof rawSeat.level === 'number' ? rawSeat.level : undefined,
+      level: typeof rawSeat.level === 'number' ? rawSeat.level : 1,
       avatarFrame: rawSeat.avatarFrame ?? null,
       isMuted: Boolean(rawSeat.isMuted),
       isLocked: Boolean(rawSeat.isLocked),
@@ -209,10 +209,12 @@ export async function joinSeat(
     const seats = normalizeSeats(currentSeatsData);
     let preservedIsMuted = typeof user.isMuted === 'boolean' ? user.isMuted : false;
     let preservedVoiceEffect: VoiceEffectMode = user.voiceEffect || 'normal';
+    let previousSeatIndex = -1;
 
     // 1. Remove the user from any seat they might already occupy, preserving their mute & voice effect state
     for (let i = 0; i < seats.length; i++) {
       if (seats[i].userId === user.uid) {
+        previousSeatIndex = i;
         preservedIsMuted = Boolean(seats[i].isMuted);
         preservedVoiceEffect = seats[i].voiceEffect || preservedVoiceEffect;
         const prevOccupied = seats[i];
@@ -221,12 +223,16 @@ export async function joinSeat(
           userId: null,
           username: null,
           avatar: null,
+          isVerified: false,
+          level: 1,
+          avatarFrame: null,
           isMuted: false,
           isLocked: prevOccupied.isLocked || false,
           voiceEffect: 'normal',
           isVip: prevOccupied.isVip || false,
           isPlatinum: prevOccupied.isPlatinum || false,
-          seatTier: prevOccupied.seatTier || (prevOccupied.isPlatinum ? 'platinum' : prevOccupied.isVip ? 'vip' : 'standard'),
+          isIron: prevOccupied.isIron || false,
+          seatTier: prevOccupied.seatTier || (prevOccupied.isPlatinum ? 'platinum' : prevOccupied.isIron ? 'iron' : prevOccupied.isVip ? 'vip' : 'standard'),
           vipAssignedName: prevOccupied.vipAssignedName || null,
           vipAssignedUserId: prevOccupied.vipAssignedUserId || null,
         };
@@ -765,14 +771,14 @@ export async function moveUserToSeat(
     movedUsername = sourceSeat.username || 'User';
 
     const tempUser = {
-      userId: sourceSeat.userId,
-      username: sourceSeat.username,
-      avatar: sourceSeat.avatar,
-      isVerified: sourceSeat.isVerified,
-      level: sourceSeat.level,
-      avatarFrame: sourceSeat.avatarFrame,
-      isMuted: sourceSeat.isMuted,
-      voiceEffect: sourceSeat.voiceEffect,
+      userId: sourceSeat.userId ?? null,
+      username: sourceSeat.username ?? null,
+      avatar: sourceSeat.avatar ?? null,
+      isVerified: Boolean(sourceSeat.isVerified),
+      level: typeof sourceSeat.level === 'number' ? sourceSeat.level : 1,
+      avatarFrame: sourceSeat.avatarFrame ?? null,
+      isMuted: Boolean(sourceSeat.isMuted),
+      voiceEffect: sourceSeat.voiceEffect || 'normal',
     };
 
     seats[toIndex] = {
@@ -789,14 +795,14 @@ export async function moveUserToSeat(
 
     seats[fromIndex] = {
       ...sourceSeat,
-      userId: targetSeat.userId,
-      username: targetSeat.username,
-      avatar: targetSeat.avatar,
-      isVerified: targetSeat.isVerified,
-      level: targetSeat.level,
-      avatarFrame: targetSeat.avatarFrame,
-      isMuted: targetSeat.isMuted,
-      voiceEffect: targetSeat.voiceEffect,
+      userId: targetSeat.userId ?? null,
+      username: targetSeat.username ?? null,
+      avatar: targetSeat.avatar ?? null,
+      isVerified: Boolean(targetSeat.isVerified),
+      level: typeof targetSeat.level === 'number' ? targetSeat.level : 1,
+      avatarFrame: targetSeat.avatarFrame ?? null,
+      isMuted: Boolean(targetSeat.isMuted),
+      voiceEffect: targetSeat.voiceEffect || 'normal',
     };
 
     return seats;
