@@ -58,6 +58,7 @@ export default function NotificationCenter({
   const [processingFollowUid, setProcessingFollowUid] = useState<string | null>(null);
 
   useEffect(() => {
+    markAllNotificationsRead(currentUid).catch(() => {});
     const unsub = subscribeToNotifications(currentUid, (notifs) => {
       setNotifications(notifs);
     });

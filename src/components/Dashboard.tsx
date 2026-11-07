@@ -545,7 +545,7 @@ export default function Dashboard() {
               {
                 title: tr('کۆمەڵایەتی', 'Social'),
                 items: [
-                  { key: 'dm', icon: MessageSquare, label: t('nav.messages', 'نامەی تایبەتی'), badge: unreadDMsCount > 0 ? String(unreadDMsCount) : inboxThreadsCount > 0 ? String(inboxThreadsCount) : '', hot: unreadDMsCount > 0, onClick: () => setIsChatCenterOpen(true) },
+                  { key: 'dm', icon: MessageSquare, label: t('nav.messages', 'نامەی تایبەتی'), badge: unreadDMsCount > 0 ? String(unreadDMsCount) : '', hot: unreadDMsCount > 0, onClick: () => setIsChatCenterOpen(true) },
                   { key: 'notifs', icon: Bell, label: t('nav.notifications', 'ئاگادارکردنەوەکان'), badge: unreadNotifsCount > 0 ? String(unreadNotifsCount) : '', hot: true, onClick: () => setIsNotificationsOpen(true) },
                   { key: 'friends', icon: HeartHandshake, label: tr('هاوڕێکان', 'Friends'), badge: String(friendsCount), onClick: () => setIsFriendsModalOpen(true) },
                 ],

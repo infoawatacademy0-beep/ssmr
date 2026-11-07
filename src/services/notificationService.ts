@@ -124,6 +124,6 @@ export function subscribeToUnreadCount(
   callback: (count: number) => void,
 ): Unsubscribe {
   return subscribeToNotifications(uid, (notifications) => {
-    callback(notifications.filter((n) => !n.isRead).length);
+    callback(notifications.filter((n) => !n.isRead && n.type === 'follow').length);
   });
 }

@@ -145,12 +145,10 @@ export default function ChatCenterModal({
             >
               <MessageSquare className="h-3.5 w-3.5" />
               <span>{tr('گفتوگۆکان', 'Conversations')}</span>
-              {inboxThreads.filter((t) => t.lastSenderUid !== currentUser.uid && Boolean(t.unread || (t.unreadCount && t.unreadCount > 0))).length > 0 ? (
+              {inboxThreads.filter((t) => t.lastSenderUid !== currentUser.uid && Boolean(t.unread || (t.unreadCount && t.unreadCount > 0))).length > 0 && (
                 <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[9px] font-black text-white shadow-sm animate-pulse">
                   {inboxThreads.filter((t) => t.lastSenderUid !== currentUser.uid && Boolean(t.unread || (t.unreadCount && t.unreadCount > 0))).length}
                 </span>
-              ) : (
-                <span className="text-[10px] text-slate-500 font-mono">({inboxThreads.length})</span>
               )}
             </button>
 
