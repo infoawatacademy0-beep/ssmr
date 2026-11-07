@@ -27,7 +27,12 @@ import {
   Search,
 } from 'lucide-react';
 import { getVipAvatarClass, type User, type ProfileVisitor } from '../types';
-import { AvatarFrameOverlay, LevelFramesShowcase, saveUserSelectedLevelFrame } from './AvatarFrameOverlay';
+import {
+  AvatarFrameOverlay,
+  LevelFramesShowcase,
+  saveUserSelectedLevelFrame,
+  saveUserSelectedAnimatedCover,
+} from './AvatarFrameOverlay';
 import { useLanguage } from '../contexts';
 import { AnimatedThemeOverlay } from './AnimatedThemeEffect';
 import {
@@ -857,6 +862,7 @@ export default function UserProfileManager({
             <LevelFramesShowcase
               userLevel={profileData.level || 1}
               selectedFrameId={profileData.avatarFrame}
+              selectedCoverValue={profileData.profileCover}
               userAvatar={avatarInput || profileData.avatar || profileData.profileImage}
               username={displayedUsername}
               isOwner={isViewingSelf}
@@ -864,6 +870,11 @@ export default function UserProfileManager({
                 if (!isViewingSelf) return;
                 setProfileData((prev) => ({ ...prev, avatarFrame: fId || 'none' }));
                 await saveUserSelectedLevelFrame(currentUser.uid, fId);
+              }}
+              onSelectCover={async (cVal) => {
+                if (!isViewingSelf) return;
+                setProfileData((prev) => ({ ...prev, profileCover: cVal }));
+                await saveUserSelectedAnimatedCover(currentUser.uid, cVal);
               }}
               tr={tr}
             />

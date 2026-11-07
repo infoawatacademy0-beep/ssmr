@@ -28,6 +28,8 @@ export interface Seat {
   username: string | null;
   avatar: string | null;
   isVerified?: boolean;
+  level?: number;
+  avatarFrame?: string | null;
   isMuted: boolean;
   isLocked: boolean;
   role?: SeatRole;

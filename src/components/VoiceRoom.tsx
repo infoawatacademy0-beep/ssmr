@@ -591,6 +591,8 @@ export default function VoiceRoom() {
           username: user.username,
           avatar: user.avatar || user.profileImage || '',
           isVerified: Boolean(user.isVerified),
+          level: user.level || 1,
+          avatarFrame: user.avatarFrame || null,
           isMuted: mySeat ? mySeat.isMuted : false,
           voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
           isAdmin: Boolean(user.isAdmin),
@@ -1209,6 +1211,8 @@ export default function VoiceRoom() {
               vipUsersMap={vipUsersMap}
               vipFramesMap={vipFramesMap}
               usersAvatarMap={usersAvatarMap}
+              usersLevelMap={usersLevelMap}
+              usersLevelFrameMap={usersLevelFrameMap}
               audience={audience}
               mySeat={mySeat}
               onToggleMyMute={handleToggleMyMute}
@@ -1465,8 +1469,17 @@ export default function VoiceRoom() {
                           {/* Level Ornate Frame Overlay on Seat */}
                           {seat.userId && (
                             <AvatarFrameOverlay
-                              frameId={usersLevelFrameMap[seat.userId]}
-                              level={usersLevelMap[seat.userId] || 1}
+                              frameId={
+                                (isCurrentUser ? user?.avatarFrame : undefined) ||
+                                seat.avatarFrame ||
+                                (seat.userId ? usersLevelFrameMap[seat.userId] : undefined)
+                              }
+                              level={
+                                (isCurrentUser ? user?.level : undefined) ||
+                                seat.level ||
+                                (seat.userId ? usersLevelMap[seat.userId] : 1) ||
+                                1
+                              }
                             />
                           )}
 
@@ -2194,18 +2207,18 @@ export default function VoiceRoom() {
                   className="flex cursor-pointer items-center gap-2.5 group"
                 >
                   <div
-                    className={`relative flex h-11 w-11 items-center justify-center rounded-full font-bold text-white ${
+                    className={`relative m-1 flex h-12 w-12 items-center justify-center rounded-full font-bold text-white ${
                       selectedSeat.userId
                         ? selectedSeat.isPlatinum
-                          ? 'border-2 border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.6)] overflow-hidden'
+                          ? 'border-2 border-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.6)]'
                           : selectedSeat.isIron
-                          ? 'border-2 border-slate-300 shadow-[0_0_12px_rgba(203,213,225,0.6)] overflow-hidden'
+                          ? 'border-2 border-slate-300 shadow-[0_0_12px_rgba(203,213,225,0.6)]'
                           : selectedSeat.isVerified || (selectedSeat.userId && vipUsersMap[selectedSeat.userId])
                           ? getVipAvatarClass(
                               true,
                               selectedSeat.userId ? vipFramesMap[selectedSeat.userId] : undefined,
                             )
-                          : 'bg-violet-600 overflow-hidden'
+                          : 'bg-violet-600'
                         : selectedSeat.isPlatinum
                         ? 'border-2 border-cyan-300 bg-cyan-500/20 shadow-[0_0_14px_rgba(6,182,212,0.6)]'
                         : selectedSeat.isIron
@@ -2236,6 +2249,21 @@ export default function VoiceRoom() {
                         <span className="text-xs font-bold text-slate-400">#{selectedSeat.seatNo}</span>
                       )}
                     </div>
+                    {selectedSeat.userId && (
+                      <AvatarFrameOverlay
+                        frameId={
+                          (selectedSeat.userId === user?.uid ? user?.avatarFrame : undefined) ||
+                          selectedSeat.avatarFrame ||
+                          usersLevelFrameMap[selectedSeat.userId]
+                        }
+                        level={
+                          (selectedSeat.userId === user?.uid ? user?.level : undefined) ||
+                          selectedSeat.level ||
+                          usersLevelMap[selectedSeat.userId] ||
+                          1
+                        }
+                      />
+                    )}
                     {selectedSeat.isPlatinum ? (
                       <span className="absolute -top-1.5 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
                         <Diamond className="h-2.5 w-2.5 text-cyan-950 fill-cyan-950" />
@@ -2317,6 +2345,8 @@ export default function VoiceRoom() {
                             username: user.username,
                             avatar: user.avatar || user.profileImage || '',
                             isVerified: Boolean(user.isVerified),
+                            level: user.level || 1,
+                            avatarFrame: user.avatarFrame || null,
                             isMuted: mySeat ? mySeat.isMuted : false,
                             voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
                             isAdmin: Boolean(user.isAdmin),
@@ -2428,6 +2458,8 @@ export default function VoiceRoom() {
                               username: user.username,
                               avatar: user.avatar || user.profileImage || '',
                               isVerified: Boolean(user.isVerified),
+                              level: user.level || 1,
+                              avatarFrame: user.avatarFrame || null,
                               isMuted: mySeat ? mySeat.isMuted : false,
                               voiceEffect: mySeat?.voiceEffect || lastKnownVoiceEffectRef.current,
                               isAdmin: Boolean(user.isAdmin),
@@ -3116,6 +3148,8 @@ export default function VoiceRoom() {
                             uid: member.uid,
                             username: member.username,
                             avatar: member.avatar,
+                            level: usersLevelMap[member.uid] || member.level || 1,
+                            avatarFrame: usersLevelFrameMap[member.uid] || null,
                           },
                           user.username,
                         );

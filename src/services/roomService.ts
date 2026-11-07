@@ -32,6 +32,8 @@ export interface UserSeatInfo {
   username: string;
   avatar?: string;
   isVerified?: boolean;
+  level?: number;
+  avatarFrame?: string | null;
   isMuted?: boolean;
   voiceEffect?: VoiceEffectMode;
   isAdmin?: boolean;
@@ -77,6 +79,8 @@ function normalizeSeats(rawSeats: unknown): Seat[] {
       username: rawSeat.username ?? null,
       avatar: rawSeat.avatar ?? null,
       isVerified: Boolean(rawSeat.isVerified),
+      level: typeof rawSeat.level === 'number' ? rawSeat.level : undefined,
+      avatarFrame: rawSeat.avatarFrame ?? null,
       isMuted: Boolean(rawSeat.isMuted),
       isLocked: Boolean(rawSeat.isLocked),
       voiceEffect: (rawSeat.voiceEffect as VoiceEffectMode) || 'normal',
@@ -284,6 +288,8 @@ export async function joinSeat(
       username: user.username,
       avatar: user.avatar || '',
       isVerified: Boolean(user.isVerified),
+      level: typeof user.level === 'number' ? user.level : 1,
+      avatarFrame: user.avatarFrame || null,
       isMuted: preservedIsMuted,
       isLocked: false,
       voiceEffect: preservedVoiceEffect,
@@ -763,6 +769,8 @@ export async function moveUserToSeat(
       username: sourceSeat.username,
       avatar: sourceSeat.avatar,
       isVerified: sourceSeat.isVerified,
+      level: sourceSeat.level,
+      avatarFrame: sourceSeat.avatarFrame,
       isMuted: sourceSeat.isMuted,
       voiceEffect: sourceSeat.voiceEffect,
     };
@@ -773,6 +781,8 @@ export async function moveUserToSeat(
       username: tempUser.username,
       avatar: tempUser.avatar,
       isVerified: tempUser.isVerified,
+      level: tempUser.level,
+      avatarFrame: tempUser.avatarFrame,
       isMuted: tempUser.isMuted,
       voiceEffect: tempUser.voiceEffect,
     };
@@ -783,6 +793,8 @@ export async function moveUserToSeat(
       username: targetSeat.username,
       avatar: targetSeat.avatar,
       isVerified: targetSeat.isVerified,
+      level: targetSeat.level,
+      avatarFrame: targetSeat.avatarFrame,
       isMuted: targetSeat.isMuted,
       voiceEffect: targetSeat.voiceEffect,
     };
@@ -810,6 +822,8 @@ export async function assignUserToSeat(
     username: string;
     avatar?: string;
     isVerified?: boolean;
+    level?: number;
+    avatarFrame?: string | null;
     voiceEffect?: VoiceEffectMode;
     isMuted?: boolean;
   },
@@ -842,6 +856,8 @@ export async function assignUserToSeat(
       username: targetUser.username,
       avatar: targetUser.avatar || '',
       isVerified: Boolean(targetUser.isVerified),
+      level: typeof targetUser.level === 'number' ? targetUser.level : 1,
+      avatarFrame: targetUser.avatarFrame || null,
       isMuted: targetUser.isMuted ?? false,
       voiceEffect: targetUser.voiceEffect ?? 'normal',
     };

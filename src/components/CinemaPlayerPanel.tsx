@@ -61,6 +61,8 @@ interface CinemaPlayerPanelProps {
   vipUsersMap: Record<string, boolean>;
   vipFramesMap: Record<string, string>;
   usersAvatarMap: Record<string, string>;
+  usersLevelMap?: Record<string, number>;
+  usersLevelFrameMap?: Record<string, string>;
   audience: AudienceMember[];
   mySeat: Seat | null;
   chatMessages?: ChatMessage[];
@@ -102,6 +104,8 @@ export default function CinemaPlayerPanel({
   vipUsersMap,
   vipFramesMap,
   usersAvatarMap,
+  usersLevelMap = {},
+  usersLevelFrameMap = {},
   audience,
   mySeat,
   chatMessages,
@@ -1653,6 +1657,20 @@ export default function CinemaPlayerPanel({
                                 (seat.username || 'U').charAt(0).toUpperCase()
                               )}
                             </div>
+                            <AvatarFrameOverlay
+                              frameId={
+                                (isCurrentUser ? currentUser.avatarFrame : undefined) ||
+                                seat.avatarFrame ||
+                                (seat.userId ? usersLevelFrameMap[seat.userId] : undefined)
+                              }
+                              level={
+                                (isCurrentUser ? currentUser.level : undefined) ||
+                                seat.level ||
+                                (seat.userId ? usersLevelMap[seat.userId] : undefined) ||
+                                audience.find((a) => a.uid === seat.userId)?.level ||
+                                1
+                              }
+                            />
                             <div
                               className={`absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-black shadow ${
                                 seat.isMuted ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-black'
@@ -2117,6 +2135,22 @@ export default function CinemaPlayerPanel({
                                   (seat.username || 'U').charAt(0).toUpperCase()
                                 )}
                               </div>
+
+                              {/* Level Ornate Frame Overlay on Cinema Seat */}
+                              <AvatarFrameOverlay
+                                frameId={
+                                  (isCurrentUser ? currentUser.avatarFrame : undefined) ||
+                                  seat.avatarFrame ||
+                                  (seat.userId ? usersLevelFrameMap[seat.userId] : undefined)
+                                }
+                                level={
+                                  (isCurrentUser ? currentUser.level : undefined) ||
+                                  seat.level ||
+                                  (seat.userId ? usersLevelMap[seat.userId] : undefined) ||
+                                  audience.find((a) => a.uid === seat.userId)?.level ||
+                                  1
+                                }
+                              />
 
                               {/* VIP / Platinum / Iron Badge */}
                               {seat.isPlatinum ? (

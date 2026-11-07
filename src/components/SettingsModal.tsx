@@ -21,7 +21,12 @@ import {
 } from 'lucide-react';
 import type { User, AccountDeletionRequest } from '../types';
 import { useLanguage } from '../contexts';
-import { AvatarFrameOverlay, LevelFramesShowcase, saveUserSelectedLevelFrame } from './AvatarFrameOverlay';
+import {
+  AvatarFrameOverlay,
+  LevelFramesShowcase,
+  saveUserSelectedLevelFrame,
+  saveUserSelectedAnimatedCover,
+} from './AvatarFrameOverlay';
 import {
   requestAccountDeletion,
   cancelAccountDeletionRequest,
@@ -73,6 +78,7 @@ export default function SettingsModal({
   const [pendingDeletionReq, setPendingDeletionReq] = useState<AccountDeletionRequest | null>(null);
   const [showFramesDrawer, setShowFramesDrawer] = useState(false);
   const [selectedFrame, setSelectedFrame] = useState<string | null | undefined>(currentUser.avatarFrame);
+  const [selectedCover, setSelectedCover] = useState<string | null | undefined>(currentUser.profileCover);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
@@ -273,12 +279,17 @@ export default function SettingsModal({
                 <LevelFramesShowcase
                   userLevel={currentUser.level || 1}
                   selectedFrameId={selectedFrame}
+                  selectedCoverValue={selectedCover}
                   userAvatar={currentUser.avatar || currentUser.profileImage}
                   username={currentUser.username}
                   isOwner={true}
                   onSelectFrame={async (fId) => {
                     setSelectedFrame(fId || 'none');
                     await saveUserSelectedLevelFrame(currentUser.uid, fId);
+                  }}
+                  onSelectCover={async (cVal) => {
+                    setSelectedCover(cVal);
+                    await saveUserSelectedAnimatedCover(currentUser.uid, cVal);
                   }}
                   tr={(ku, en) => (language === 'en' ? en : ku)}
                 />
