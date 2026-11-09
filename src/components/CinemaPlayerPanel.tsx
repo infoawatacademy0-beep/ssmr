@@ -62,7 +62,11 @@ import {
 import { useLanguage } from '../contexts';
 import { renderTextWithLinks } from '../utils/linkify';
 import EpisodeVideoThumbnail from './EpisodeVideoThumbnail';
-import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from '../utils/youtube';
+import {
+  extractYouTubeVideoId,
+  getYouTubeThumbnailUrl,
+  resolveYouTubeDirectStreamUrl,
+} from '../utils/youtube';
 
 interface CinemaPlayerPanelProps {
   roomId: string;
@@ -186,10 +190,14 @@ export default function CinemaPlayerPanel({
   const [drawerYtTitle, setDrawerYtTitle] = useState('');
   const [playlistToast, setPlaylistToast] = useState<string | null>(null);
 
-  // YouTube IFrame Player API reference
+  // YouTube IFrame Player API reference & Direct Stream Fallback (for restricted YouTube videos)
   const ytPlayerRef = useRef<any>(null);
   const ytContainerId = `yt-cinema-player-${roomId}`;
-  const youtubeVideoId = extractYouTubeVideoId(cinemaState.videoUrl);
+  const rawYoutubeVideoId = extractYouTubeVideoId(cinemaState.videoUrl);
+  const [ytFallbackStreamUrl, setYtFallbackStreamUrl] = useState<string | null>(null);
+  const [isResolvingYtFallback, setIsResolvingYtFallback] = useState<boolean>(false);
+  const youtubeVideoId = ytFallbackStreamUrl ? null : rawYoutubeVideoId;
+  const activeMediaUrl = ytFallbackStreamUrl || cinemaState.videoUrl;
 
   // Top Section Menu & Network MS (Ping) State
   const [isTopMenuOpen, setIsTopMenuOpen] = useState(false);
@@ -492,6 +500,8 @@ export default function CinemaPlayerPanel({
   useEffect(() => {
     setVideoError(false);
     setAudioBlockedNotice(false);
+    setYtFallbackStreamUrl(null);
+    setIsResolvingYtFallback(false);
     hasSyncedInitialRef.current = false;
     lastHandledSeekSeqRef.current = cinemaState.seekSeq || 0;
     if (videoRef.current) {
@@ -774,21 +784,57 @@ export default function CinemaPlayerPanel({
 
     let isCancelled = false;
     let timeTrackerInterval: any = null;
+    let apiPollInterval: any = null;
+
+    const triggerDirectStreamFallback = async () => {
+      if (isCancelled || !youtubeVideoId) return;
+      setIsResolvingYtFallback(true);
+      try {
+        const directUrl = await resolveYouTubeDirectStreamUrl(youtubeVideoId);
+        if (!isCancelled && directUrl) {
+          if (ytPlayerRef.current) {
+            try {
+              ytPlayerRef.current.destroy?.();
+            } catch {}
+            ytPlayerRef.current = null;
+          }
+          setVideoError(false);
+          setYtFallbackStreamUrl(directUrl);
+        }
+      } catch {}
+      if (!isCancelled) {
+        setIsResolvingYtFallback(false);
+      }
+    };
 
     const createYtPlayer = () => {
       if (isCancelled) return;
       const YT = (window as any).YT;
       if (!YT || !YT.Player) return;
+      if (apiPollInterval) {
+        clearInterval(apiPollInterval);
+        apiPollInterval = null;
+      }
 
       if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
         try {
-          ytPlayerRef.current.loadVideoById({
-            videoId: youtubeVideoId,
-            startSeconds: Math.max(0, Math.floor(getExpectedLiveTime())),
-          });
-          return;
+          const iframe = ytPlayerRef.current.getIframe?.();
+          if (iframe && document.body.contains(iframe)) {
+            ytPlayerRef.current.loadVideoById({
+              videoId: youtubeVideoId,
+              startSeconds: Math.max(0, Math.floor(getExpectedLiveTime())),
+            });
+            return;
+          }
         } catch {}
+        try {
+          ytPlayerRef.current.destroy?.();
+        } catch {}
+        ytPlayerRef.current = null;
       }
+
+      const targetEl = document.getElementById(ytContainerId);
+      if (!targetEl) return;
 
       ytPlayerRef.current = new YT.Player(ytContainerId, {
         videoId: youtubeVideoId,
@@ -798,8 +844,9 @@ export default function CinemaPlayerPanel({
           playsinline: 1,
           rel: 0,
           modestbranding: 1,
+          iv_load_policy: 3,
+          enablejsapi: 1,
           start: Math.max(0, Math.floor(getExpectedLiveTime())),
-          origin: window.location.origin,
         },
         events: {
           onReady: (event: any) => {
@@ -826,6 +873,20 @@ export default function CinemaPlayerPanel({
               try {
                 markRemoteAction();
                 player.playVideo();
+                // Mobile browsers sometimes block unmuted IFrame autoplay:
+                // verify after 600ms and auto-mute+play if still unstarted
+                setTimeout(() => {
+                  if (isCancelled || !cinemaStateRef.current.isPlaying) return;
+                  try {
+                    const st = player.getPlayerState?.();
+                    if (st !== 1 && st !== 3) {
+                      player.mute?.();
+                      setIsMuted(true);
+                      setAudioBlockedNotice(true);
+                      player.playVideo?.();
+                    }
+                  } catch {}
+                }, 600);
               } catch {}
             } else {
               try {
@@ -833,6 +894,12 @@ export default function CinemaPlayerPanel({
                 player.pauseVideo();
               } catch {}
             }
+          },
+          onError: (event: any) => {
+            if (isCancelled) return;
+            // Error codes: 100 (not found), 101 / 150 (embed blocked by owner), 2 / 5 (player error)
+            console.warn('YouTube IFrame Error:', event?.data, '-> Resolving direct stream fallback...');
+            triggerDirectStreamFallback();
           },
           onStateChange: (event: any) => {
             if (isCancelled) return;
@@ -913,6 +980,12 @@ export default function CinemaPlayerPanel({
         if (typeof prevCallback === 'function') prevCallback();
         createYtPlayer();
       };
+      // Fast 100ms poll in case script finished loading right as component mounted
+      apiPollInterval = setInterval(() => {
+        if ((window as any).YT && (window as any).YT.Player) {
+          createYtPlayer();
+        }
+      }, 100);
     }
 
     timeTrackerInterval = setInterval(() => {
@@ -952,6 +1025,7 @@ export default function CinemaPlayerPanel({
 
     return () => {
       isCancelled = true;
+      if (apiPollInterval) clearInterval(apiPollInterval);
       if (timeTrackerInterval) clearInterval(timeTrackerInterval);
     };
   }, [youtubeVideoId, ytContainerId]);
@@ -1638,17 +1712,24 @@ export default function CinemaPlayerPanel({
         {/* Video Element OR Synchronized YouTube IFrame Player */}
         {youtubeVideoId ? (
           <div
-            key={`yt-wrap-${youtubeVideoId}`}
             className="relative h-full w-full bg-black flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             <div id={ytContainerId} className="h-full w-full" />
+            {isResolvingYtFallback && (
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm gap-2">
+                <div className="h-8 w-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                <span className="text-xs font-bold text-amber-300">
+                  {tr('کردنەوەی ڤیدیۆی یوتیوب بە شێوازی ڕاستەوخۆ...', 'Opening direct YouTube stream...')}
+                </span>
+              </div>
+            )}
           </div>
         ) : (
           <video
-            key={cinemaState.videoUrl}
+            key={activeMediaUrl}
             ref={videoRef}
-            src={cinemaState.videoUrl}
+            src={activeMediaUrl}
             playsInline
             webkit-playsinline="true"
             preload="auto"
@@ -1680,8 +1761,8 @@ export default function CinemaPlayerPanel({
             }}
             className={`h-full w-full ${isObjectCover && isFullscreen ? 'object-cover' : 'object-contain'} bg-black`}
           >
-            <source src={cinemaState.videoUrl} type="video/mp4" />
-            <source src={cinemaState.videoUrl} />
+            <source src={activeMediaUrl} type="video/mp4" />
+            <source src={activeMediaUrl} />
           </video>
         )}
 

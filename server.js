@@ -398,6 +398,182 @@ app.post('/api/upload-song', upload.single('songFile'), async (req, res) => {
   }
 });
 
+/**
+ * GET /api/youtube-stream/:videoId
+ * Resolves a direct playable MP4 stream URL for YouTube videos that have embedding disabled (Error 150 / 101).
+ */
+const ytStreamCache = new Map();
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.syncpundit.io',
+  'https://piped-api.garudalinux.org',
+  'https://pipedapi.drgns.space',
+];
+const INVIDIOUS_INSTANCES = [
+  'https://inv.nadeko.net',
+  'https://invidious.nerdvpn.de',
+  'https://invidious.privacyredirect.com',
+  'https://iv.datura.network',
+];
+
+async function resolveDirectYouTubeStream(videoId) {
+  const cached = ytStreamCache.get(videoId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached;
+  }
+
+  // 1. Try Piped API instances concurrently
+  try {
+    const pipedResult = await Promise.any(
+      PIPED_INSTANCES.map(async (host) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4500);
+        try {
+          const resp = await fetch(`${host}/streams/${encodeURIComponent(videoId)}`, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          const videoStreams = Array.isArray(data?.videoStreams) ? data.videoStreams : [];
+          // Find combined video+audio MP4 stream (videoOnly === false)
+          const combined = videoStreams.find(
+            (s) => s && s.url && s.videoOnly === false && (s.format === 'MPEG_4' || String(s.mimeType || '').includes('mp4')),
+          ) || videoStreams.find((s) => s && s.url && s.videoOnly === false);
+
+          if (combined?.url) {
+            return {
+              streamUrl: combined.url,
+              title: data.title || '',
+              duration: Number(data.duration) || 0,
+              hlsUrl: data.hls || null,
+            };
+          }
+          if (data?.hls) {
+            return {
+              streamUrl: data.hls,
+              title: data.title || '',
+              duration: Number(data.duration) || 0,
+              hlsUrl: data.hls,
+            };
+          }
+          throw new Error('No combined stream');
+        } finally {
+          clearTimeout(timeout);
+        }
+      }),
+    );
+
+    if (pipedResult?.streamUrl) {
+      const entry = { ...pipedResult, expiresAt: Date.now() + 20 * 60 * 1000 };
+      ytStreamCache.set(videoId, entry);
+      return entry;
+    }
+  } catch {}
+
+  // 2. Fallback: Try Invidious API instances concurrently
+  try {
+    const invResult = await Promise.any(
+      INVIDIOUS_INSTANCES.map(async (host) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4500);
+        try {
+          const resp = await fetch(`${host}/api/v1/videos/${encodeURIComponent(videoId)}`, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' },
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          const fmtStreams = Array.isArray(data?.formatStreams) ? data.formatStreams : [];
+          // Prefer 720p (itag 22) or 360p (itag 18) combined MP4
+          const best =
+            fmtStreams.find((s) => s?.url && String(s.itag) === '22') ||
+            fmtStreams.find((s) => s?.url && String(s.itag) === '18') ||
+            fmtStreams.find((s) => s?.url && String(s.type || '').includes('mp4')) ||
+            fmtStreams[0];
+
+          if (best?.url) {
+            return {
+              streamUrl: best.url,
+              title: data.title || '',
+              duration: Number(data.lengthSeconds) || 0,
+            };
+          }
+          throw new Error('No formatStreams');
+        } finally {
+          clearTimeout(timeout);
+        }
+      }),
+    );
+
+    if (invResult?.streamUrl) {
+      const entry = { ...invResult, expiresAt: Date.now() + 20 * 60 * 1000 };
+      ytStreamCache.set(videoId, entry);
+      return entry;
+    }
+  } catch {}
+
+  // 3. Fallback: Try Cobalt API
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const resp = await fetch('https://api.cobalt.tools/api/json', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          vQuality: '720',
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data?.url) {
+          const entry = {
+            streamUrl: data.url,
+            title: '',
+            duration: 0,
+            expiresAt: Date.now() + 20 * 60 * 1000,
+          };
+          ytStreamCache.set(videoId, entry);
+          return entry;
+        }
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {}
+
+  return null;
+}
+
+app.get('/api/youtube-stream/:videoId', async (req, res) => {
+  try {
+    const videoId = String(req.params.videoId || '').trim();
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+      return res.status(400).json({ error: 'Invalid YouTube video ID' });
+    }
+    const resolved = await resolveDirectYouTubeStream(videoId);
+    if (!resolved || !resolved.streamUrl) {
+      return res.status(404).json({ error: 'Could not resolve direct stream for this YouTube video' });
+    }
+    return res.json({
+      success: true,
+      videoId,
+      streamUrl: resolved.streamUrl,
+      title: resolved.title,
+      duration: resolved.duration,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Failed to resolve YouTube stream' });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'SSMR LiveKit & Web App Service' });
 });
