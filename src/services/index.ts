@@ -2,7 +2,7 @@ export {
   registerUser,
   loginUser,
   logoutUser,
-  signInAnonUser,
+  createGuestSession,
   fetchUserProfile,
   onAuthChange,
   subscribeToUserProfile,

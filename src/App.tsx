@@ -134,39 +134,15 @@ function BannedNoticeScreen({
 
 function RoomRoute() {
   const { user, loading, signInAnon } = useAuth();
-  const [error, setError] = useState<string | null>(null);
-  const signingInRef = useRef(false);
 
   useEffect(() => {
-    // If not logged in and auth finished checking, auto-sign in anonymously for this room
-    if (!loading && !user && !signingInRef.current) {
-      signingInRef.current = true;
-      signInAnon().catch((err) => {
-        console.error('Anonymous room sign-in failed:', err);
-        setError(err?.message || 'Failed to enter room as guest');
-        signingInRef.current = false;
-      });
+    // If not logged in and initial auth check is done, assign ephemeral guest session
+    if (!loading && !user) {
+      signInAnon();
     }
   }, [loading, user, signInAnon]);
 
   if (loading || !user) {
-    if (error) {
-      return (
-        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-slate-950 p-6 text-center text-slate-100">
-          <p className="text-sm text-rose-400 mb-4">{error}</p>
-          <button
-            onClick={() => {
-              setError(null);
-              signingInRef.current = false;
-              window.location.reload();
-            }}
-            className="rounded-2xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white shadow"
-          >
-            دووبارە هەوڵبدەرەوە
-          </button>
-        </div>
-      );
-    }
     return <LoadingScreen />;
   }
 

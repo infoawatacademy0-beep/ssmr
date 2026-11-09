@@ -1,7 +1,6 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInAnonymously,
   signOut,
   onAuthStateChanged,
   type User as FirebaseUser,
@@ -144,47 +143,34 @@ export function onAuthChange(
 }
 
 /**
- * Sign in anonymously (for guest access to voice rooms).
- * Creates or retrieves profile at `/users/{uid}` in Realtime Database.
+ * Ephemeral Guest Session for room visitors.
+ * NO account is created in Firebase Auth and NO record is written to the database.
  */
-export async function signInAnonUser(): Promise<User> {
-  let firebaseUser = auth.currentUser;
-  if (!firebaseUser) {
-    const cred = await signInAnonymously(auth);
-    firebaseUser = cred.user;
+export function createGuestSession(): User {
+  let guestId = '';
+  try {
+    guestId = sessionStorage.getItem('ssmr_guest_id') || '';
+    if (!guestId) {
+      guestId = 'guest_' + Math.random().toString(36).substring(2, 9);
+      sessionStorage.setItem('ssmr_guest_id', guestId);
+    }
+  } catch {
+    guestId = 'guest_' + Math.random().toString(36).substring(2, 9);
   }
 
-  const { uid } = firebaseUser;
-  const snapshot = await get(ref(database, `users/${uid}`));
-  if (snapshot.exists()) {
-    const data = snapshot.val() as User;
-    return { ...data, isAnonymous: true };
-  }
-
-  const shortCode = Math.floor(1000 + Math.random() * 9000);
-  const anonName = `Anon ${shortCode}`;
-  const anonAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${uid}`;
-
-  const anonProfile: User = {
-    uid,
-    username: anonName,
+  return {
+    uid: guestId,
+    username: 'مێوان',
     email: '',
     coins: 0,
     level: 1,
     xp: 0,
     createdAt: Date.now(),
-    avatar: anonAvatar,
+    avatar: '',
     badges: [],
     giftsReceived: [],
     isOnline: true,
     lastSeen: Date.now(),
     isAnonymous: true,
   };
-
-  try {
-    await set(ref(database, `users/${uid}`), anonProfile);
-  } catch (err) {
-    console.warn('Failed to save anon profile to DB, continuing with local profile:', err);
-  }
-  return anonProfile;
 }

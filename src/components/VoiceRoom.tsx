@@ -560,6 +560,11 @@ export default function VoiceRoom() {
   const handleSeatClick = async (seat: Seat) => {
     if (!room || !user) return;
 
+    if (user.isAnonymous) {
+      alert(tr('مێوان ناتوانێت سەرکەوێتە سەر کورسی. تەنها دەتوانیت سەیری فیلم بکەیت و چات بکەیت.', 'Guests cannot join seats. You can only watch the movie and chat.'));
+      return;
+    }
+
     if (!seat.userId) {
       // Check VIP / Platinum / Iron seat reservation (Admins & Host can sit on ANY seat!)
       if (!user.isAdmin && !isHost && (seat.isPlatinum || seat.isIron || seat.isVip)) {
@@ -997,32 +1002,36 @@ export default function VoiceRoom() {
             </button>
           )}
 
-          {/* Invite Friends Button (Directly accessible) */}
-          <button
-            onClick={() => setIsInviteModalOpen(true)}
-            className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/20 active:scale-95"
-            title={tr('بانگهێشتکردنی هاوڕێیان', 'Invite Friends')}
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{tr('بانگهێشت', 'Invite')}</span>
-          </button>
+          {/* Invite Friends Button (Directly accessible for registered users) */}
+          {!user?.isAnonymous && (
+            <button
+              onClick={() => setIsInviteModalOpen(true)}
+              className="flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/10 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/20 active:scale-95"
+              title={tr('بانگهێشتکردنی هاوڕێیان', 'Invite Friends')}
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{tr('بانگهێشت', 'Invite')}</span>
+            </button>
+          )}
 
           {/* Direct Messenger Button with Real-time Unread Badge (Inside Voice Room) */}
-          <button
-            onClick={() => setIsChatCenterOpen(true)}
-            className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 active:scale-95 transition"
-            title={tr('نامەی تایبەتی', 'Direct Messages')}
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            {unreadDMsCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] px-0.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-md shadow-rose-500/50 animate-pulse border border-white/20">
-                {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
-              </span>
-            )}
-          </button>
+          {!user?.isAnonymous && (
+            <button
+              onClick={() => setIsChatCenterOpen(true)}
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 active:scale-95 transition"
+              title={tr('نامەی تایبەتی', 'Direct Messages')}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              {unreadDMsCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] px-0.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-[8px] font-black text-white shadow-md shadow-rose-500/50 animate-pulse border border-white/20">
+                  {unreadDMsCount > 9 ? '9+' : unreadDMsCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Cinema Active Pill (Only when cinema is currently broadcasting) */}
-          {cinemaState?.isActive && (
+          {!user?.isAnonymous && cinemaState?.isActive && (
             <button
               onClick={() => setIsCinemaConfigModalOpen(true)}
               className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 px-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/25 animate-pulse"
@@ -2319,8 +2328,8 @@ export default function VoiceRoom() {
             </button>
           )}
 
-          {/* 3D Gift */}
-          {!isChatInputFocused && (
+          {/* 3D Gift (Registered users only) */}
+          {!isChatInputFocused && !user?.isAnonymous && (
             <button
               type="button"
               onClick={() => {
@@ -2340,8 +2349,8 @@ export default function VoiceRoom() {
             </button>
           )}
 
-          {/* More menu */}
-          {!isChatInputFocused && (
+          {/* More menu (Registered users only) */}
+          {!isChatInputFocused && !user?.isAnonymous && (
             <button
               type="button"
               onClick={() => setIsRoomMenuOpen(true)}
@@ -2414,8 +2423,8 @@ export default function VoiceRoom() {
             <Smile className="h-[24px] w-[24px]" strokeWidth={2.2} />
           </button>
 
-          {/* Mic toggle */}
-          {!isChatInputFocused && (
+          {/* Mic toggle (Registered seated users only) */}
+          {!isChatInputFocused && !user?.isAnonymous && (
             <button
               type="button"
               onClick={() => {

@@ -11,7 +11,7 @@ import {
   registerUser,
   loginUser,
   logoutUser,
-  signInAnonUser,
+  createGuestSession,
   onAuthChange,
   subscribeToUserProfile,
   initUserPresence,
@@ -38,8 +38,8 @@ interface AuthState {
   login: (email: string, password: string, locationData?: any) => Promise<void>;
   /** Logout → sign out + mark offline. */
   logout: () => Promise<void>;
-  /** Sign in anonymously → for direct room guest entry */
-  signInAnon: () => Promise<User>;
+  /** Ephemeral guest session for room visitors (NO account created) */
+  signInAnon: () => User;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -120,18 +120,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         });
       } else {
-        // If entering via a room link, immediately authenticate as guest
+        // If entering via a room link, provide ephemeral guest session (NO account created)
         if (typeof window !== 'undefined' && window.location.pathname.startsWith('/room/')) {
-          signInAnonUser()
-            .then((profile) => {
-              setUser(normalizeUserProfile(profile, { uid: profile.uid, isAnonymous: true }));
-              setLoading(false);
-            })
-            .catch((err) => {
-              console.error('Failed to auto-sign-in anonymous user:', err);
-              setUser(null);
-              setLoading(false);
-            });
+          const guest = createGuestSession();
+          setUser(guest);
+          setLoading(false);
           return;
         }
 
@@ -184,11 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const signInAnon = useCallback(async () => {
-    const profile = await signInAnonUser();
-    const normalized = normalizeUserProfile(profile, { uid: profile.uid, isAnonymous: true });
-    setUser(normalized);
-    return normalized as User;
+  const signInAnon = useCallback(() => {
+    const guest = createGuestSession();
+    setUser(guest);
+    return guest;
   }, []);
 
   return (
