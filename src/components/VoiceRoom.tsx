@@ -984,6 +984,19 @@ export default function VoiceRoom() {
             <span className="text-[11px] text-white">{audience.length}</span>
           </div>
 
+          {/* Guest Anon Badge & Quick Login */}
+          {user?.isAnonymous && (
+            <button
+              type="button"
+              onClick={() => navigate('/auth')}
+              className="flex h-8 items-center gap-1 rounded-xl bg-amber-500/15 border border-amber-500/30 px-2 text-[10px] font-bold text-amber-300 hover:bg-amber-500/25 transition active:scale-95"
+              title={tr('تۆ وەک مێوان بەشداریت · کلیک بکە بۆ چوونەژوورەوە', 'Joined as Guest · Click to Log in')}
+            >
+              <UserIcon className="h-3 w-3 text-amber-400" />
+              <span>{tr('مێوان', 'Anon')}</span>
+            </button>
+          )}
+
           {/* Invite Friends Button (Directly accessible) */}
           <button
             onClick={() => setIsInviteModalOpen(true)}
@@ -1067,6 +1080,32 @@ export default function VoiceRoom() {
                         <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
+
+                    {/* Guest Account Banner */}
+                    {user?.isAnonymous && (
+                      <div className="mb-2 p-2.5 rounded-xl bg-violet-600/15 border border-violet-500/30 text-start">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-violet-300">
+                          <UserIcon className="h-3.5 w-3.5 shrink-0" />
+                          <span>{tr('تۆ وەک مێوان (Anon) بەشداریت', 'Joined as Guest (Anon)')}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-300 mt-1 mb-2 leading-relaxed">
+                          {tr(
+                            'بۆ هەژماری تایبەتی خۆت و دەستپێڕاگەیشتن بە تەواوی بەشەکان، تکایە بچۆژوورەوە یان هەژمار دروست بکە.',
+                            'To keep your permanent profile and access all features, please log in or register.',
+                          )}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsTopHeaderMenuOpen(false);
+                            navigate('/auth');
+                          }}
+                          className="w-full py-1.5 px-3 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-[11px] font-bold text-white shadow transition active:scale-95 text-center"
+                        >
+                          {tr('چوونەژوورەوە / دروستکردنی هەژمار', 'Log in / Register')}
+                        </button>
+                      </div>
+                    )}
 
                     {/* 1. Report Room (Accessible for all users/audience) */}
                     <button

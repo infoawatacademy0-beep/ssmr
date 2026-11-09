@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
+import { useState, useEffect, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Ban, LogOut, Clock, AlertTriangle } from 'lucide-react';
 import { AuthProvider, useAuth, LanguageProvider, useLanguage } from './contexts';
@@ -132,6 +132,32 @@ function BannedNoticeScreen({
   );
 }
 
+function RoomRoute() {
+  const { user, loading, signInAnon } = useAuth();
+  const [isSigningInAnon, setIsSigningInAnon] = useState(false);
+
+  useEffect(() => {
+    // If not logged in and auth finished checking, auto-sign in anonymously for this room
+    if (!loading && !user && !isSigningInAnon) {
+      setIsSigningInAnon(true);
+      signInAnon().catch((err) => {
+        console.error('Anonymous room sign-in failed:', err);
+        setIsSigningInAnon(false);
+      });
+    }
+  }, [loading, user, isSigningInAnon, signInAnon]);
+
+  if (loading || (!user && isSigningInAnon)) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return <VoiceRoom />;
+}
+
 function AppRoutes() {
   const { user, loading, logout } = useAuth();
 
@@ -154,55 +180,46 @@ function AppRoutes() {
     }
   }
 
+  const isRealUser = Boolean(user && !user.isAnonymous);
+
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Routes>
         <Route
           path="/auth"
-          element={user ? <Navigate to="/" replace /> : <Auth />}
+          element={isRealUser ? <Navigate to="/" replace /> : <Auth />}
         />
         <Route
           path="/"
-          element={user ? <Dashboard /> : <Navigate to="/auth" replace />}
+          element={isRealUser ? <Dashboard /> : <Navigate to="/auth" replace />}
         />
+        {/* Only rooms allow anonymous / guest entry via shared link */}
         <Route
           path="/room/:roomId"
-          element={user ? <VoiceRoom /> : <Navigate to="/auth" replace />}
+          element={<RoomRoute />}
         />
         <Route
           path="/maznmahdi"
           element={
-            <AdminPanel
-              currentUser={
-                (user || {
-                  uid: 'maznmahdi',
-                  username: 'Mazn Mahdi',
-                  email: 'maznmahdi@system.local',
-                  isAdmin: true,
-                  coins: 999999,
-                  level: 99,
-                  xp: 999999,
-                  createdAt: Date.now(),
-                  avatar: '',
-                  badges: [],
-                  giftsReceived: [],
-                  isOnline: true,
-                  lastSeen: Date.now(),
-                }) as User
-              }
-              onClose={() => {
-                window.location.href = '/';
-              }}
-            />
+            isRealUser && user?.isAdmin ? (
+              <AdminPanel
+                currentUser={user}
+                onClose={() => {
+                  window.location.href = '/';
+                }}
+              />
+            ) : (
+              <Navigate to="/auth" replace />
+            )
           }
         />
         <Route
           path="/game/ludo"
           element={
-            user ? (
+            isRealUser ? (
               <LudoGamePanel
                 roomId="lobby"
-                currentUser={user}
+                currentUser={user!}
                 activeLudoGame={null}
                 seats={[]}
                 onClose={() => window.history.back()}
@@ -212,8 +229,8 @@ function AppRoutes() {
             )
           }
         />
-        {/* Catch-all → redirect to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Catch-all → redirect to home if registered user, else to auth */}
+        <Route path="*" element={<Navigate to={isRealUser ? "/" : "/auth"} replace />} />
       </Routes>
     </Suspense>
   );

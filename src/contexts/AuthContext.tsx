@@ -11,6 +11,7 @@ import {
   registerUser,
   loginUser,
   logoutUser,
+  signInAnonUser,
   onAuthChange,
   subscribeToUserProfile,
   initUserPresence,
@@ -37,22 +38,26 @@ interface AuthState {
   login: (email: string, password: string, locationData?: any) => Promise<void>;
   /** Logout → sign out + mark offline. */
   logout: () => Promise<void>;
+  /** Sign in anonymously → for direct room guest entry */
+  signInAnon: () => Promise<User>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 function normalizeUserProfile(
   rawUser: Partial<User> | null,
-  fbUser?: { uid: string; email?: string | null; displayName?: string | null; photoURL?: string | null } | null,
+  fbUser?: { uid: string; email?: string | null; displayName?: string | null; photoURL?: string | null; isAnonymous?: boolean } | null,
 ): User | null {
   if (!rawUser && !fbUser) return null;
+  const isAnonymous = Boolean(rawUser?.isAnonymous || fbUser?.isAnonymous);
+  const anonSuffix = (rawUser?.uid || fbUser?.uid || '1234').slice(0, 4).toUpperCase();
   const username =
     rawUser?.username ||
     (rawUser as any)?.displayName ||
     fbUser?.displayName ||
-    rawUser?.email?.split('@')[0] ||
-    fbUser?.email?.split('@')[0] ||
-    'User';
+    (isAnonymous ? `Anon ${anonSuffix}` : rawUser?.email?.split('@')[0]) ||
+    (isAnonymous ? `Anon ${anonSuffix}` : fbUser?.email?.split('@')[0]) ||
+    (isAnonymous ? `Anon ${anonSuffix}` : 'User');
 
   return {
     giftsReceived: [],
@@ -66,9 +71,10 @@ function normalizeUserProfile(
     level: typeof rawUser?.level === 'number' ? rawUser.level : 1,
     xp: typeof rawUser?.xp === 'number' ? rawUser.xp : 0,
     createdAt: rawUser?.createdAt || Date.now(),
-    avatar: rawUser?.avatar || (rawUser as any)?.profileImage || fbUser?.photoURL || '',
+    avatar: rawUser?.avatar || (rawUser as any)?.profileImage || fbUser?.photoURL || (isAnonymous ? `https://api.dicebear.com/7.x/bottts/svg?seed=${rawUser?.uid || fbUser?.uid}` : ''),
     badges: Array.isArray(rawUser?.badges) ? rawUser.badges : [],
     isAdmin: Boolean(rawUser?.isAdmin),
+    isAnonymous,
   } as User;
 }
 
@@ -90,19 +96,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userUnsub = subscribeToUserProfile(firebaseUser.uid, (profile) => {
           if (!profile) {
             // Profile does not exist yet in RTDB; synthesize from Auth user
+            const isAnon = Boolean(firebaseUser.isAnonymous);
+            const anonCode = firebaseUser.uid.slice(0, 4).toUpperCase();
             const fallbackProfile: User = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
-              username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              username: firebaseUser.displayName || (isAnon ? `Anon ${anonCode}` : firebaseUser.email?.split('@')[0] || 'User'),
               coins: 0,
               level: 1,
               xp: 0,
               createdAt: Date.now(),
-              avatar: firebaseUser.photoURL || '',
+              avatar: firebaseUser.photoURL || (isAnon ? `https://api.dicebear.com/7.x/bottts/svg?seed=${firebaseUser.uid}` : ''),
               badges: [],
               giftsReceived: [],
               isOnline: true,
               lastSeen: Date.now(),
+              isAnonymous: isAnon,
             };
             setUser(fallbackProfile);
           } else {
@@ -136,8 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user?.uid) return;
     syncCurrentUserLocation(user.uid).catch(console.error);
     syncCurrentUserDevice(user.uid).catch(console.error);
-    initOneSignalForUser(user.uid, user.username);
-  }, [user?.uid, user?.username]);
+    if (!user.isAnonymous) {
+      initOneSignalForUser(user.uid, user.username);
+    }
+  }, [user?.uid, user?.username, user?.isAnonymous]);
 
   const register = useCallback(
     async (email: string, password: string, username: string, locationData?: any) => {
@@ -158,8 +169,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const signInAnon = useCallback(async () => {
+    const profile = await signInAnonUser();
+    const normalized = normalizeUserProfile(profile, { uid: profile.uid, isAnonymous: true });
+    setUser(normalized);
+    return normalized as User;
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, register, login, logout, signInAnon }}>
       {children}
     </AuthContext.Provider>
   );

@@ -184,6 +184,7 @@ export interface User {
   createdAt: number;
   lastSeen: number;
   isOnline: boolean;
+  isAnonymous?: boolean;
   isAdmin?: boolean;
   isBanned?: boolean;
   banReason?: string | null;
