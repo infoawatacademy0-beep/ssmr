@@ -86,7 +86,7 @@ export async function updateCinemaPlayback(
     currentTime: Math.max(0, currentTime),
     lastUpdated: Date.now(),
     syncType,
-    ...(syncType === 'seek' ? { seekSeq: Date.now() } : {}),
+    ...(syncType === 'seek' || syncType === 'play_pause' ? { seekSeq: Date.now() } : {}),
     ...(duration !== undefined && duration > 0 ? { duration } : {}),
     ...(user ? { updatedByUid: user.uid, updatedByName: user.username } : {}),
   };
@@ -231,6 +231,8 @@ export function subscribeToRoomCinema(
       pausedByName: val.pausedByName ? String(val.pausedByName) : (!val.isPlaying && val.updatedByName ? String(val.updatedByName) : undefined),
       pausedByUid: val.pausedByUid ? String(val.pausedByUid) : (!val.isPlaying && val.updatedByUid ? String(val.updatedByUid) : undefined),
       seatCount: val.seatCount ? Number(val.seatCount) : 5,
+      syncType: val.syncType as RoomCinemaState['syncType'],
+      seekSeq: val.seekSeq ? Number(val.seekSeq) : undefined,
     });
   });
 }

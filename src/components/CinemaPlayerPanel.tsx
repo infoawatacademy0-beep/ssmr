@@ -163,6 +163,19 @@ export default function CinemaPlayerPanel({
   const prevIsPlayingRef = useRef<boolean>(cinemaState.isPlaying);
   const hasSyncedInitialRef = useRef<boolean>(false);
   const lastHandledSeekSeqRef = useRef<number>(cinemaState.seekSeq || 0);
+  const isRemoteActionRef = useRef<boolean>(false);
+  const remoteActionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastKnownYtTimeRef = useRef<number>(cinemaState.currentTime || 0);
+  const cinemaStateRef = useRef<RoomCinemaState>(cinemaState);
+  cinemaStateRef.current = cinemaState;
+
+  const markRemoteAction = useCallback(() => {
+    isRemoteActionRef.current = true;
+    if (remoteActionTimerRef.current) clearTimeout(remoteActionTimerRef.current);
+    remoteActionTimerRef.current = setTimeout(() => {
+      isRemoteActionRef.current = false;
+    }, 1200);
+  }, []);
 
   // Global Admin Cinema Folders & Episodes + YouTube Link State
   const [isPlaylistDrawerOpen, setIsPlaylistDrawerOpen] = useState(false);
@@ -516,26 +529,46 @@ export default function CinemaPlayerPanel({
 
   // Synchronize video playback with Firebase Realtime Database (Both HTML5 Video & YouTube IFrame API)
   useEffect(() => {
+    const isNewExplicitAction =
+      cinemaState.seekSeq !== undefined &&
+      lastHandledSeekSeqRef.current !== cinemaState.seekSeq;
+
     if (youtubeVideoId) {
       const ytPlayer = ytPlayerRef.current;
       if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
 
       try {
-        const playerState = ytPlayer.getPlayerState(); // 1 = playing, 2 = paused
-        if (cinemaState.isPlaying && playerState !== 1) {
-          ytPlayer.playVideo?.();
-        } else if (!cinemaState.isPlaying && playerState === 1) {
-          ytPlayer.pauseVideo?.();
+        if (isNewExplicitAction) {
+          lastHandledSeekSeqRef.current = cinemaState.seekSeq || 0;
+          if (cinemaState.syncType === 'movie_change') {
+            markRemoteAction();
+            lastKnownYtTimeRef.current = 0;
+            ytPlayer.seekTo?.(0, true);
+            setCurrentTime(0);
+          } else if (cinemaState.syncType === 'seek' || cinemaState.syncType === 'play_pause') {
+            const targetSec =
+              cinemaState.syncType === 'seek'
+                ? getExpectedLiveTime()
+                : cinemaState.currentTime || 0;
+            const curYt = Number(ytPlayer.getCurrentTime?.()) || 0;
+            if (cinemaState.syncType === 'seek' || Math.abs(curYt - targetSec) > 1.8) {
+              markRemoteAction();
+              lastKnownYtTimeRef.current = targetSec;
+              ytPlayer.seekTo?.(targetSec, true);
+              setCurrentTime(targetSec);
+            }
+          }
         }
 
-        if (
-          (cinemaState.syncType === 'seek' || cinemaState.syncType === 'movie_change') &&
-          lastHandledSeekSeqRef.current !== cinemaState.seekSeq
-        ) {
-          lastHandledSeekSeqRef.current = cinemaState.seekSeq || 0;
-          const targetSec = cinemaState.syncType === 'movie_change' ? 0 : cinemaState.currentTime || 0;
-          ytPlayer.seekTo?.(targetSec, true);
-          setCurrentTime(targetSec);
+        const playerState = ytPlayer.getPlayerState(); // 1 = playing, 2 = paused, 3 = buffering
+        if (cinemaState.isPlaying && playerState !== 1 && playerState !== 3) {
+          markRemoteAction();
+          ytPlayer.playVideo?.();
+          setIsLocalPaused(false);
+        } else if (!cinemaState.isPlaying && (playerState === 1 || playerState === 3)) {
+          markRemoteAction();
+          ytPlayer.pauseVideo?.();
+          setIsLocalPaused(true);
         }
       } catch {}
       return;
@@ -544,52 +577,77 @@ export default function CinemaPlayerPanel({
     const video = videoRef.current;
     if (!video || !cinemaState.videoUrl) return;
 
-    // 1. Play / Pause Synchronization
-    if (cinemaState.isPlaying && video.paused) {
-      handleUserGestureAudioUnlock();
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          video.muted = true;
-          setIsMuted(true);
-          video.play().then(() => {
-            setAudioBlockedNotice(true);
-          }).catch(() => {
-            setAudioBlockedNotice(true);
-          });
-        });
-      }
-    } else if (!cinemaState.isPlaying && !video.paused) {
-      video.pause();
-    }
+    // 1. EXPLICIT ACTIONS BY ANY ROOM MEMBER (Seek, Play/Pause, or Movie Change)
+    if (isNewExplicitAction) {
+      lastHandledSeekSeqRef.current = cinemaState.seekSeq || 0;
 
-    // 2. EXPLICIT MOVIE CHANGE ONLY:
-    // When a new movie is set by host, load from start
-    if (cinemaState.syncType === 'movie_change') {
-      if (lastHandledSeekSeqRef.current !== cinemaState.seekSeq) {
-        lastHandledSeekSeqRef.current = cinemaState.seekSeq || 0;
+      if (cinemaState.syncType === 'movie_change') {
         hasSyncedInitialRef.current = false;
         try {
           sessionStorage.removeItem(`ssmr_cinema_pos_${roomId}`);
         } catch {}
         video.currentTime = 0;
         setCurrentTime(0);
+      } else if (cinemaState.syncType === 'seek') {
+        const targetSec = getExpectedLiveTime();
+        if (Number.isFinite(targetSec) && targetSec >= 0) {
+          video.currentTime = targetSec;
+          setCurrentTime(targetSec);
+          try {
+            sessionStorage.setItem(`ssmr_cinema_pos_${roomId}`, String(targetSec));
+          } catch {}
+        }
+      } else if (cinemaState.syncType === 'play_pause') {
+        const targetSec = cinemaState.currentTime || 0;
+        if (Number.isFinite(targetSec) && targetSec >= 0 && Math.abs(video.currentTime - targetSec) > 1.8) {
+          video.currentTime = targetSec;
+          setCurrentTime(targetSec);
+        }
       }
-      return;
     }
 
-    // 3. COMPLETE PLAYBACK INDEPENDENCE FOR ALL MEMBERS:
-    // Each member is 100% independent during movie playback:
-    // - Strong internet user continues playing smoothly without stopping.
-    // - Slow internet user: if their video pauses/buffers, when network recovers,
-    //   it resumes from the EXACT spot where it stopped, NEVER jumping forward (nak bcheta pesh)!
-    // No automatic forward seeking, no automatic backward seeking, no buffer dumps.
+    // 2. Play / Pause Synchronization Across All Room Members
+    if (cinemaState.isPlaying && video.paused) {
+      handleUserGestureAudioUnlock();
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsLocalPaused(false);
+          })
+          .catch(() => {
+            video.muted = true;
+            setIsMuted(true);
+            video
+              .play()
+              .then(() => {
+                setIsLocalPaused(false);
+                setAudioBlockedNotice(true);
+              })
+              .catch(() => {
+                setAudioBlockedNotice(true);
+              });
+          });
+      }
+    } else if (!cinemaState.isPlaying && !video.paused) {
+      video.pause();
+      setIsLocalPaused(true);
+    }
+
+    // 3. NO AUTOMATIC HEARTBEAT SEEKING FOR SLOW CONNECTIONS:
+    // If syncType === 'heartbeat', we NEVER force-seek a member's video!
+    // Slow internet users buffer/recover smoothly from their own position without jittering,
+    // while fast internet users continue playing smoothly without waiting for slow users.
   }, [
     cinemaState.isPlaying,
     cinemaState.syncType,
     cinemaState.seekSeq,
+    cinemaState.currentTime,
     cinemaState.videoUrl,
+    youtubeVideoId,
     roomId,
+    getExpectedLiveTime,
+    markRemoteAction,
   ]);
 
   // Periodic Ground-Truth Sync from Host (Every 25 seconds)
@@ -597,6 +655,25 @@ export default function CinemaPlayerPanel({
     if (!isHost || !cinemaState.isPlaying || !cinemaState.videoUrl) return;
 
     const interval = setInterval(() => {
+      if (youtubeVideoId && ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
+        try {
+          const st = ytPlayerRef.current.getPlayerState?.();
+          const cur = Number(ytPlayerRef.current.getCurrentTime()) || 0;
+          if (st === 1 && cur > 0) {
+            updateCinemaPlayback(
+              roomId,
+              true,
+              cur,
+              { uid: currentUser.uid, username: currentUser.username },
+              effectiveDuration,
+              null,
+              'heartbeat',
+            ).catch(() => {});
+          }
+        } catch {}
+        return;
+      }
+
       const vid = videoRef.current;
       if (vid && !vid.paused && vid.currentTime > 0) {
         updateCinemaPlayback(
@@ -612,7 +689,7 @@ export default function CinemaPlayerPanel({
     }, 25000);
 
     return () => clearInterval(interval);
-  }, [isHost, cinemaState.isPlaying, cinemaState.videoUrl, roomId, currentUser, effectiveDuration]);
+  }, [isHost, cinemaState.isPlaying, cinemaState.videoUrl, youtubeVideoId, roomId, currentUser, effectiveDuration]);
 
   // Handle video metadata loaded (safe duration detection without resetting currentTime)
   const handleLoadedMetadata = () => {
@@ -739,16 +816,20 @@ export default function CinemaPlayerPanel({
             const startPos = getExpectedLiveTime();
             if (startPos > 1) {
               try {
+                markRemoteAction();
+                lastKnownYtTimeRef.current = startPos;
                 player.seekTo(startPos, true);
                 setCurrentTime(startPos);
               } catch {}
             }
-            if (cinemaState.isPlaying) {
+            if (cinemaStateRef.current.isPlaying) {
               try {
+                markRemoteAction();
                 player.playVideo();
               } catch {}
             } else {
               try {
+                markRemoteAction();
                 player.pauseVideo();
               } catch {}
             }
@@ -756,15 +837,61 @@ export default function CinemaPlayerPanel({
           onStateChange: (event: any) => {
             if (isCancelled) return;
             const player = event.target;
-            const state = event.data; // 1 = playing, 2 = paused
+            const state = event.data; // 1 = playing, 2 = paused, 3 = buffering
             const dur = Number(player?.getDuration?.()) || 0;
             if (dur > 0 && !duration) {
               setDuration(dur);
+              if (isHost) {
+                updateCinemaDuration(roomId, dur).catch(() => {});
+              }
             }
+            const curSec = Number(player?.getCurrentTime?.()) || 0;
+
             if (state === 1) {
               setIsLocalPaused(false);
+              // Broadcast if user resumed via native YouTube controls OR sought via native YouTube scrubber
+              if (!isRemoteActionRef.current) {
+                const timeDiff = Math.abs(curSec - lastKnownYtTimeRef.current);
+                if (!cinemaStateRef.current.isPlaying) {
+                  lastKnownYtTimeRef.current = curSec;
+                  updateCinemaPlayback(
+                    roomId,
+                    true,
+                    curSec,
+                    { uid: currentUser.uid, username: currentUser.username },
+                    dur || effectiveDuration,
+                    null,
+                    'play_pause',
+                  ).catch(() => {});
+                } else if (timeDiff > 3.5) {
+                  lastKnownYtTimeRef.current = curSec;
+                  updateCinemaPlayback(
+                    roomId,
+                    true,
+                    curSec,
+                    { uid: currentUser.uid, username: currentUser.username },
+                    dur || effectiveDuration,
+                    null,
+                    'seek',
+                  ).catch(() => {});
+                }
+              }
+              lastKnownYtTimeRef.current = curSec;
             } else if (state === 2) {
               setIsLocalPaused(true);
+              // Broadcast if user paused via native YouTube controls
+              if (!isRemoteActionRef.current && cinemaStateRef.current.isPlaying) {
+                lastKnownYtTimeRef.current = curSec;
+                updateCinemaPlayback(
+                  roomId,
+                  false,
+                  curSec,
+                  { uid: currentUser.uid, username: currentUser.username },
+                  dur || effectiveDuration,
+                  currentUser.username,
+                  'play_pause',
+                ).catch(() => {});
+              }
             }
           },
         },
@@ -793,7 +920,30 @@ export default function CinemaPlayerPanel({
       if (p && typeof p.getCurrentTime === 'function' && !isSeeking) {
         try {
           const cur = Number(p.getCurrentTime()) || 0;
-          if (cur >= 0) setCurrentTime(cur);
+          if (cur >= 0) {
+            // Detect native YouTube scrubber seek even while playing continuously
+            if (
+              !isRemoteActionRef.current &&
+              lastKnownYtTimeRef.current > 0 &&
+              Math.abs(cur - lastKnownYtTimeRef.current) > 4.5
+            ) {
+              lastKnownYtTimeRef.current = cur;
+              updateCinemaPlayback(
+                roomId,
+                cinemaStateRef.current.isPlaying,
+                cur,
+                { uid: currentUser.uid, username: currentUser.username },
+                Number(p.getDuration?.()) || effectiveDuration,
+                !cinemaStateRef.current.isPlaying
+                  ? cinemaStateRef.current.pausedByName || currentUser.username
+                  : null,
+                'seek',
+              ).catch(() => {});
+            } else {
+              lastKnownYtTimeRef.current = cur;
+            }
+            setCurrentTime(cur);
+          }
           const dur = Number(p.getDuration?.()) || 0;
           if (dur > 0 && dur !== duration) setDuration(dur);
         } catch {}
@@ -806,29 +956,25 @@ export default function CinemaPlayerPanel({
     };
   }, [youtubeVideoId, ytContainerId]);
 
-  // Handle master play / pause toggle (Host toggles room state, Members toggle their local video)
+  // Handle master play / pause toggle (Synchronized across ALL room members)
   const handleTogglePlayPause = async () => {
     handleUserGestureAudioUnlock();
 
     if (youtubeVideoId && ytPlayerRef.current) {
       const p = ytPlayerRef.current;
       const curSec = Number(p.getCurrentTime?.()) || currentTime || 0;
-      if (!isHost && !currentUser.isAdmin) {
-        const st = p.getPlayerState?.();
-        if (st === 1) {
-          p.pauseVideo?.();
-          setIsLocalPaused(true);
-        } else {
+      const nextPlaying = !cinemaState.isPlaying;
+
+      markRemoteAction();
+      lastKnownYtTimeRef.current = curSec;
+      try {
+        if (nextPlaying) {
           p.playVideo?.();
           setIsLocalPaused(false);
+        } else {
+          p.pauseVideo?.();
+          setIsLocalPaused(true);
         }
-        return;
-      }
-
-      const nextPlaying = !cinemaState.isPlaying;
-      try {
-        if (nextPlaying) p.playVideo?.();
-        else p.pauseVideo?.();
       } catch {}
 
       try {
@@ -848,21 +994,19 @@ export default function CinemaPlayerPanel({
     const video = videoRef.current;
     if (!video) return;
 
-    if (!isHost && !currentUser.isAdmin) {
-      // Independent Local Play/Pause for Audience Member
-      if (video.paused) {
+    // Any member in the room can Play / Pause for everyone
+    const nextPlaying = !cinemaState.isPlaying;
+    const safeBaseTime = video.currentTime > 0 ? video.currentTime : (cinemaState.currentTime || currentTime || 0);
+
+    try {
+      if (nextPlaying) {
         video.play().catch(() => {});
         setIsLocalPaused(false);
       } else {
         video.pause();
         setIsLocalPaused(true);
       }
-      return;
-    }
-
-    // Host / Admin controls room broadcast
-    const nextPlaying = !cinemaState.isPlaying;
-    const safeBaseTime = video.currentTime > 0 ? video.currentTime : (cinemaState.currentTime || currentTime || 0);
+    } catch {}
 
     try {
       await updateCinemaPlayback(
@@ -882,7 +1026,7 @@ export default function CinemaPlayerPanel({
     }
   };
 
-  // Fast forward / Rewind relative seek (e.g. +10s / -10s)
+  // Fast forward / Rewind relative seek (e.g. +10s / -10s) - Synchronized for ALL members
   const handleSeekRelative = async (deltaSeconds: number) => {
     handleUserGestureAudioUnlock();
 
@@ -891,24 +1035,24 @@ export default function CinemaPlayerPanel({
       const baseTime = Number(p.getCurrentTime?.()) || currentTime || 0;
       const maxDur = effectiveDuration > 0 ? effectiveDuration : 36000;
       const targetTime = Math.max(0, Math.min(maxDur, baseTime + deltaSeconds));
+      markRemoteAction();
+      lastKnownYtTimeRef.current = targetTime;
       try {
         p.seekTo?.(targetTime, true);
       } catch {}
       setCurrentTime(targetTime);
 
-      if (isHost || currentUser.isAdmin) {
-        try {
-          await updateCinemaPlayback(
-            roomId,
-            cinemaState.isPlaying,
-            targetTime,
-            { uid: currentUser.uid, username: currentUser.username },
-            effectiveDuration,
-            !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
-            'seek',
-          );
-        } catch {}
-      }
+      try {
+        await updateCinemaPlayback(
+          roomId,
+          cinemaState.isPlaying,
+          targetTime,
+          { uid: currentUser.uid, username: currentUser.username },
+          effectiveDuration,
+          !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+          'seek',
+        );
+      } catch {}
       return;
     }
 
@@ -922,28 +1066,25 @@ export default function CinemaPlayerPanel({
     video.currentTime = targetTime;
     setCurrentTime(targetTime);
 
-    // Only Host / Admin updates the room state
-    if (isHost || currentUser.isAdmin) {
-      try {
-        await updateCinemaPlayback(
-          roomId,
-          cinemaState.isPlaying,
-          targetTime,
-          {
-            uid: currentUser.uid,
-            username: currentUser.username,
-          },
-          effectiveDuration,
-          !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
-          'seek',
-        );
-      } catch (err) {
-        console.error('Failed to seek video relative:', err);
-      }
+    try {
+      await updateCinemaPlayback(
+        roomId,
+        cinemaState.isPlaying,
+        targetTime,
+        {
+          uid: currentUser.uid,
+          username: currentUser.username,
+        },
+        effectiveDuration,
+        !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+        'seek',
+      );
+    } catch (err) {
+      console.error('Failed to seek video relative:', err);
     }
   };
 
-  // Jump to specific point from timeline slider
+  // Jump to specific point from timeline slider - Synchronized for ALL members
   const handleSeekTo = async (newTime: number) => {
     handleUserGestureAudioUnlock();
     setIsSeeking(false);
@@ -951,24 +1092,24 @@ export default function CinemaPlayerPanel({
     if (youtubeVideoId && ytPlayerRef.current) {
       const maxDur = effectiveDuration > 0 ? effectiveDuration : 36000;
       const targetTime = Math.max(0, Math.min(maxDur, newTime));
+      markRemoteAction();
+      lastKnownYtTimeRef.current = targetTime;
       try {
         ytPlayerRef.current.seekTo?.(targetTime, true);
       } catch {}
       setCurrentTime(targetTime);
 
-      if (isHost || currentUser.isAdmin) {
-        try {
-          await updateCinemaPlayback(
-            roomId,
-            cinemaState.isPlaying,
-            targetTime,
-            { uid: currentUser.uid, username: currentUser.username },
-            effectiveDuration,
-            !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
-            'seek',
-          );
-        } catch {}
-      }
+      try {
+        await updateCinemaPlayback(
+          roomId,
+          cinemaState.isPlaying,
+          targetTime,
+          { uid: currentUser.uid, username: currentUser.username },
+          effectiveDuration,
+          !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+          'seek',
+        );
+      } catch {}
       return;
     }
 
@@ -981,24 +1122,21 @@ export default function CinemaPlayerPanel({
     video.currentTime = targetTime;
     setCurrentTime(targetTime);
 
-    // Only Host / Admin updates the room state
-    if (isHost || currentUser.isAdmin) {
-      try {
-        await updateCinemaPlayback(
-          roomId,
-          cinemaState.isPlaying,
-          targetTime,
-          {
-            uid: currentUser.uid,
-            username: currentUser.username,
-          },
-          effectiveDuration,
-          !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
-          'seek',
-        );
-      } catch (err) {
-        console.error('Failed to seek video to time:', err);
-      }
+    try {
+      await updateCinemaPlayback(
+        roomId,
+        cinemaState.isPlaying,
+        targetTime,
+        {
+          uid: currentUser.uid,
+          username: currentUser.username,
+        },
+        effectiveDuration,
+        !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+        'seek',
+      );
+    } catch (err) {
+      console.error('Failed to seek video to time:', err);
     }
   };
 
@@ -1348,7 +1486,14 @@ export default function CinemaPlayerPanel({
                   onClick={() => {
                     setIsTopMenuOpen(false);
                     const expectedTime = getExpectedLiveTime();
-                    if (videoRef.current && Number.isFinite(expectedTime) && expectedTime > 0) {
+                    if (youtubeVideoId && ytPlayerRef.current && Number.isFinite(expectedTime) && expectedTime >= 0) {
+                      markRemoteAction();
+                      lastKnownYtTimeRef.current = expectedTime;
+                      try {
+                        ytPlayerRef.current.seekTo?.(expectedTime, true);
+                      } catch {}
+                      setCurrentTime(expectedTime);
+                    } else if (videoRef.current && Number.isFinite(expectedTime) && expectedTime >= 0) {
                       videoRef.current.currentTime = expectedTime;
                       setCurrentTime(expectedTime);
                     }
@@ -1469,7 +1614,6 @@ export default function CinemaPlayerPanel({
             <Smartphone className="h-3.5 w-3.5 rotate-90" />
             <span>{tr('شاشەی تەواو و ئاسۆیی (Auto Rotate)', 'Full Size & Auto Rotate')}</span>
           </button>
-          <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">VIP 5-SEAT</span>
         </div>
       )}
 
@@ -2212,13 +2356,7 @@ export default function CinemaPlayerPanel({
         <>
           <div className="relative mt-2.5 w-full">
             {/* Couch Top Header with Custom Seats Stepper and Quick Mic Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-1.5 px-1 mb-1.5">
-              <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
-                <span>🛋️</span>
-                <span>{tr('قەنەفەی شاهانەیی سینەما', 'VIP Theater Couch')}</span>
-                <span className="text-[10px] text-rose-300/80">({targetSeatCount} {tr('کورسی', 'Seats')})</span>
-              </span>
-
+            <div className="flex flex-wrap items-center justify-end gap-1.5 px-1 mb-1.5">
               {/* Quick User Microphone & Speaker Control Strip */}
               <div className="flex items-center gap-1.5">
                 {mySeat ? (
