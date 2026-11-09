@@ -1648,8 +1648,9 @@ export default function CinemaPlayerPanel({
           1. CINEMA SCREEN WIDESCREEN VIDEO PLAYER
           ───────────────────────────────────────────────────────────── */}
       <div
-        onClick={() => {
-          setShowControls((prev) => !prev);
+        onClick={(e) => {
+          setShowControls(true);
+          handleTogglePlayPause(e);
         }}
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => setShowControls(false)}
@@ -2194,7 +2195,10 @@ export default function CinemaPlayerPanel({
         {!isFullscreen && (
           <>
             {/* Top Header Overlay on Video Screen */}
-            <div className="absolute top-2.5 inset-x-3 z-20 flex items-center justify-between pointer-events-auto">
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="absolute top-2.5 inset-x-3 z-20 flex items-center justify-between pointer-events-auto"
+            >
               {/* Movie Title & Live Badge */}
               <div className="flex items-center gap-2 max-w-[70%]">
                 <span className="flex items-center gap-1 rounded-lg bg-rose-600/90 px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-md animate-pulse">
