@@ -257,6 +257,14 @@ export {
   deleteCinemaMovie,
   subscribeToCinemaPlaylist,
   switchCinemaMovie,
+  normalizeCinemaEpisodes,
+  normalizeCinemaFolders,
+  subscribeToCinemaFolders,
+  saveCinemaFolder,
+  deleteCinemaFolder,
+  addEpisodeToCinemaFolder,
+  deleteEpisodeFromCinemaFolder,
+  playCinemaEpisodeInRoom,
 } from './cinemaService';
 
 export {

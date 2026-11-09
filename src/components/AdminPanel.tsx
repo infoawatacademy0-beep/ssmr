@@ -40,6 +40,16 @@ import {
   Flame,
   Activity,
   Sliders,
+  Film,
+  FolderPlus,
+  FolderOpen,
+  Play,
+  Plus,
+  Upload,
+  Edit3,
+  Layers,
+  Video,
+  ArrowLeft,
 } from 'lucide-react';
 import {
   formatCoinsK,
@@ -50,6 +60,8 @@ import {
   type VoiceEffectMode,
   type AccountDeletionRequest,
   type VipFrameStyle,
+  type CinemaFolder,
+  type CinemaEpisode,
 } from '../types';
 import {
   CURATED_ANIMATED_THEMES,
@@ -71,6 +83,12 @@ import {
   subscribeToAllDeletionRequests,
   approveAccountDeletion,
   rejectAccountDeletion,
+  subscribeToCinemaFolders,
+  saveCinemaFolder,
+  deleteCinemaFolder,
+  addEpisodeToCinemaFolder,
+  deleteEpisodeFromCinemaFolder,
+  uploadImageToImgBB,
 } from '../services';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -184,8 +202,27 @@ export default function AdminPanel({
   const isEn = language === 'en';
   // Independent / Open access for administrators (Clearance requirement removed as requested)
 
-  // Active Tab: 'users' | 'map' | 'reports' | 'deletions' | 'analytics'
-  const [activeTab, setActiveTab] = useState<'users' | 'map' | 'reports' | 'deletions' | 'analytics'>('users');
+  // Active Tab: 'users' | 'map' | 'reports' | 'deletions' | 'analytics' | 'cinema'
+  const [activeTab, setActiveTab] = useState<'users' | 'map' | 'reports' | 'deletions' | 'analytics' | 'cinema'>('users');
+
+  // Cinema Folders & Episodes State (Admin Global Movie Library)
+  const [cinemaFolders, setCinemaFolders] = useState<CinemaFolder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [folderTitle, setFolderTitle] = useState('');
+  const [folderCategory, setFolderCategory] = useState('زنجیرە و فیلم');
+  const [folderPosterUrl, setFolderPosterUrl] = useState('');
+  const [initialEpTitle, setInitialEpTitle] = useState('');
+  const [initialEpUrl, setInitialEpUrl] = useState('');
+  const [isUploadingPoster, setIsUploadingPoster] = useState(false);
+  const [isSavingFolder, setIsSavingFolder] = useState(false);
+
+  // Episode Form State inside Selected Folder
+  const [editingEpisodeId, setEditingEpisodeId] = useState<string | null>(null);
+  const [epTitleInput, setEpTitleInput] = useState('');
+  const [epNumberInput, setEpNumberInput] = useState<number>(1);
+  const [epVideoUrlInput, setEpVideoUrlInput] = useState('');
+  const [isSavingEpisode, setIsSavingEpisode] = useState(false);
 
   // Account Deletion Requests State
   const [deletionRequests, setDeletionRequests] = useState<AccountDeletionRequest[]>([]);
@@ -270,6 +307,153 @@ export default function AdminPanel({
     });
     return () => unsub();
   }, []);
+
+  // Subscribe to live global Cinema Folders
+  useEffect(() => {
+    const unsub = subscribeToCinemaFolders((folders) => {
+      setCinemaFolders(folders);
+    });
+    return () => unsub();
+  }, []);
+
+  const selectedCinemaFolder = useMemo(
+    () => cinemaFolders.find((f) => f.id === selectedFolderId) || null,
+    [cinemaFolders, selectedFolderId],
+  );
+
+  const handlePosterFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingPoster(true);
+    try {
+      const uploadedUrl = await uploadImageToImgBB(file);
+      setFolderPosterUrl(uploadedUrl);
+      showToast(tr('وێنەی فیلمەکە بە سەرکەوتوویی بارکرا!', 'Movie poster uploaded!'));
+    } catch (err: any) {
+      alert(err?.message || tr('کێشەیەک لە بارکردنی وێنەکە ڕوویدا', 'Failed to upload image'));
+    } finally {
+      setIsUploadingPoster(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleSaveCinemaFolderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!folderTitle.trim()) {
+      alert(tr('تکایە ناوی فۆڵدەر یان فیلمەکە بنووسە', 'Please enter folder or movie title'));
+      return;
+    }
+    setIsSavingFolder(true);
+    try {
+      const saved = await saveCinemaFolder({
+        id: editingFolderId || undefined,
+        title: folderTitle.trim(),
+        category: folderCategory.trim() || 'گشتی',
+        posterUrl: folderPosterUrl.trim(),
+      });
+
+      // If creating a new folder and an initial episode video URL is provided, add it immediately
+      if (!editingFolderId && initialEpUrl.trim()) {
+        await addEpisodeToCinemaFolder(saved.id, {
+          title: initialEpTitle.trim() || 'ئەڵقەی ١',
+          videoUrl: initialEpUrl.trim(),
+          episodeNumber: 1,
+        });
+      }
+
+      showToast(
+        editingFolderId
+          ? tr('فۆڵدەری فیلمەکە نوێکرایەوە!', 'Movie folder updated!')
+          : tr('فۆڵدەری فیلمەکە بە سەرکەوتوویی زیادکرا!', 'Movie folder created!'),
+      );
+      setEditingFolderId(null);
+      setFolderTitle('');
+      setFolderPosterUrl('');
+      setInitialEpTitle('');
+      setInitialEpUrl('');
+      setSelectedFolderId(saved.id);
+      setEpNumberInput((saved.episodes?.length || (initialEpUrl.trim() ? 1 : 0)) + 1);
+      setEpTitleInput(`ئەڵقەی ${(saved.episodes?.length || (initialEpUrl.trim() ? 1 : 0)) + 1}`);
+    } catch (err: any) {
+      alert(err?.message || tr('نەتوانرا فۆڵدەرەکە پاشەکەوت بکرێت', 'Failed to save folder'));
+    } finally {
+      setIsSavingFolder(false);
+    }
+  };
+
+  const handleStartEditFolder = (folder: CinemaFolder) => {
+    setEditingFolderId(folder.id);
+    setFolderTitle(folder.title);
+    setFolderCategory(folder.category || 'زنجیرە و فیلم');
+    setFolderPosterUrl(folder.posterUrl || '');
+    setInitialEpTitle('');
+    setInitialEpUrl('');
+  };
+
+  const handleDeleteFolder = async (folder: CinemaFolder) => {
+    if (!window.confirm(tr(`دڵنیایت لە سڕینەوەی فۆڵدەری "${folder.title}" بە هەموو ئەڵقەکانیەوە؟`, `Delete folder "${folder.title}" and all its episodes?`))) {
+      return;
+    }
+    try {
+      await deleteCinemaFolder(folder.id);
+      if (selectedFolderId === folder.id) setSelectedFolderId(null);
+      if (editingFolderId === folder.id) setEditingFolderId(null);
+      showToast(tr('فۆڵدەرەکە سڕایەوە', 'Folder deleted'));
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete folder');
+    }
+  };
+
+  const handleSelectFolderForEpisodes = (folder: CinemaFolder) => {
+    setSelectedFolderId(folder.id);
+    setEditingEpisodeId(null);
+    const nextNum = folder.episodes.length > 0 ? Math.max(...folder.episodes.map((ep) => ep.episodeNumber)) + 1 : 1;
+    setEpNumberInput(nextNum);
+    setEpTitleInput(`ئەڵقەی ${nextNum}`);
+    setEpVideoUrlInput('');
+  };
+
+  const handleSaveEpisodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCinemaFolder) return;
+    if (!epVideoUrlInput.trim()) {
+      alert(tr('تکایە لینکی ڤیدیۆی ئەڵقەکە بنووسە', 'Please enter episode video URL'));
+      return;
+    }
+    setIsSavingEpisode(true);
+    try {
+      await addEpisodeToCinemaFolder(selectedCinemaFolder.id, {
+        id: editingEpisodeId || undefined,
+        title: epTitleInput.trim() || `ئەڵقەی ${epNumberInput}`,
+        videoUrl: epVideoUrlInput.trim(),
+        episodeNumber: Number(epNumberInput) || 1,
+      });
+      showToast(
+        editingEpisodeId
+          ? tr('ئەڵقەکە نوێکرایەوە!', 'Episode updated!')
+          : tr('ئەڵقەی نوێ زیادکرا بۆ فۆڵدەرەکە!', 'Episode added to folder!'),
+      );
+      const nextNum = editingEpisodeId ? epNumberInput + 1 : (Number(epNumberInput) || 1) + 1;
+      setEditingEpisodeId(null);
+      setEpNumberInput(nextNum);
+      setEpTitleInput(`ئەڵقەی ${nextNum}`);
+      setEpVideoUrlInput('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save episode');
+    } finally {
+      setIsSavingEpisode(false);
+    }
+  };
+
+  const handleDeleteEpisode = async (folderId: string, ep: CinemaEpisode) => {
+    if (!window.confirm(tr(`دڵنیایت لە سڕینەوەی "${ep.title}"؟`, `Delete "${ep.title}"?`))) return;
+    try {
+      await deleteEpisodeFromCinemaFolder(folderId, ep.id);
+      showToast(tr('ئەڵقەکە سڕایەوە', 'Episode deleted'));
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete episode');
+    }
+  };
 
   const handleApproveDeletion = async (req: AccountDeletionRequest) => {
     try {
@@ -702,6 +886,23 @@ export default function AdminPanel({
                   {deletionRequests.length}
                 </span>
               )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cinema')}
+              className={`flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold transition-all ${
+                activeTab === 'cinema'
+                  ? 'border border-purple-400/50 bg-gradient-to-r from-purple-600/30 via-fuchsia-600/20 to-amber-500/20 text-purple-100 shadow-md shadow-purple-500/20'
+                  : 'text-slate-400 hover:bg-slate-900/80 hover:text-white'
+              }`}
+            >
+              <Film className="h-4 w-4 text-purple-400" />
+              <span>{tr('🎬 فۆڵدەری فیلم و زنجیرەکان', '🎬 Cinema Folders & Episodes')}</span>
+              <span className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-mono ${
+                activeTab === 'cinema' ? 'bg-purple-500/30 text-purple-100 font-bold' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {cinemaFolders.length}
+              </span>
             </button>
           </div>
         </nav>
@@ -1605,6 +1806,524 @@ export default function AdminPanel({
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 5: GLOBAL CINEMA FOLDERS, POSTERS & EPISODES LIBRARY (ADMIN ONLY) ── */}
+        {activeTab === 'cinema' && (
+          <div className="flex flex-1 flex-col lg:flex-row overflow-hidden p-4 sm:px-6 gap-4">
+            {/* LEFT COLUMN: CREATE / EDIT MOVIE FOLDER FORM */}
+            <div className="w-full lg:w-[370px] shrink-0 overflow-y-auto rounded-3xl border border-purple-500/30 bg-slate-900/75 p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 text-white shadow-md shadow-purple-600/30">
+                    <FolderPlus className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white">
+                      {editingFolderId
+                        ? tr('دەستکاریکردنی فۆڵدەری فیلم', 'Edit Movie Folder')
+                        : tr('دروستکردنی فۆڵدەری فیلم / زنجیرە', 'Create Movie / Series Folder')}
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      {tr('فۆڵدەرەکان بە وێنە و ئەڵقەکانەوە لە هەموو ژوورەکاندا دەردەکەون', 'Shown with poster & episodes inside all rooms')}
+                    </p>
+                  </div>
+                </div>
+                {editingFolderId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingFolderId(null);
+                      setFolderTitle('');
+                      setFolderPosterUrl('');
+                      setInitialEpTitle('');
+                      setInitialEpUrl('');
+                    }}
+                    className="rounded-lg bg-slate-800 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:text-white"
+                  >
+                    {tr('پاشگەزبوونەوە', 'Cancel')}
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveCinemaFolderSubmit} className="space-y-3.5">
+                {/* Folder / Movie Name */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold text-slate-300">
+                    {tr('ناوی فیلم یان زنجیرە (ناوی فۆڵدەر)', 'Folder / Movie / Series Title')}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={folderTitle}
+                    onChange={(e) => setFolderTitle(e.target.value)}
+                    placeholder={tr('بۆ نموونە: زنجیرەی دۆبلاژکراو / فیلمی ئەکشن...', 'e.g. Squid Game / Action Movie...')}
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/90 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                {/* Category / Genre Selector */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold text-slate-300">
+                    {tr('جۆری فۆڵدەر / پۆلێن', 'Category / Genre')}
+                  </label>
+                  <input
+                    type="text"
+                    value={folderCategory}
+                    onChange={(e) => setFolderCategory(e.target.value)}
+                    placeholder={tr('زنجیرە، ئەکشن، کوردی، ئەنیمەیشن...', 'Series, Action, Kurdish, Animation...')}
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/90 px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-purple-500"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {['زنجیرە و فیلم', 'زنجیرەی دۆبلاژکراو', 'فیلمی ئەکشن', 'ئەنیمەیشن', 'ترسناک', 'کۆمیدی', 'کوردی'].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setFolderCategory(cat)}
+                        className={`rounded-lg px-2 py-1 text-[10px] font-bold transition ${
+                          folderCategory === cat
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'bg-slate-800/80 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Poster / Cover Image URL or File Upload */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold text-slate-300">
+                    {tr('وێنەی بەرگی فیلم / فۆڵدەر (Poster)', 'Movie Poster Image (Upload or URL)')}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={folderPosterUrl}
+                      onChange={(e) => setFolderPosterUrl(e.target.value)}
+                      placeholder="https://example.com/poster.jpg"
+                      dir="ltr"
+                      className="flex-1 rounded-xl border border-slate-700/80 bg-slate-950/90 px-3 py-2 text-xs text-cyan-300 placeholder-slate-600 outline-none focus:border-purple-500 font-mono"
+                    />
+                    <label className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-purple-500/40 bg-purple-500/15 px-3 py-2 text-xs font-bold text-purple-200 hover:bg-purple-500/25 transition shrink-0">
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>{isUploadingPoster ? tr('بارکردن...', 'Uploading...') : tr('بارکردن', 'Upload')}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePosterFileUpload}
+                        disabled={isUploadingPoster}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {folderPosterUrl && (
+                    <div className="relative mt-2 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/80 p-2">
+                      <img
+                        src={folderPosterUrl}
+                        alt="Poster Preview"
+                        className="h-20 w-14 rounded-xl object-cover border border-white/10 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-emerald-400">
+                          {tr('پێشبینینی وێنەی فۆڵدەر', 'Folder Cover Preview')}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate font-mono mt-0.5">
+                          {folderPosterUrl}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Optional First Episode / Single Movie Video Link on Folder Creation */}
+                {!editingFolderId && (
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300">
+                      <Video className="h-3.5 w-3.5" />
+                      <span>{tr('ئەڵقەی یەکەم یان لینکی فیلم (ئارەزوومەندانە)', 'First Episode or Movie Link (Optional)')}</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={initialEpTitle}
+                      onChange={(e) => setInitialEpTitle(e.target.value)}
+                      placeholder={tr('ناوی ئەڵقە (نموونە: ئەڵقەی ١ یان فیلمی تەواو)', 'Episode title (e.g. Episode 1 or Full Movie)')}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-500"
+                    />
+                    <input
+                      type="url"
+                      value={initialEpUrl}
+                      onChange={(e) => setInitialEpUrl(e.target.value)}
+                      placeholder="https://example.com/episode1.mp4"
+                      dir="ltr"
+                      className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-amber-300 placeholder-slate-600 outline-none focus:border-amber-500 font-mono"
+                    />
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      {tr('دوای دروستکردنی فۆڵدەرەکە دەتوانیت چەند ئەڵقەت بوێت لە ناو فۆڵدەرەکەدا زیادی بکەیت.', 'After creating the folder, you can add unlimited episodes inside it.')}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSavingFolder || isUploadingPoster}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-amber-500 py-3 text-xs font-black text-white shadow-lg shadow-purple-600/30 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                  <span>
+                    {isSavingFolder
+                      ? tr('خەریکی پاشەکەوتکردنە...', 'Saving...')
+                      : editingFolderId
+                        ? tr('پاشەکەوتکردنی گۆڕانکارییەکان', 'Save Folder Changes')
+                        : tr('دروستکردنی فۆڵدەری فیلم', 'Create Movie Folder')}
+                  </span>
+                </button>
+              </form>
+            </div>
+
+            {/* RIGHT COLUMN: FOLDERS GRID & SELECTED FOLDER EPISODE MANAGER */}
+            <div className="flex-1 flex flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/50 p-4">
+              {selectedCinemaFolder ? (
+                /* ── INSIDE SELECTED FOLDER: MANAGE ALL EPISODES ── */
+                <div className="flex flex-1 flex-col overflow-hidden space-y-4">
+                  {/* Folder Header Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFolderId(null)}
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/90 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        <span>{tr('گەڕانەوە بۆ فۆڵدەرەکان', 'Back to Folders')}</span>
+                      </button>
+
+                      <div className="h-12 w-10 shrink-0 overflow-hidden rounded-xl border border-purple-500/30 bg-slate-950">
+                        {selectedCinemaFolder.posterUrl ? (
+                          <img
+                            src={selectedCinemaFolder.posterUrl}
+                            alt={selectedCinemaFolder.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-purple-950/60 text-purple-300">
+                            <Film className="h-5 w-5" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-black text-white truncate">
+                            {selectedCinemaFolder.title}
+                          </h3>
+                          <span className="rounded-full bg-purple-500/20 border border-purple-500/30 px-2.5 py-0.5 text-[10px] font-bold text-purple-300">
+                            {selectedCinemaFolder.category || 'گشتی'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                          {selectedCinemaFolder.episodes.length} {tr('ئەڵقە لەم فۆڵدەرەدا هەیە', 'episodes in this folder')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditFolder(selectedCinemaFolder)}
+                        className="flex items-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/20 transition"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                        <span>{tr('دەستکاری فۆڵدەر', 'Edit Folder')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFolder(selectedCinemaFolder)}
+                        className="flex items-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>{tr('سڕینەوەی فۆڵدەر', 'Delete Folder')}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Add / Edit Episode Form inside Folder */}
+                  <form
+                    onSubmit={handleSaveEpisodeSubmit}
+                    className="rounded-2xl border border-purple-500/30 bg-slate-950/80 p-3.5 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-purple-300 flex items-center gap-1.5">
+                        <Plus className="h-4 w-4" />
+                        {editingEpisodeId
+                          ? tr('دەستکاریکردنی ئەڵقە', 'Edit Episode')
+                          : tr(`زیادکردنی ئەڵقەی نوێ بۆ "${selectedCinemaFolder.title}"`, `Add New Episode to "${selectedCinemaFolder.title}"`)}
+                      </span>
+                      {editingEpisodeId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingEpisodeId(null);
+                            const nextNum =
+                              selectedCinemaFolder.episodes.length > 0
+                                ? Math.max(...selectedCinemaFolder.episodes.map((e) => e.episodeNumber)) + 1
+                                : 1;
+                            setEpNumberInput(nextNum);
+                            setEpTitleInput(`ئەڵقەی ${nextNum}`);
+                            setEpVideoUrlInput('');
+                          }}
+                          className="text-[11px] font-bold text-slate-400 hover:text-white"
+                        >
+                          {tr('پاشگەزبوونەوە', 'Cancel')}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                          {tr('ژمارەی ئەڵقە', 'Ep #')}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={epNumberInput}
+                          onChange={(e) => {
+                            const num = Number(e.target.value) || 1;
+                            setEpNumberInput(num);
+                            if (!epTitleInput || epTitleInput.startsWith('ئەڵقەی ')) {
+                              setEpTitleInput(`ئەڵقەی ${num}`);
+                            }
+                          }}
+                          className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-mono font-bold text-white outline-none focus:border-purple-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-4">
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                          {tr('ناونیشانی ئەڵقە / فیلم', 'Episode Title')}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={epTitleInput}
+                          onChange={(e) => setEpTitleInput(e.target.value)}
+                          placeholder={tr('بۆ نموونە: ئەڵقەی ١', 'e.g. Episode 1')}
+                          className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-6">
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                          {tr('لینکی ڕاستەوخۆی ڤیدیۆ (MP4 / Stream URL)', 'Direct Video URL')}
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            required
+                            value={epVideoUrlInput}
+                            onChange={(e) => setEpVideoUrlInput(e.target.value)}
+                            placeholder="https://example.com/ep1.mp4"
+                            dir="ltr"
+                            className="flex-1 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-amber-300 font-mono outline-none focus:border-purple-500"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSavingEpisode}
+                            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-2 text-xs font-black text-white shadow-md shadow-emerald-600/25 hover:brightness-110 active:scale-95 shrink-0 disabled:opacity-50"
+                          >
+                            <Plus className="h-4 w-4" />
+                            <span>
+                              {isSavingEpisode
+                                ? tr('چاوەڕوانبە...', 'Saving...')
+                                : editingEpisodeId
+                                  ? tr('نوێکردنەوە', 'Update')
+                                  : tr('زیادکردنی ئەڵقە', 'Add Episode')}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+
+                  {/* Episodes List inside Selected Folder */}
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                    {selectedCinemaFolder.episodes.length === 0 ? (
+                      <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 text-center p-6">
+                        <Video className="h-9 w-9 text-slate-600 mb-2" />
+                        <p className="text-xs font-bold text-slate-300">
+                          {tr('هێشتا هیچ ئەڵقەیەک لەم فۆڵدەرەدا زیاد نەکراوە', 'No episodes inside this folder yet')}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          {tr('لە فۆڕمەکەی سەرەوە لینکی ئەڵقەی ١، ئەڵقەی ٢... زیاد بکە', 'Use the form above to add Episode 1, Episode 2...')}
+                        </p>
+                      </div>
+                    ) : (
+                      selectedCinemaFolder.episodes.map((ep) => (
+                        <div
+                          key={ep.id}
+                          className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800/90 bg-slate-950/75 p-3 hover:border-purple-500/40 transition"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600/30 to-pink-600/20 border border-purple-500/30 font-mono text-xs font-black text-purple-200">
+                              #{ep.episodeNumber}
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="text-xs font-black text-white truncate">
+                                {ep.title}
+                              </h4>
+                              <p className="text-[10px] font-mono text-slate-400 truncate max-w-md" dir="ltr">
+                                {ep.videoUrl}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingEpisodeId(ep.id);
+                                setEpNumberInput(ep.episodeNumber);
+                                setEpTitleInput(ep.title);
+                                setEpVideoUrlInput(ep.videoUrl);
+                              }}
+                              className="rounded-xl border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] font-bold text-amber-300 hover:bg-slate-700 transition"
+                            >
+                              {tr('دەستکاری', 'Edit')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEpisode(selectedCinemaFolder.id, ep)}
+                              className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-400 hover:bg-rose-500/20 transition"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* ── ALL FOLDERS OVERVIEW GRID ── */
+                <div className="flex flex-1 flex-col overflow-hidden space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                      <h3 className="text-sm font-black text-white flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-purple-400" />
+                        <span>{tr('لیستی هەموو فۆڵدەرەکانی فیلم و زنجیرە', 'All Movie & Series Folders')}</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        {tr('رتە لەسەر هەر فۆڵدەرێک بکە بۆ زیادکردن یان دەستکاریکردنی ئەڵقەکانی ناوی', 'Click any folder to manage its episodes')}
+                      </p>
+                    </div>
+                    <span className="rounded-xl bg-purple-500/15 border border-purple-500/30 px-3 py-1 text-xs font-black text-purple-300">
+                      {cinemaFolders.length} {tr('فۆڵدەر', 'Folders')}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto pr-1">
+                    {cinemaFolders.length === 0 ? (
+                      <div className="flex h-72 flex-col items-center justify-center rounded-3xl border border-dashed border-slate-800 bg-slate-950/40 text-center p-6">
+                        <Film className="h-12 w-12 text-purple-400/40 mb-3" />
+                        <h4 className="text-sm font-black text-white">
+                          {tr('هێشتا هیچ فۆڵدەرێکی فیلم زیاد نەکراوە', 'No movie folders created yet')}
+                        </h4>
+                        <p className="mt-1 text-xs text-slate-400 max-w-sm">
+                          {tr('لە بەشی لای چەپ ناوی فیلم یان زنجیرەکە و وێنەکەی دابنێ بۆ دروستکردنی یەکەم فۆڵدەر.', 'Use the form on the left to create your first movie/series folder with cover image and episodes.')}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                        {cinemaFolders.map((folder) => (
+                          <div
+                            key={folder.id}
+                            onClick={() => handleSelectFolderForEpisodes(folder)}
+                            className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/90 transition-all hover:-translate-y-0.5 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/10 cursor-pointer"
+                          >
+                            {/* Movie Cover Poster Image */}
+                            <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-900">
+                              {folder.posterUrl ? (
+                                <img
+                                  src={folder.posterUrl}
+                                  alt={folder.title}
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-purple-950 via-slate-900 to-pink-950 text-purple-300/60">
+                                  <Film className="h-10 w-10 mb-1" />
+                                  <span className="text-[10px] font-bold">{folder.title}</span>
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+
+                              {/* Category Badge */}
+                              {folder.category && (
+                                <span className="absolute top-2 right-2 rounded-lg bg-black/75 backdrop-blur-md border border-white/15 px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                                  {folder.category}
+                                </span>
+                              )}
+
+                              {/* Episodes Count Badge */}
+                              <span className="absolute top-2 left-2 flex items-center gap-1 rounded-lg bg-purple-600/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-black text-white shadow-md">
+                                <Layers className="h-3 w-3" />
+                                <span>{folder.episodes.length} {tr('ئەڵقە', 'Ep')}</span>
+                              </span>
+
+                              {/* Quick Edit/Delete Actions on Hover */}
+                              <div
+                                className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectFolderForEpisodes(folder)}
+                                  className="flex-1 flex items-center justify-center gap-1 rounded-xl bg-purple-600/90 hover:bg-purple-500 py-1.5 text-[10px] font-black text-white shadow-md backdrop-blur-md transition"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  <span>{tr('ئەڵقەکان', 'Episodes')}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditFolder(folder)}
+                                  className="rounded-xl bg-slate-900/90 hover:bg-slate-800 p-1.5 text-amber-300 border border-white/10"
+                                  title={tr('دەستکاری', 'Edit')}
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFolder(folder)}
+                                  className="rounded-xl bg-slate-900/90 hover:bg-rose-600 p-1.5 text-rose-400 hover:text-white border border-white/10"
+                                  title={tr('سڕینەوە', 'Delete')}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Folder Title Footer */}
+                            <div className="p-2.5">
+                              <h4 className="text-xs font-black text-white truncate">
+                                {folder.title}
+                              </h4>
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                {folder.episodes.length > 0
+                                  ? `${folder.episodes.length} ${tr('ئەڵقە ئامادەیە بۆ پەخشکردن', 'episodes ready')}`
+                                  : tr('کلیک بکە بۆ زیادکردنی ئەڵقە', 'Click to add episodes')}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>

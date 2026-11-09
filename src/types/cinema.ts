@@ -36,3 +36,30 @@ export interface SavedCinemaMovie {
   addedAt: number;
   duration?: number;
 }
+
+/**
+ * Single Episode or Movie item inside a Cinema Folder / Series
+ */
+export interface CinemaEpisode {
+  id: string;
+  title: string;
+  episodeNumber: number;
+  videoUrl: string;
+  posterUrl?: string;
+  addedAt: number;
+}
+
+/**
+ * Global Cinema Folder / Movie Series managed by Admin
+ * Stored under `/cinemaCatalog/folders/{folderId}` in Firebase RTDB
+ */
+export interface CinemaFolder {
+  id: string;
+  title: string;
+  category?: string;
+  posterUrl: string;
+  description?: string;
+  episodes: CinemaEpisode[];
+  createdAt: number;
+  updatedAt: number;
+}

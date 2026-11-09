@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Film,
@@ -6,24 +6,25 @@ import {
   Play,
   Check,
   AlertCircle,
-  Clapperboard,
   PowerOff,
-  Link2,
-  Tv,
   Users,
-  Trash2,
-  Plus,
-  BookmarkPlus,
+  FolderOpen,
+  Layers,
+  ArrowLeft,
+  Search,
+  Sparkles,
 } from 'lucide-react';
-import type { RoomCinemaState, User, SavedCinemaMovie } from '../types';
+import type {
+  RoomCinemaState,
+  User,
+  CinemaFolder,
+  CinemaEpisode,
+} from '../types';
 import {
-  startCinemaMode,
-  setCinemaVideoUrl,
   stopCinemaMode,
-  saveCinemaMovie,
-  deleteCinemaMovie,
-  subscribeToCinemaPlaylist,
-  switchCinemaMovie,
+  updateCinemaSeatCount,
+  subscribeToCinemaFolders,
+  playCinemaEpisodeInRoom,
 } from '../services';
 import { useLanguage } from '../contexts';
 
@@ -36,30 +37,6 @@ interface CinemaConfigModalProps {
   isHost?: boolean;
 }
 
-interface MoviePreset {
-  title: string;
-  url: string;
-  badge: string;
-}
-
-const CINEMA_PRESETS: MoviePreset[] = [
-  {
-    title: 'تایتانیک · ترەیلەری 4K (Titanic Cinematic)',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    badge: '4K Cinema',
-  },
-  {
-    title: 'گەشتی ئەستێرەکان و گەردوون (Cosmic Journey)',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-    badge: 'Sci-Fi VIP',
-  },
-  {
-    title: 'خێرایی و سەمای ئۆتۆمبێلەکان (Action Drift)',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    badge: 'Action HD',
-  },
-];
-
 export default function CinemaConfigModal({
   roomId,
   currentUser,
@@ -69,48 +46,59 @@ export default function CinemaConfigModal({
   isHost = false,
 }: CinemaConfigModalProps) {
   const { tr } = useLanguage();
-  const isAdmin = Boolean(currentUser.isAdmin || isHost);
+  const isAdminOrHost = Boolean(currentUser.isAdmin || isHost);
 
-  const [playlist, setPlaylist] = useState<SavedCinemaMovie[]>([]);
-  const [videoUrl, setVideoUrl] = useState('');
-  const [movieTitle, setMovieTitle] = useState('');
+  const [folders, setFolders] = useState<CinemaFolder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [seatCount, setSeatCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [previewTest, setPreviewTest] = useState(false);
-  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Subscribe to room's saved cinema movies playlist
+  // Subscribe to global Admin-managed Cinema Folders
   useEffect(() => {
     if (!isOpen) return;
-    const unsub = subscribeToCinemaPlaylist(roomId, (movies) => {
-      setPlaylist(movies);
+    const unsub = subscribeToCinemaFolders((list) => {
+      setFolders(list);
     });
     return () => unsub();
-  }, [roomId, isOpen]);
+  }, [isOpen]);
 
-  // When modal is opened, initialize inputs with current cinema state or last saved memory
   useEffect(() => {
     if (isOpen) {
-      const savedUrl =
-        cinemaState?.videoUrl ||
-        localStorage.getItem('ssmr_last_cinema_url') ||
-        '';
-      const savedTitle =
-        cinemaState?.title ||
-        localStorage.getItem('ssmr_last_cinema_title') ||
-        '';
-      const initialSeats = cinemaState?.seatCount || 5;
-
-      setVideoUrl(savedUrl);
-      setMovieTitle(savedTitle);
-      setSeatCount(initialSeats);
+      setSeatCount(cinemaState?.seatCount || 5);
       setErrorMsg(null);
       setSuccessMsg(null);
-      setPreviewTest(Boolean(savedUrl));
     }
-  }, [isOpen]);
+  }, [isOpen, cinemaState?.seatCount]);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    folders.forEach((f) => {
+      if (f.category?.trim()) set.add(f.category.trim());
+    });
+    return Array.from(set);
+  }, [folders]);
+
+  const filteredFolders = useMemo(() => {
+    return folders.filter((f) => {
+      const matchesCat =
+        selectedCategory === 'ALL' || (f.category || 'گشتی') === selectedCategory;
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        f.title.toLowerCase().includes(q) ||
+        (f.category || '').toLowerCase().includes(q);
+      return matchesCat && matchesSearch;
+    });
+  }, [folders, selectedCategory, searchQuery]);
+
+  const activeFolder = useMemo(
+    () => folders.find((f) => f.id === selectedFolderId) || null,
+    [folders, selectedFolderId],
+  );
 
   if (!isOpen) return null;
 
@@ -125,201 +113,52 @@ export default function CinemaConfigModal({
     }
   };
 
-  const handleApplyPreset = (preset: MoviePreset) => {
-    setVideoUrl(preset.url);
-    setMovieTitle(preset.title);
-    setErrorMsg(null);
-    setPreviewTest(true);
-  };
-
-  const handleSavePresetToRoom = async (preset: MoviePreset) => {
-    setIsSubmitting(true);
-    try {
-      await saveCinemaMovie(roomId, {
-        title: preset.title,
-        url: preset.url,
-        addedByUid: currentUser.uid,
-        addedByName: currentUser.username,
-      });
-      localStorage.setItem('ssmr_last_cinema_url', preset.url);
-      localStorage.setItem('ssmr_last_cinema_title', preset.title);
-      showNotification(
-        tr(
-          `فیلمی "${preset.title}" بە سەرکەوتوویی لە ژووردا پاشەکەوت کرا`,
-          `"${preset.title}" successfully saved to room playlist`,
-        ),
-      );
-    } catch (err: any) {
-      showNotification(err.message || 'Failed to save preset', false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSeedAllPresets = async () => {
-    setIsSubmitting(true);
-    try {
-      for (const p of CINEMA_PRESETS) {
-        await saveCinemaMovie(roomId, {
-          title: p.title,
-          url: p.url,
-          addedByUid: currentUser.uid,
-          addedByName: currentUser.username,
-        });
-      }
-      showNotification(
-        tr(
-          'فیلمە نموونەییەکان بە سەرکەوتوویی زیادکران بۆ ژوورەکە',
-          'Sample movies added to room playlist',
-        ),
-      );
-    } catch (err: any) {
-      showNotification(err.message || 'Failed to seed presets', false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Switch to a movie from the playlist (open to all members)
-  const handlePlaySavedMovie = async (movie: SavedCinemaMovie) => {
+  const handlePlayEpisode = async (folder: CinemaFolder, episode: CinemaEpisode) => {
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      await switchCinemaMovie(
+      await playCinemaEpisodeInRoom(
         roomId,
-        movie,
+        folder,
+        episode,
         { uid: currentUser.uid, username: currentUser.username },
         Boolean(cinemaState?.isActive),
+        isAdminOrHost ? seatCount : cinemaState?.seatCount || 5,
       );
-      localStorage.setItem('ssmr_last_cinema_url', movie.url);
-      localStorage.setItem('ssmr_last_cinema_title', movie.title);
-      setVideoUrl(movie.url);
-      setMovieTitle(movie.title);
-      showNotification(
-        tr(`فیلمەکە گۆڕدرا بۆ: ${movie.title}`, `Movie switched to: ${movie.title}`),
-      );
-      onClose();
-    } catch (err: any) {
-      showNotification(err.message || tr('نەتوانرا فیلمەکە بگۆڕدرێت', 'Failed to switch movie'), false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Delete movie from room (strictly restricted to Admin)
-  const handleDeleteMovie = async (movie: SavedCinemaMovie) => {
-    if (!isAdmin) return;
-    const confirmDelete = window.confirm(
-      tr(
-        `ئایا دڵنیایت لە سڕینەوەی فیلمی "${movie.title}" لەم ژوورەدا؟`,
-        `Are you sure you want to delete "${movie.title}" from this room?`,
-      ),
-    );
-    if (!confirmDelete) return;
-
-    try {
-      await deleteCinemaMovie(roomId, movie.id);
-      showNotification(
-        tr('فیلمەکە لە قایمەی ژوورەکە سڕدرایەوە', 'Movie deleted from room playlist'),
-      );
-    } catch (err: any) {
-      showNotification(err.message || tr('نەتوانرا بسڕدرێتەوە', 'Failed to delete movie'), false);
-    }
-  };
-
-  // Save new movie to room playlist without interrupting current playback
-  const handleSaveOnly = async () => {
-    const cleanUrl = videoUrl.trim().replace(/^['"<]+|['">]+$/g, '');
-    if (!cleanUrl) {
-      showNotification(tr('تکایە بەستەری فیلمەکە دابنێ بۆ پاشەکەوتکردن.', 'Please provide a video URL.'), false);
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const finalTitle = movieTitle.trim() || tr('فیلمی سینەمایی', 'Cinema Movie');
-      await saveCinemaMovie(roomId, {
-        title: finalTitle,
-        url: cleanUrl,
-        addedByUid: currentUser.uid,
-        addedByName: currentUser.username,
-      });
-
-      // Keep in localStorage for persistence
-      localStorage.setItem('ssmr_last_cinema_url', cleanUrl);
-      localStorage.setItem('ssmr_last_cinema_title', finalTitle);
-
       showNotification(
         tr(
-          `فیلمی "${finalTitle}" بە سەرکەوتوویی لە ژوورەکەدا پاشەکەوت کرا`,
-          `Movie "${finalTitle}" saved to room playlist successfully`,
+          `فیلمەکە گۆڕدرا بۆ: ${folder.title} - ${episode.title}`,
+          `Now playing: ${folder.title} - ${episode.title}`,
         ),
       );
+      onClose();
     } catch (err: any) {
-      showNotification(err.message || tr('نەتوانرا فیلمەکە پاشەکەوت بکرێت', 'Failed to save movie'), false);
+      showNotification(
+        err.message || tr('نەتوانرا فیلمەکە پەخش بکرێت', 'Failed to play episode'),
+        false,
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Play in Cinema AND save to room playlist
-  const handlePlayAndSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanUrl = videoUrl.trim().replace(/^['"<]+|['">]+$/g, '');
-    if (!cleanUrl) {
-      showNotification(tr('تکایە بەستەری فیلمەکە دابنێ.', 'Please provide a video URL.'), false);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMsg(null);
-
-    try {
-      const finalTitle = movieTitle.trim() || tr('فیلمی سینەمایی', 'Cinema Movie');
-
-      // 1. Explicitly save to room playlist so it's guaranteed to be in the library
-      await saveCinemaMovie(roomId, {
-        title: finalTitle,
-        url: cleanUrl,
-        addedByUid: currentUser.uid,
-        addedByName: currentUser.username,
-      });
-
-      // 2. Persist in localStorage
-      localStorage.setItem('ssmr_last_cinema_url', cleanUrl);
-      localStorage.setItem('ssmr_last_cinema_title', finalTitle);
-
-      // 3. Start or update room cinema playback
-      if (cinemaState?.isActive) {
-        await setCinemaVideoUrl(
-          roomId,
-          cleanUrl,
-          finalTitle,
-          {
-            uid: currentUser.uid,
-            username: currentUser.username,
-          },
-          isAdmin ? seatCount : undefined,
-        );
-      } else {
-        await startCinemaMode(roomId, {
-          videoUrl: cleanUrl,
-          title: finalTitle,
-          hostUid: currentUser.uid,
-          hostName: currentUser.username,
-          seatCount: isAdmin ? seatCount : 5,
+  const handleSeatCountChange = async (nextSeats: number) => {
+    const clamped = Math.max(1, Math.min(16, nextSeats));
+    setSeatCount(clamped);
+    if (cinemaState?.isActive && isAdminOrHost) {
+      try {
+        await updateCinemaSeatCount(roomId, clamped, {
+          uid: currentUser.uid,
+          username: currentUser.username,
         });
+      } catch (err) {
+        console.warn('Failed to update cinema seat count:', err);
       }
-      onClose();
-    } catch (err: any) {
-      showNotification(err.message || tr('نەتوانرا مۆدی سینەما چالاک بکرێت', 'Failed to activate cinema mode'), false);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   const handleStopCinema = async () => {
-    if (!isAdmin) return;
+    if (!isAdminOrHost) return;
     if (
       !window.confirm(
         tr(
@@ -336,7 +175,10 @@ export default function CinemaConfigModal({
       await stopCinemaMode(roomId);
       onClose();
     } catch (err: any) {
-      showNotification(err.message || tr('نەتوانرا سینەما دابخرێت', 'Failed to stop cinema'), false);
+      showNotification(
+        err.message || tr('نەتوانرا سینەما دابخرێت', 'Failed to stop cinema'),
+        false,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -352,37 +194,30 @@ export default function CinemaConfigModal({
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 15 }}
         onClick={(e) => e.stopPropagation()}
-        className="relative flex flex-col w-full max-w-xl max-h-[85vh] sm:max-h-[88vh] overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#160b13] via-[#0f0914] to-[#07040a] p-0 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(245,158,11,0.2)] text-white"
+        className="relative flex flex-col w-full max-w-2xl max-h-[88vh] overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#160b13] via-[#0f0914] to-[#07040a] p-0 shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(245,158,11,0.2)] text-white"
       >
         {/* Ambient Top Glow Bar */}
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600 z-10" />
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-purple-600 z-10" />
 
-        {/* Sticky Modal Header with Prominent Close Button */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/[0.08] bg-[#160b13]/95 backdrop-blur-md shrink-0">
+        {/* Sticky Modal Header */}
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-white/[0.08] bg-[#160b13]/95 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-amber-600 text-black shadow-lg shadow-amber-500/25 font-bold">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white shadow-lg shadow-amber-500/25 font-bold">
               <Film className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="font-display text-sm font-black tracking-wide text-white truncate">
-                  {tr('قایمە و مۆدی فیلمی سینەما', 'Cinema & Room Movie Playlist')}
+                <h3 className="font-display text-sm sm:text-base font-black tracking-wide text-white truncate">
+                  {tr('فۆڵدەری فیلم و زنجیرەکانی سینەما', 'Cinema Folders & Series Library')}
                 </h3>
-                {cinemaState?.seatCount && (
-                  <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.2 text-[8px] font-black text-rose-300 uppercase tracking-widest">
-                    VIP {cinemaState.seatCount}-SEAT
-                  </span>
-                )}
-                {isAdmin && (
-                  <span className="rounded bg-amber-400/20 border border-amber-400/40 px-1.5 py-0.2 text-[8px] font-black text-amber-300">
-                    {tr('ئەدمین', 'Admin')}
-                  </span>
-                )}
+                <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[9px] font-black text-amber-300">
+                  {folders.length} {tr('فۆڵدەر', 'Folders')}
+                </span>
               </div>
-              <p className="text-[10px] text-slate-400 truncate max-w-[210px] sm:max-w-xs mt-0.5">
+              <p className="text-[10px] text-slate-400 truncate mt-0.5">
                 {tr(
-                  'بەستەری فیلم لێرە دابنێ بۆ پاشەکەوتکردن · هەموو ئەندامێک دەتوانێت فیلم بگۆڕێت',
-                  'Set movie link & save here · All members can switch movies',
+                  'رتە لە هەر فیلمێک بکە بۆ بینینی هەموو ئەڵقەکانی و سەیرکردنی لە ژووردا',
+                  'Select any movie folder to view and watch all its episodes',
                 )}
               </p>
             </div>
@@ -400,281 +235,299 @@ export default function CinemaConfigModal({
 
         {/* Notifications Banner */}
         {successMsg && (
-          <div className="mx-4 sm:mx-5 mt-2.5 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 p-2 text-xs text-emerald-300 animate-in fade-in shrink-0">
+          <div className="mx-4 sm:mx-5 mt-2.5 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 p-2 text-xs text-emerald-300 shrink-0">
             <Check className="h-4 w-4 shrink-0" />
             <span className="font-semibold">{successMsg}</span>
           </div>
         )}
         {errorMsg && (
-          <div className="mx-4 sm:mx-5 mt-2.5 flex items-center gap-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 p-2 text-xs text-rose-300 animate-in fade-in shrink-0">
+          <div className="mx-4 sm:mx-5 mt-2.5 flex items-center gap-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 p-2 text-xs text-rose-300 shrink-0">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span className="font-semibold">{errorMsg}</span>
           </div>
         )}
 
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 space-y-4 overscroll-contain min-h-0">
-          {/* ─────────────────────────────────────────────────────────────
-              SECTION 1: ADD / SAVE / PLAY MOVIE INPUTS (ALWAYS VISIBLE)
-              ───────────────────────────────────────────────────────────── */}
-          <form onSubmit={handlePlayAndSave} className="space-y-3 rounded-2xl border border-amber-500/20 bg-black/40 p-3 sm:p-3.5 backdrop-blur-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-amber-300 flex items-center gap-1.5 uppercase tracking-wide">
-                <Link2 className="h-3.5 w-3.5 text-amber-400" />
-                <span>{tr('بەستەر و ناوی فیلم بۆ ژوورەکە', 'Movie Link & Name')}</span>
-              </span>
-              <span className="text-[10px] text-slate-400">
-                {tr('هەمیشە دەمێنێتەوە', 'Saved Permanently')}
-              </span>
-            </div>
+        {/* Main Content Area: Folder Grid OR Inside Folder Episodes List */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3.5 space-y-4 overscroll-contain min-h-0">
+          {activeFolder ? (
+            /* ── VIEW 2: INSIDE A MOVIE FOLDER -> SHOW ALL EPISODES ── */
+            <div className="space-y-3.5">
+              {/* Back Button & Folder Banner Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/25 bg-black/50 p-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFolderId(null)}
+                    className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 px-3 py-2 text-xs font-black text-white transition active:scale-95 shrink-0"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>{tr('گەڕانەوە', 'Back')}</span>
+                  </button>
 
-            {/* Video URL Input */}
-            <div>
-              <input
-                type="url"
-                required
-                value={videoUrl}
-                onChange={(e) => {
-                  setVideoUrl(e.target.value);
-                  setPreviewTest(true);
-                }}
-                placeholder="https://teamteam.serv00.net/.../video.mp4"
-                className="w-full rounded-xl border border-white/[0.12] bg-black/70 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400 font-mono"
-              />
-            </div>
-
-            {/* Movie Title Input */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="text"
-                  maxLength={60}
-                  value={movieTitle}
-                  onChange={(e) => setMovieTitle(e.target.value)}
-                  placeholder={tr('ناوی فیلم (وەک: تایتانیک، جەنگاوەر...)', 'Movie Title (e.g. Titanic 4K)')}
-                  className="w-full rounded-xl border border-white/[0.12] bg-black/70 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition focus:border-amber-400"
-                />
-              </div>
-
-              {/* Save Only Button */}
-              <button
-                type="button"
-                onClick={handleSaveOnly}
-                disabled={isSubmitting || !videoUrl.trim()}
-                title={tr('پاشەکەوتکردن لە قایمەی ژوور بەبێ پەخشکردن', 'Save to room playlist without playing')}
-                className="flex items-center gap-1 rounded-xl border border-amber-400/50 bg-amber-500/20 px-3 py-2 text-xs font-black text-amber-300 hover:bg-amber-500/30 active:scale-95 transition disabled:opacity-40"
-              >
-                <BookmarkPlus className="h-3.5 w-3.5" />
-                <span>{tr('پاشەکەوتکردن', 'Save')}</span>
-              </button>
-            </div>
-
-            {/* Play & Save Main Action Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting || !videoUrl.trim()}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 py-2.5 text-xs font-black text-black shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-98 transition disabled:opacity-40"
-            >
-              <Tv className="h-4 w-4" />
-              <span>
-                {cinemaState?.isActive
-                  ? tr('پەخشکردن و پاشەکەوتکردن لە سینەما', 'Play & Save to Cinema')
-                  : tr('دەستپێکردن و پاشەکەوتکردن لە سینەما', 'Start Cinema & Save')}
-              </span>
-            </button>
-          </form>
-
-          {/* ─────────────────────────────────────────────────────────────
-              SECTION 2: SAVED MOVIES PLAYLIST (ROOM LIBRARY)
-              ───────────────────────────────────────────────────────────── */}
-          <div className="space-y-2.5 pt-1">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <Film className="h-4 w-4 text-amber-400" />
-                <h4 className="text-xs font-black text-white">
-                  {tr('قایمەی فیلمە پاشەکەوتکراوەکانی ژوور', 'Saved Room Movies Playlist')}
-                </h4>
-              </div>
-              <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[9px] font-black text-amber-300">
-                {playlist.length} {tr('فیلم', 'movies')}
-              </span>
-            </div>
-
-            {playlist.length === 0 ? (
-              <div className="text-center py-6 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
-                <Film className="h-8 w-8 text-slate-600 mx-auto mb-1.5" />
-                <p className="text-xs font-bold text-slate-300">
-                  {tr('هیچ فیلمێک پاشەکەوت نەکراوە', 'No movies saved in this room yet')}
-                </p>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  {tr(
-                    'بەستەر و ناوی فیلم لە سەرەوە بنووسە و کلیك لە "پاشەکەوتکردن" بکە.',
-                    'Enter URL & Title above and click "Save".',
-                  )}
-                </p>
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={handleSeedAllPresets}
-                  className="mt-3 rounded-xl bg-amber-500/20 border border-amber-400/40 px-3.5 py-1.5 text-xs font-black text-amber-300 hover:bg-amber-500/30 transition disabled:opacity-40"
-                >
-                  + {tr('زیادکردنی فیلمە پێشوەختەکان بە ١ کلیک', 'Add Sample Presets (1-Click)')}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {playlist.map((movie) => {
-                  const isCurrentlyPlaying = Boolean(
-                    cinemaState?.isActive &&
-                    cinemaState.videoUrl &&
-                    cinemaState.videoUrl.trim() === movie.url.trim(),
-                  );
-
-                  return (
-                    <div
-                      key={movie.id}
-                      className={`flex items-center justify-between gap-3 rounded-2xl border p-2.5 transition ${
-                        isCurrentlyPlaying
-                          ? 'border-emerald-500/50 bg-gradient-to-r from-emerald-950/40 to-slate-900/60 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                          : 'border-white/[0.08] bg-white/[0.03] hover:border-amber-400/30 hover:bg-white/[0.06]'
-                      }`}
-                    >
-                      {/* Movie Info */}
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-black ${
-                            isCurrentlyPlaying
-                              ? 'bg-gradient-to-tr from-emerald-400 to-teal-400 shadow-md shadow-emerald-500/30'
-                              : 'bg-gradient-to-tr from-amber-400 to-rose-400'
-                          }`}
-                        >
-                          <Film className="h-4 w-4" />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h5 className="font-bold text-xs text-white truncate max-w-[180px] sm:max-w-xs">
-                              {movie.title}
-                            </h5>
-                            {isCurrentlyPlaying && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.2 text-[8px] font-black text-emerald-300">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                                {tr('ئێستا پەخش دەکرێت', 'Playing Now')}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[9px] text-slate-400 truncate mt-0.5">
-                            {tr('زیادکراوە لەلایەن', 'Added by')}:{' '}
-                            <span className="text-slate-300 font-semibold">{movie.addedByName}</span>
-                          </p>
-                        </div>
+                  <div className="h-16 w-12 shrink-0 overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900 shadow-md">
+                    {activeFolder.posterUrl ? (
+                      <img
+                        src={activeFolder.posterUrl}
+                        alt={activeFolder.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-900 to-slate-900 text-amber-300">
+                        <Film className="h-5 w-5" />
                       </div>
+                    )}
+                  </div>
 
-                      {/* Actions: Play (All Members) & Delete (Admin Only) */}
-                      <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-sm sm:text-base font-black text-white truncate">
+                        {activeFolder.title}
+                      </h4>
+                      {activeFolder.category && (
+                        <span className="rounded-lg bg-amber-500/20 border border-amber-400/30 px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                          {activeFolder.category}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {activeFolder.episodes.length}{' '}
+                      {tr('ئەڵقە بەردەستە بۆ سەیرکردن', 'episodes available to watch')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Episodes List */}
+              {activeFolder.episodes.length === 0 ? (
+                <div className="text-center py-10 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+                  <Film className="h-9 w-9 text-slate-600 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-slate-300">
+                    {tr('هێشتا هیچ ئەڵقەیەک لەم فۆڵدەرەدا دانەنراوە', 'No episodes in this folder yet')}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {activeFolder.episodes.map((ep) => {
+                    const isPlayingThis = Boolean(
+                      cinemaState?.isActive &&
+                        cinemaState.videoUrl &&
+                        cinemaState.videoUrl.trim() === ep.videoUrl.trim(),
+                    );
+
+                    return (
+                      <div
+                        key={ep.id}
+                        onClick={() => !isSubmitting && handlePlayEpisode(activeFolder, ep)}
+                        className={`group flex items-center justify-between gap-3 rounded-2xl border p-2.5 cursor-pointer transition-all ${
+                          isPlayingThis
+                            ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/60 to-slate-900/80 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                            : 'border-white/10 bg-white/[0.04] hover:border-amber-400/50 hover:bg-white/[0.08]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {/* Poster Thumbnail with Episode Number Badge */}
+                          <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-slate-900">
+                            {ep.posterUrl || activeFolder.posterUrl ? (
+                              <img
+                                src={ep.posterUrl || activeFolder.posterUrl}
+                                alt={ep.title}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-amber-500/20 text-amber-300">
+                                <Film className="h-4 w-4" />
+                              </div>
+                            )}
+                            <span className="absolute bottom-0 inset-x-0 bg-black/80 text-center font-mono text-[9px] font-black text-amber-300 py-0.5">
+                              #{ep.episodeNumber}
+                            </span>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <h5 className="text-xs font-black text-white truncate group-hover:text-amber-300 transition-colors">
+                              {ep.title}
+                            </h5>
+                            <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                              {isPlayingThis
+                                ? tr('ئێستا پەخش دەکرێت لە ژوورەکەدا', 'Currently playing in room')
+                                : `${activeFolder.title} · ${tr('ئەڵقەی', 'Ep')} ${ep.episodeNumber}`}
+                            </p>
+                          </div>
+                        </div>
+
                         <button
                           type="button"
-                          disabled={isSubmitting || isCurrentlyPlaying}
-                          onClick={() => handlePlaySavedMovie(movie)}
-                          className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-black transition active:scale-95 ${
-                            isCurrentlyPlaying
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default'
-                              : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-black shadow hover:brightness-110'
+                          disabled={isSubmitting}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlayEpisode(activeFolder, ep);
+                          }}
+                          className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-black transition shrink-0 ${
+                            isPlayingThis
+                              ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'
+                              : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-black shadow-md hover:brightness-110 active:scale-95'
                           }`}
                         >
                           <Play className="h-3 w-3 fill-current" />
-                          <span>{isCurrentlyPlaying ? tr('چالاکە', 'Active') : tr('پەخشکردن', 'Play')}</span>
+                          <span>{isPlayingThis ? tr('چالاکە', 'Active') : tr('پەخشکردن', 'Play')}</span>
                         </button>
-
-                        {/* Delete button: strictly restricted to Admin */}
-                        {isAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteMovie(movie)}
-                            title={tr('سڕینەوە لە ژوور (تەنها ئەدمین)', 'Delete from room (Admin only)')}
-                            className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/[0.04] text-slate-400 hover:bg-rose-600 hover:text-white transition"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* ─────────────────────────────────────────────────────────────
-              SECTION 3: SAMPLE PRESETS QUICK-ADD
-              ───────────────────────────────────────────────────────────── */}
-          <div className="pt-2 border-t border-white/[0.06]">
-            <span className="block text-[10px] font-bold text-amber-300 uppercase tracking-wider mb-1.5">
-              {tr('فیلمە پێشوەختەکان (نموونەی خێرا)', 'Sample Presets')}
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {CINEMA_PRESETS.map((p, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col justify-between rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2 hover:border-white/20 transition"
-                >
-                  <div>
-                    <span className="block text-[8px] font-black uppercase text-amber-400">
-                      {p.badge}
-                    </span>
-                    <span className="block text-[10px] font-bold text-white truncate mt-0.5">
-                      {p.title}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleSavePresetToRoom(p)}
-                      className="flex-1 rounded-lg bg-amber-500/15 border border-amber-400/30 py-1 text-[10px] font-black text-amber-300 hover:bg-amber-500/25 transition"
-                    >
-                      + {tr('پاشەکەوت', 'Save')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPreset(p)}
-                      className="rounded-lg bg-white/10 px-2 py-1 text-[10px] font-bold text-white hover:bg-white/20 transition"
-                    >
-                      {tr('دانان', 'Load')}
-                    </button>
-                  </div>
+                    );
+                  })}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          ) : (
+            /* ── VIEW 1: ALL FOLDERS GRID WITH POSTER IMAGES ── */
+            <div className="space-y-3">
+              {/* Search & Category Filter Bar */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={tr('گەڕان بۆ ناوی فیلم یان زنجیرە...', 'Search movies or series...')}
+                    className="w-full rounded-2xl border border-white/10 bg-black/50 pr-9 pl-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400/60"
+                  />
+                </div>
 
-          {/* Optional Inline Preview */}
-          {previewTest && videoUrl && (
-            <div className="rounded-2xl border border-white/[0.08] bg-black p-2 overflow-hidden">
-              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1 px-1">
-                <span>{tr('پێشبینینی ڤیدیۆ', 'Live Preview')}</span>
-                <span className="text-emerald-400 font-bold">{tr('چالاکە', 'Online')}</span>
+                {categories.length > 0 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategory('ALL')}
+                      className={`shrink-0 rounded-xl px-3 py-1 text-[10px] font-black transition ${
+                        selectedCategory === 'ALL'
+                          ? 'bg-gradient-to-r from-amber-400 to-rose-500 text-black shadow-md'
+                          : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      {tr('هەموو فیلمەکان', 'All')} ({folders.length})
+                    </button>
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`shrink-0 rounded-xl px-3 py-1 text-[10px] font-bold transition ${
+                          selectedCategory === cat
+                            ? 'bg-gradient-to-r from-amber-400 to-rose-500 text-black shadow-md'
+                            : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950">
-                <video
-                  ref={previewVideoRef}
-                  key={videoUrl}
-                  src={videoUrl}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="h-full w-full object-contain"
-                >
-                  <source src={videoUrl} type="video/mp4" />
-                </video>
-              </div>
+
+              {/* Movie Folders Poster Grid */}
+              {filteredFolders.length === 0 ? (
+                <div className="text-center py-10 px-4 rounded-3xl border border-dashed border-white/10 bg-white/[0.02]">
+                  <FolderOpen className="h-10 w-10 text-amber-400/40 mx-auto mb-2" />
+                  <p className="text-xs font-bold text-slate-200">
+                    {tr('هیچ فۆڵدەرێکی فیلم نەدۆزرایەوە', 'No movie folders available yet')}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {tr(
+                      'تەنها ئەدمین لە پانێڵی ئەدمینەوە دەتوانێت فۆڵدەری فیلم و ئەڵقەکان زیاد بکات.',
+                      'Only Admins can add movie folders and episodes from the Admin Panel.',
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {filteredFolders.map((folder) => {
+                    const hasActiveEpisode = Boolean(
+                      cinemaState?.isActive &&
+                        folder.episodes.some(
+                          (ep) => ep.videoUrl.trim() === cinemaState.videoUrl?.trim(),
+                        ),
+                    );
+
+                    return (
+                      <div
+                        key={folder.id}
+                        onClick={() => setSelectedFolderId(folder.id)}
+                        className={`group relative flex flex-col overflow-hidden rounded-2xl border transition-all duration-300 hover:-translate-y-1 cursor-pointer ${
+                          hasActiveEpisode
+                            ? 'border-emerald-400/70 bg-slate-900/90 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                            : 'border-white/10 bg-white/[0.03] hover:border-amber-400/50 hover:shadow-[0_10px_25px_rgba(0,0,0,0.7)]'
+                        }`}
+                      >
+                        {/* Movie Poster Image */}
+                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-950">
+                          {folder.posterUrl ? (
+                            <img
+                              src={folder.posterUrl}
+                              alt={folder.title}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-purple-950 via-slate-900 to-rose-950 p-3 text-center">
+                              <Film className="h-10 w-10 text-amber-400/60 mb-1.5" />
+                              <span className="text-[11px] font-black text-white/80 line-clamp-2">
+                                {folder.title}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Dark bottom vignette */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/25 to-transparent" />
+
+                          {/* Category Badge */}
+                          {folder.category && (
+                            <span className="absolute top-2 right-2 rounded-lg bg-black/75 backdrop-blur-md border border-white/15 px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                              {folder.category}
+                            </span>
+                          )}
+
+                          {/* Episode Count Badge */}
+                          <span className="absolute top-2 left-2 flex items-center gap-1 rounded-lg bg-purple-600/90 backdrop-blur-md px-2 py-0.5 text-[9px] font-black text-white shadow-md">
+                            <Layers className="h-2.5 w-2.5" />
+                            <span>
+                              {folder.episodes.length} {tr('ئەڵقە', 'Ep')}
+                            </span>
+                          </span>
+
+                          {hasActiveEpisode && (
+                            <span className="absolute bottom-11 left-2 right-2 flex items-center justify-center gap-1 rounded-lg bg-emerald-500/90 py-0.5 text-[9px] font-black text-black shadow">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              <span>{tr('ئێستا پەخش دەکرێت', 'Playing Now')}</span>
+                            </span>
+                          )}
+
+                          {/* Title & Open Folder CTA overlaid at bottom of poster */}
+                          <div className="absolute bottom-0 inset-x-0 p-2.5">
+                            <h4 className="text-xs font-black text-white truncate drop-shadow">
+                              {folder.title}
+                            </h4>
+                            <div className="mt-1.5 flex items-center justify-between">
+                              <span className="text-[9px] font-semibold text-slate-300">
+                                {tr('کردنەوەی ئەڵقەکان', 'View Episodes')}
+                              </span>
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-black shadow group-hover:scale-110 transition-transform">
+                                <Play className="h-3 w-3 fill-current" />
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
           {/* ─────────────────────────────────────────────────────────────
-              SECTION 4: ADMIN CONTROLS (SEATS & STOP CINEMA)
+              ADMIN / HOST CONTROLS (SEATS & STOP CINEMA)
               ───────────────────────────────────────────────────────────── */}
-          {isAdmin && (
-            <div className="space-y-3 pt-2 border-t border-white/[0.08]">
+          {isAdminOrHost && (
+            <div className="space-y-3 pt-3 border-t border-white/[0.08]">
               {/* Seat Count Selector */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -691,7 +544,7 @@ export default function CinemaConfigModal({
                   <div className="flex items-center rounded-2xl border border-white/10 bg-black/60 p-1">
                     <button
                       type="button"
-                      onClick={() => setSeatCount((prev) => Math.max(1, prev - 1))}
+                      onClick={() => handleSeatCountChange(seatCount - 1)}
                       className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-rose-600 transition font-black text-xs active:scale-95"
                     >
                       -
@@ -699,7 +552,7 @@ export default function CinemaConfigModal({
                     <span className="px-2.5 text-xs font-black text-amber-300">{seatCount}</span>
                     <button
                       type="button"
-                      onClick={() => setSeatCount((prev) => Math.min(16, prev + 1))}
+                      onClick={() => handleSeatCountChange(seatCount + 1)}
                       className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/10 text-white hover:bg-emerald-600 transition font-black text-xs active:scale-95"
                     >
                       +
@@ -711,7 +564,7 @@ export default function CinemaConfigModal({
                       <button
                         key={num}
                         type="button"
-                        onClick={() => setSeatCount(num)}
+                        onClick={() => handleSeatCountChange(num)}
                         className={`rounded-xl px-2 py-1 text-[10px] font-black transition ${
                           seatCount === num
                             ? 'bg-amber-400 text-black shadow-md shadow-amber-400/30'

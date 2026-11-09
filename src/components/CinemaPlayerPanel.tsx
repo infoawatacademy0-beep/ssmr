@@ -34,18 +34,28 @@ import {
   Zap,
   MoreVertical,
   Wifi,
+  FolderOpen,
+  Layers,
+  Check,
+  Search,
 } from 'lucide-react';
-import type { RoomCinemaState, Seat, User, AudienceMember, ChatMessage, SavedCinemaMovie } from '../types';
+import type {
+  RoomCinemaState,
+  Seat,
+  User,
+  AudienceMember,
+  ChatMessage,
+  CinemaFolder,
+  CinemaEpisode,
+} from '../types';
 import { getVipAvatarClass } from '../types';
 import { AvatarFrameOverlay } from './AvatarFrameOverlay';
 import {
   updateCinemaPlayback,
   updateCinemaDuration,
   updateCinemaSeatCount,
-  subscribeToCinemaPlaylist,
-  switchCinemaMovie,
-  deleteCinemaMovie,
-  saveCinemaMovie,
+  subscribeToCinemaFolders,
+  playCinemaEpisodeInRoom,
 } from '../services';
 import { useLanguage } from '../contexts';
 import { renderTextWithLinks } from '../utils/linkify';
@@ -150,12 +160,11 @@ export default function CinemaPlayerPanel({
   const hasSyncedInitialRef = useRef<boolean>(false);
   const lastHandledSeekSeqRef = useRef<number>(cinemaState.seekSeq || 0);
 
-  // Saved Movies Playlist State
+  // Global Admin Cinema Folders & Episodes State
   const [isPlaylistDrawerOpen, setIsPlaylistDrawerOpen] = useState(false);
-  const [playlist, setPlaylist] = useState<SavedCinemaMovie[]>([]);
-  const [newMovieUrl, setNewMovieUrl] = useState('');
-  const [newMovieTitle, setNewMovieTitle] = useState('');
-  const [isSavingMovie, setIsSavingMovie] = useState(false);
+  const [cinemaFolders, setCinemaFolders] = useState<CinemaFolder[]>([]);
+  const [selectedDrawerFolderId, setSelectedDrawerFolderId] = useState<string | null>(null);
+  const [drawerSearch, setDrawerSearch] = useState('');
   const [playlistToast, setPlaylistToast] = useState<string | null>(null);
 
   // Top Section Menu & Network MS (Ping) State
@@ -194,76 +203,40 @@ export default function CinemaPlayerPanel({
     };
   }, []);
 
-  // Subscribe to room's saved cinema movies playlist
+  // Subscribe to global Admin-managed Cinema Folders
   useEffect(() => {
-    const unsub = subscribeToCinemaPlaylist(roomId, (movies) => {
-      setPlaylist(movies);
+    const unsub = subscribeToCinemaFolders((folders) => {
+      setCinemaFolders(folders);
     });
     return () => unsub();
-  }, [roomId]);
+  }, []);
 
-  const handleSwitchMovieFromDrawer = async (movie: SavedCinemaMovie) => {
+  const handlePlayEpisodeFromDrawer = async (
+    folder: CinemaFolder,
+    episode: CinemaEpisode,
+  ) => {
     try {
-      await switchCinemaMovie(roomId, movie, {
-        uid: currentUser.uid,
-        username: currentUser.username,
-      });
-      localStorage.setItem('ssmr_last_cinema_url', movie.url);
-      localStorage.setItem('ssmr_last_cinema_title', movie.title);
-      setPlaylistToast(tr(`فیلمەکە گۆڕدرا بۆ: ${movie.title}`, `Switched to: ${movie.title}`));
+      await playCinemaEpisodeInRoom(
+        roomId,
+        folder,
+        episode,
+        {
+          uid: currentUser.uid,
+          username: currentUser.username,
+        },
+        true,
+        cinemaState?.seatCount || 5,
+      );
+      setPlaylistToast(
+        tr(
+          `فیلمەکە گۆڕدرا بۆ: ${folder.title} - ${episode.title}`,
+          `Switched to: ${folder.title} - ${episode.title}`,
+        ),
+      );
       setTimeout(() => setPlaylistToast(null), 3000);
       setIsPlaylistDrawerOpen(false);
     } catch (err: any) {
-      console.warn('Failed to switch movie:', err);
-    }
-  };
-
-  const handleDeleteMovieFromDrawer = async (movie: SavedCinemaMovie) => {
-    const isAdmin = Boolean(isHost || currentUser.isAdmin);
-    if (!isAdmin) return;
-    if (
-      !window.confirm(
-        tr(
-          `ئایا دڵنیایت لە سڕینەوەی فیلمی "${movie.title}" لە ژوورەکەدا؟`,
-          `Are you sure you want to delete "${movie.title}"?`,
-        ),
-      )
-    ) {
-      return;
-    }
-    try {
-      await deleteCinemaMovie(roomId, movie.id);
-      setPlaylistToast(tr('فیلمەکە سڕدرایەوە', 'Movie deleted'));
-      setTimeout(() => setPlaylistToast(null), 2500);
-    } catch (err: any) {
-      console.warn('Failed to delete movie:', err);
-    }
-  };
-
-  const handleAddNewMovieToRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanUrl = newMovieUrl.trim().replace(/^['"<]+|['">]+$/g, '');
-    if (!cleanUrl) return;
-
-    setIsSavingMovie(true);
-    try {
-      const finalTitle = newMovieTitle.trim() || tr('فیلمی سینەمایی', 'Cinema Movie');
-      await saveCinemaMovie(roomId, {
-        title: finalTitle,
-        url: cleanUrl,
-        addedByUid: currentUser.uid,
-        addedByName: currentUser.username,
-      });
-      localStorage.setItem('ssmr_last_cinema_url', cleanUrl);
-      localStorage.setItem('ssmr_last_cinema_title', finalTitle);
-      setNewMovieUrl('');
-      setNewMovieTitle('');
-      setPlaylistToast(tr('فیلمەکە بە سەرکەوتوویی پاشەکەوت کرا', 'Movie saved'));
-      setTimeout(() => setPlaylistToast(null), 2500);
-    } catch (err: any) {
-      console.warn('Failed to save movie:', err);
-    } finally {
-      setIsSavingMovie(false);
+      console.warn('Failed to play episode:', err);
     }
   };
 
@@ -955,11 +928,11 @@ export default function CinemaPlayerPanel({
                 >
                   <div className="flex items-center gap-2.5">
                     <Film className="h-4 w-4 text-amber-400 shrink-0" />
-                    <span>{tr('قایمەی فیلمەکان', 'Saved Movies')}</span>
+                    <span>{tr('فۆڵدەری فیلمەکان', 'Movie Folders')}</span>
                   </div>
-                  {playlist.length > 0 && (
+                  {cinemaFolders.length > 0 && (
                     <span className="rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 text-[10px] font-black">
-                      {playlist.length}
+                      {cinemaFolders.length}
                     </span>
                   )}
                 </button>
@@ -2318,10 +2291,10 @@ export default function CinemaPlayerPanel({
                 className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/25 transition active:scale-95"
               >
                 <Film className="h-3 w-3" />
-                <span>{tr('قایمەی فیلمەکان', 'Movie Playlist')}</span>
-                {playlist.length > 0 && (
+                <span>{tr('فۆڵدەری فیلمەکان', 'Movie Folders')}</span>
+                {cinemaFolders.length > 0 && (
                   <span className="rounded-full bg-amber-400/25 px-1.5 py-0.2 text-[9px] font-black text-amber-300">
-                    {playlist.length}
+                    {cinemaFolders.length}
                   </span>
                 )}
               </button>
@@ -2334,7 +2307,7 @@ export default function CinemaPlayerPanel({
         </>
       )}
 
-      {/* In-Player Playlist Overlay (Works seamlessly in Fullscreen & Stage on all mobile screens) */}
+      {/* In-Player Movie Folders & Episodes Overlay (Works seamlessly in Fullscreen & Stage) */}
       <AnimatePresence>
         {isPlaylistDrawerOpen && (
           <motion.div
@@ -2349,12 +2322,12 @@ export default function CinemaPlayerPanel({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative flex flex-col w-full max-w-lg max-h-[85vh] sm:max-h-[88vh] rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#180e1a] via-[#100a16] to-[#08050c] shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(245,158,11,0.2)] text-white overflow-hidden"
+              className="relative flex flex-col w-full max-w-xl max-h-[85vh] sm:max-h-[88vh] rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#180e1a] via-[#100a16] to-[#08050c] shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_30px_rgba(245,158,11,0.2)] text-white overflow-hidden"
             >
               {/* Glow Bar */}
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600 z-10" />
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-purple-600 z-10" />
 
-              {/* Sticky Modal Header with Prominent Close Button */}
+              {/* Sticky Modal Header */}
               <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/[0.08] bg-[#180e1a]/95 backdrop-blur-md shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-black shadow font-bold">
@@ -2363,22 +2336,21 @@ export default function CinemaPlayerPanel({
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h3 className="font-display text-sm font-black text-white truncate">
-                        {tr('قایمەی فیلمە پاشەکەوتکراوەکان', 'Saved Movies Playlist')}
+                        {tr('فۆڵدەری فیلم و زنجیرەکان', 'Cinema Folders & Episodes')}
                       </h3>
                       <span className="rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.2 text-[9px] font-black text-amber-300">
-                        {playlist.length}
+                        {cinemaFolders.length} {tr('فۆڵدەر', 'Folders')}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 truncate max-w-[210px] sm:max-w-xs mt-0.5">
+                    <p className="text-[10px] text-slate-400 truncate max-w-[230px] sm:max-w-xs mt-0.5">
                       {tr(
-                        'هەموو ئەندامێک دەتوانێت فیلم بگۆڕێت · تەنها ئەدمین دەتوانێت بیسڕێتەوە',
-                        'Members can switch movies · Only admin can delete',
+                        'فۆڵدەری هەر فیلمێک بکەرەوە بۆ بینینی هەموو ئەڵقەکان و سەیرکردنی',
+                        'Open any movie folder to watch all its episodes',
                       )}
                     </p>
                   </div>
                 </div>
 
-                {/* Prominent High-Visibility Close Button */}
                 <button
                   type="button"
                   onClick={() => setIsPlaylistDrawerOpen(false)}
@@ -2390,137 +2362,220 @@ export default function CinemaPlayerPanel({
               </div>
 
               {playlistToast && (
-                <div className="mx-4 sm:mx-5 mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 animate-in fade-in shrink-0">
+                <div className="mx-4 sm:mx-5 mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-300 shrink-0">
                   <Check className="h-3.5 w-3.5" />
                   <span>{playlistToast}</span>
                 </div>
               )}
 
-              {/* Playlist Scroll Area */}
-              <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3 space-y-2 overscroll-contain min-h-0">
-                {playlist.length === 0 ? (
-                  <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
-                    <Film className="h-8 w-8 text-slate-600 mx-auto mb-1.5" />
-                    <p className="text-xs font-bold text-slate-300">
-                      {tr('هیچ فیلمێک پاشەکەوت نەکراوە', 'No movies saved in this room yet')}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      {tr('دەتوانیت لە خوارەوە بەستەری فیلم زیاد بکەیت', 'You can add a movie link below')}
-                    </p>
-                  </div>
-                ) : (
-                  playlist.map((movie) => {
-                    const isCurrentlyPlaying = Boolean(
-                      cinemaState?.isActive &&
-                      cinemaState.videoUrl &&
-                      cinemaState.videoUrl.trim() === movie.url.trim(),
-                    );
+              {/* Scrollable Folder Grid OR Folder Episodes List */}
+              <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3.5 space-y-3 overscroll-contain min-h-0">
+                {(() => {
+                  const activeDrawerFolder =
+                    cinemaFolders.find((f) => f.id === selectedDrawerFolderId) || null;
 
+                  if (activeDrawerFolder) {
                     return (
-                      <div
-                        key={movie.id}
-                        className={`flex items-center justify-between gap-3 rounded-2xl border p-2.5 transition ${
-                          isCurrentlyPlaying
-                            ? 'border-emerald-500/50 bg-gradient-to-r from-emerald-950/40 to-slate-900/60 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                            : 'border-white/[0.08] bg-white/[0.03] hover:border-amber-400/30 hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="font-bold text-xs text-white truncate max-w-[200px] sm:max-w-xs">
-                              {movie.title}
-                            </h4>
-                            {isCurrentlyPlaying && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.2 text-[8px] font-black text-emerald-300 shrink-0">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                                {tr('پەخش دەکرێت', 'Playing')}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[9px] text-slate-400 truncate mt-0.5">
-                            {tr('زیادکراوە لەلایەن', 'By')}: <span className="text-slate-300 font-semibold">{movie.addedByName}</span>
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            disabled={isCurrentlyPlaying}
-                            onClick={() => handleSwitchMovieFromDrawer(movie)}
-                            className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-black transition active:scale-95 ${
-                              isCurrentlyPlaying
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default'
-                                : 'bg-gradient-to-r from-amber-400 to-yellow-400 text-black shadow hover:brightness-110'
-                            }`}
-                          >
-                            <Play className="h-3 w-3 fill-current" />
-                            <span>{isCurrentlyPlaying ? tr('چالاکە', 'Active') : tr('پەخشکردن', 'Play')}</span>
-                          </button>
-
-                          {(isHost || currentUser.isAdmin) && (
+                      <div className="space-y-3">
+                        {/* Back to Folders & Movie Header */}
+                        <div className="flex items-center justify-between gap-2.5 rounded-2xl border border-amber-500/25 bg-black/50 p-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <button
                               type="button"
-                              onClick={() => handleDeleteMovieFromDrawer(movie)}
-                              title={tr('سڕینەوە (تەنها ئەدمین)', 'Delete (Admin only)')}
-                              className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/[0.04] text-slate-400 hover:bg-rose-600 hover:text-white transition"
+                              onClick={() => setSelectedDrawerFolderId(null)}
+                              className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 px-2.5 py-1.5 text-xs font-black text-white transition active:scale-95 shrink-0"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <ArrowLeft className="h-3.5 w-3.5" />
+                              <span>{tr('گەڕانەوە', 'Back')}</span>
                             </button>
-                          )}
+
+                            <div className="h-14 w-10 shrink-0 overflow-hidden rounded-xl border border-amber-400/30 bg-slate-900">
+                              {activeDrawerFolder.posterUrl ? (
+                                <img
+                                  src={activeDrawerFolder.posterUrl}
+                                  alt={activeDrawerFolder.title}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-purple-950 text-amber-300">
+                                  <Film className="h-4 w-4" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <h4 className="text-xs sm:text-sm font-black text-white truncate">
+                                {activeDrawerFolder.title}
+                              </h4>
+                              <p className="text-[10px] text-amber-300 font-semibold mt-0.5">
+                                {activeDrawerFolder.episodes.length} {tr('ئەڵقە بەردەستە', 'episodes')}
+                              </p>
+                            </div>
+                          </div>
                         </div>
+
+                        {activeDrawerFolder.episodes.length === 0 ? (
+                          <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+                            <Film className="h-8 w-8 text-slate-600 mx-auto mb-1.5" />
+                            <p className="text-xs font-bold text-slate-300">
+                              {tr('هیچ ئەڵقەیەک لەم فۆڵدەرەدا نییە', 'No episodes in this folder yet')}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {activeDrawerFolder.episodes.map((ep) => {
+                              const isPlayingThis = Boolean(
+                                cinemaState?.isActive &&
+                                  cinemaState.videoUrl &&
+                                  cinemaState.videoUrl.trim() === ep.videoUrl.trim(),
+                              );
+
+                              return (
+                                <div
+                                  key={ep.id}
+                                  onClick={() => handlePlayEpisodeFromDrawer(activeDrawerFolder, ep)}
+                                  className={`flex items-center justify-between gap-2.5 rounded-2xl border p-2.5 cursor-pointer transition ${
+                                    isPlayingThis
+                                      ? 'border-emerald-500/60 bg-gradient-to-r from-emerald-950/60 to-slate-900/70'
+                                      : 'border-white/10 bg-white/[0.04] hover:border-amber-400/50 hover:bg-white/[0.08]'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    <div className="relative h-11 w-9 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-slate-900">
+                                      {ep.posterUrl || activeDrawerFolder.posterUrl ? (
+                                        <img
+                                          src={ep.posterUrl || activeDrawerFolder.posterUrl}
+                                          alt={ep.title}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-amber-500/20 text-amber-300">
+                                          <Film className="h-3.5 w-3.5" />
+                                        </div>
+                                      )}
+                                      <span className="absolute bottom-0 inset-x-0 bg-black/80 text-center font-mono text-[8px] font-black text-amber-300">
+                                        #{ep.episodeNumber}
+                                      </span>
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <h5 className="text-xs font-black text-white truncate">
+                                        {ep.title}
+                                      </h5>
+                                      <p className="text-[9px] text-slate-400 truncate mt-0.5">
+                                        {isPlayingThis
+                                          ? tr('ئێستا پەخش دەکرێت', 'Playing Now')
+                                          : `${tr('ئەڵقەی', 'Ep')} ${ep.episodeNumber}`}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePlayEpisodeFromDrawer(activeDrawerFolder, ep);
+                                    }}
+                                    className={`flex items-center gap-1 rounded-xl px-2.5 py-1 text-[10px] font-black transition shrink-0 ${
+                                      isPlayingThis
+                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                        : 'bg-gradient-to-r from-amber-400 to-yellow-400 text-black shadow hover:brightness-110'
+                                    }`}
+                                  >
+                                    <Play className="h-3 w-3 fill-current" />
+                                    <span>{isPlayingThis ? tr('چالاکە', 'Active') : tr('پەخشکردن', 'Play')}</span>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
-                  })
-                )}
+                  }
+
+                  const visibleFolders = cinemaFolders.filter((f) => {
+                    const q = drawerSearch.trim().toLowerCase();
+                    if (!q) return true;
+                    return (
+                      f.title.toLowerCase().includes(q) ||
+                      (f.category || '').toLowerCase().includes(q)
+                    );
+                  });
+
+                  return (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          value={drawerSearch}
+                          onChange={(e) => setDrawerSearch(e.target.value)}
+                          placeholder={tr('گەڕان بۆ ناوی فیلم یان زنجیرە...', 'Search movie folders...')}
+                          className="w-full rounded-xl border border-white/10 bg-black/50 pr-8 pl-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400/60"
+                        />
+                      </div>
+
+                      {visibleFolders.length === 0 ? (
+                        <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02]">
+                          <FolderOpen className="h-8 w-8 text-slate-600 mx-auto mb-1.5" />
+                          <p className="text-xs font-bold text-slate-300">
+                            {tr('هیچ فۆڵدەرێکی فیلم نەدۆزرایەوە', 'No movie folders found')}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {visibleFolders.map((folder) => (
+                            <div
+                              key={folder.id}
+                              onClick={() => setSelectedDrawerFolderId(folder.id)}
+                              className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] hover:border-amber-400/50 transition-all cursor-pointer"
+                            >
+                              <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-950">
+                                {folder.posterUrl ? (
+                                  <img
+                                    src={folder.posterUrl}
+                                    alt={folder.title}
+                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-purple-950 via-slate-900 to-rose-950 p-2 text-center">
+                                    <Film className="h-8 w-8 text-amber-400/60 mb-1" />
+                                    <span className="text-[10px] font-black text-white/80 line-clamp-2">
+                                      {folder.title}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/25 to-transparent" />
+
+                                {folder.category && (
+                                  <span className="absolute top-1.5 right-1.5 rounded-md bg-black/75 border border-white/15 px-1.5 py-0.5 text-[8px] font-bold text-amber-300">
+                                    {folder.category}
+                                  </span>
+                                )}
+
+                                <span className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-md bg-purple-600/90 px-1.5 py-0.5 text-[8px] font-black text-white">
+                                  <Layers className="h-2.5 w-2.5" />
+                                  <span>{folder.episodes.length} {tr('ئەڵقە', 'Ep')}</span>
+                                </span>
+
+                                <div className="absolute bottom-0 inset-x-0 p-2">
+                                  <h4 className="text-xs font-black text-white truncate">
+                                    {folder.title}
+                                  </h4>
+                                  <p className="text-[9px] text-amber-300 font-semibold mt-0.5">
+                                    {tr('کردنەوەی هەموو ئەڵقەکان', 'Open all episodes')}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
-
-              {/* Bottom Quick-Add Movie Section (Fixed at bottom of modal) */}
-              <form onSubmit={handleAddNewMovieToRoom} className="p-3 sm:p-4 border-t border-white/[0.08] bg-black/50 shrink-0 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-300 flex items-center gap-1">
-                    <Plus className="h-3 w-3 text-amber-400" />
-                    <span>{tr('زیادکردنی فیلم بۆ قایمەی ژوور', 'Add Movie to Room')}</span>
-                  </span>
-                  {(isHost || currentUser.isAdmin) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsPlaylistDrawerOpen(false);
-                        onOpenConfigModal();
-                      }}
-                      className="text-[10px] text-amber-300 hover:underline font-bold"
-                    >
-                      {tr('ڕێکخستنە پێشکەوتووەکان...', 'Advanced Settings...')}
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    required
-                    value={newMovieUrl}
-                    onChange={(e) => setNewMovieUrl(e.target.value)}
-                    placeholder={tr('بەستەری فیلم (https://...mp4)', 'Video URL (https://...mp4)')}
-                    className="flex-1 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
-                  />
-                  <input
-                    type="text"
-                    maxLength={50}
-                    value={newMovieTitle}
-                    onChange={(e) => setNewMovieTitle(e.target.value)}
-                    placeholder={tr('ناوی فیلم', 'Title')}
-                    className="w-24 sm:w-32 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-amber-400"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSavingMovie || !newMovieUrl.trim()}
-                    className="rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 text-black px-3.5 py-2 text-xs font-black hover:brightness-110 active:scale-95 transition shadow disabled:opacity-40 shrink-0"
-                  >
-                    + {tr('پاشەکەوت', 'Save')}
-                  </button>
-                </div>
-              </form>
             </motion.div>
           </motion.div>
         )}

@@ -8,7 +8,13 @@ import {
   type Unsubscribe,
 } from 'firebase/database';
 import { database } from '../config/firebase';
-import type { RoomCinemaState, StartCinemaPayload, SavedCinemaMovie } from '../types';
+import type {
+  RoomCinemaState,
+  StartCinemaPayload,
+  SavedCinemaMovie,
+  CinemaEpisode,
+  CinemaFolder,
+} from '../types';
 import { updateRoomSeatCount } from './roomService';
 
 /**
@@ -381,5 +387,271 @@ export async function switchCinemaMovie(
     );
   } catch (err) {
     console.warn('Could not broadcast movie switch message:', err);
+  }
+}
+
+// ============================================================================
+// GLOBAL ADMIN CINEMA FOLDERS & EPISODES CATALOG (`/cinemaCatalog/folders`)
+// ============================================================================
+
+/**
+ * Normalizes raw episodes array or object into sorted CinemaEpisode[].
+ */
+export function normalizeCinemaEpisodes(raw: unknown): CinemaEpisode[] {
+  if (!raw) return [];
+  const entries = Array.isArray(raw)
+    ? raw.map((item, idx) => [item?.id || `ep_${idx}`, item] as const)
+    : typeof raw === 'object'
+      ? Object.entries(raw as Record<string, Partial<CinemaEpisode>>)
+      : [];
+
+  return entries
+    .filter(([, val]) => val && typeof val === 'object' && String(val.videoUrl || '').trim().length > 0)
+    .map(([key, val], index) => ({
+      id: String(val?.id || key || `ep_${index + 1}`),
+      title: String(val?.title || `ئەڵقەی ${index + 1}`).trim(),
+      episodeNumber: Number(val?.episodeNumber) || index + 1,
+      videoUrl: String(val?.videoUrl || '').trim(),
+      ...(val?.posterUrl ? { posterUrl: String(val.posterUrl).trim() } : {}),
+      addedAt: Number(val?.addedAt) || Date.now(),
+    }))
+    .sort((a, b) => {
+      if (a.episodeNumber !== b.episodeNumber) {
+        return a.episodeNumber - b.episodeNumber;
+      }
+      return a.addedAt - b.addedAt;
+    });
+}
+
+/**
+ * Normalizes raw cinema folders object from RTDB into ordered CinemaFolder[].
+ */
+export function normalizeCinemaFolders(raw: unknown): CinemaFolder[] {
+  if (!raw || typeof raw !== 'object') return [];
+  return Object.entries(raw as Record<string, Record<string, any>>)
+    .filter(([, val]) => val && typeof val === 'object')
+    .map(([key, val]) => {
+      const episodes = normalizeCinemaEpisodes(val.episodes);
+      return {
+        id: String(val.id || key),
+        title: String(val.title || 'فۆڵدەری بێ‌ناونیشان').trim(),
+        category: val.category ? String(val.category).trim() : 'گشتی',
+        posterUrl: String(val.posterUrl || '').trim(),
+        ...(val.description ? { description: String(val.description).trim() } : {}),
+        episodes,
+        createdAt: Number(val.createdAt) || Date.now(),
+        updatedAt: Number(val.updatedAt) || Number(val.createdAt) || Date.now(),
+      };
+    })
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/**
+ * Subscribes in real-time to the global Admin-managed Cinema Folders & Episodes library.
+ */
+export function subscribeToCinemaFolders(
+  onUpdate: (folders: CinemaFolder[]) => void,
+): Unsubscribe {
+  const foldersRef = ref(database, 'cinemaCatalog/folders');
+  return onValue(foldersRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      onUpdate([]);
+      return;
+    }
+    const list = normalizeCinemaFolders(snapshot.val());
+    onUpdate(list);
+  });
+}
+
+/**
+ * Creates or updates a global Cinema Folder (Admin Only).
+ */
+export async function saveCinemaFolder(folderData: {
+  id?: string;
+  title: string;
+  category?: string;
+  posterUrl: string;
+  description?: string;
+  episodes?: CinemaEpisode[];
+}): Promise<CinemaFolder> {
+  const cleanTitle = folderData.title.trim();
+  if (!cleanTitle) {
+    throw new Error('ناوی فۆڵدەر / فیلم پێویستە بنووسرێت');
+  }
+
+  const foldersListRef = ref(database, 'cinemaCatalog/folders');
+  const targetRef = folderData.id
+    ? ref(database, `cinemaCatalog/folders/${folderData.id}`)
+    : push(foldersListRef);
+  const folderId =
+    folderData.id ||
+    targetRef.key ||
+    `folder_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  let existingCreatedAt = Date.now();
+  let existingEpisodes: Record<string, CinemaEpisode> = {};
+
+  if (folderData.id) {
+    const snap = await get(targetRef);
+    if (snap.exists()) {
+      const val = snap.val();
+      if (val?.createdAt) existingCreatedAt = Number(val.createdAt);
+      if (val?.episodes && typeof val.episodes === 'object') {
+        existingEpisodes = val.episodes;
+      }
+    }
+  }
+
+  if (folderData.episodes) {
+    existingEpisodes = {};
+    for (const ep of folderData.episodes) {
+      existingEpisodes[ep.id] = ep;
+    }
+  }
+
+  const now = Date.now();
+  const payloadToSave: Record<string, any> = {
+    id: folderId,
+    title: cleanTitle,
+    category: (folderData.category || 'گشتی').trim(),
+    posterUrl: (folderData.posterUrl || '').trim(),
+    ...(folderData.description ? { description: folderData.description.trim() } : {}),
+    episodes: existingEpisodes,
+    createdAt: existingCreatedAt,
+    updatedAt: now,
+  };
+
+  await set(ref(database, `cinemaCatalog/folders/${folderId}`), payloadToSave);
+
+  return {
+    id: folderId,
+    title: payloadToSave.title,
+    category: payloadToSave.category,
+    posterUrl: payloadToSave.posterUrl,
+    ...(payloadToSave.description ? { description: payloadToSave.description } : {}),
+    episodes: normalizeCinemaEpisodes(existingEpisodes),
+    createdAt: existingCreatedAt,
+    updatedAt: now,
+  };
+}
+
+/**
+ * Deletes an entire Cinema Folder and all its episodes from the global catalog (Admin Only).
+ */
+export async function deleteCinemaFolder(folderId: string): Promise<void> {
+  if (!folderId) return;
+  const folderRef = ref(database, `cinemaCatalog/folders/${folderId}`);
+  await set(folderRef, null);
+}
+
+/**
+ * Adds or updates an episode/movie inside a global Cinema Folder (Admin Only).
+ */
+export async function addEpisodeToCinemaFolder(
+  folderId: string,
+  episodeData: {
+    id?: string;
+    title: string;
+    videoUrl: string;
+    episodeNumber?: number;
+    posterUrl?: string;
+  },
+): Promise<CinemaEpisode> {
+  const cleanUrl = episodeData.videoUrl.trim();
+  if (!cleanUrl) {
+    throw new Error('لینکی ڤیدیۆی ئەڵقە / فیلم پێویستە');
+  }
+
+  const episodesRef = ref(database, `cinemaCatalog/folders/${folderId}/episodes`);
+  const snap = await get(episodesRef);
+  const currentList = snap.exists() ? normalizeCinemaEpisodes(snap.val()) : [];
+
+  const epRef = episodeData.id
+    ? ref(database, `cinemaCatalog/folders/${folderId}/episodes/${episodeData.id}`)
+    : push(episodesRef);
+
+  const epId =
+    episodeData.id ||
+    epRef.key ||
+    `ep_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  const nextEpNumber =
+    episodeData.episodeNumber && episodeData.episodeNumber > 0
+      ? episodeData.episodeNumber
+      : currentList.length > 0
+        ? Math.max(...currentList.map((e) => e.episodeNumber)) + 1
+        : 1;
+
+  const cleanTitle = (episodeData.title || `ئەڵقەی ${nextEpNumber}`).trim();
+
+  const savedEpisode: CinemaEpisode = {
+    id: epId,
+    title: cleanTitle,
+    episodeNumber: nextEpNumber,
+    videoUrl: cleanUrl,
+    ...(episodeData.posterUrl?.trim() ? { posterUrl: episodeData.posterUrl.trim() } : {}),
+    addedAt: Date.now(),
+  };
+
+  await set(ref(database, `cinemaCatalog/folders/${folderId}/episodes/${epId}`), savedEpisode);
+  await update(ref(database, `cinemaCatalog/folders/${folderId}`), {
+    updatedAt: Date.now(),
+  });
+
+  return savedEpisode;
+}
+
+/**
+ * Deletes a single episode from a global Cinema Folder (Admin Only).
+ */
+export async function deleteEpisodeFromCinemaFolder(
+  folderId: string,
+  episodeId: string,
+): Promise<void> {
+  if (!folderId || !episodeId) return;
+  await set(ref(database, `cinemaCatalog/folders/${folderId}/episodes/${episodeId}`), null);
+  await update(ref(database, `cinemaCatalog/folders/${folderId}`), {
+    updatedAt: Date.now(),
+  });
+}
+
+/**
+ * Plays a specific episode/movie from a CinemaFolder inside the room.
+ */
+export async function playCinemaEpisodeInRoom(
+  roomId: string,
+  folder: CinemaFolder,
+  episode: CinemaEpisode,
+  user: { uid: string; username: string },
+  isCinemaActive: boolean = true,
+  seatCount?: number,
+): Promise<void> {
+  const displayTitle =
+    folder.episodes.length > 1 || episode.title !== folder.title
+      ? `${folder.title} - ${episode.title}`
+      : folder.title;
+
+  if (isCinemaActive) {
+    await setCinemaVideoUrl(roomId, episode.videoUrl, displayTitle, user, seatCount);
+  } else {
+    await startCinemaMode(roomId, {
+      videoUrl: episode.videoUrl,
+      title: displayTitle,
+      hostUid: user.uid,
+      hostName: user.username,
+      seatCount: seatCount || 5,
+    });
+  }
+
+  try {
+    const { sendRoomMessage } = await import('./roomService');
+    await sendRoomMessage(
+      roomId,
+      'system',
+      'Cinema',
+      `🎬 ${user.username} فیلمی هەڵبژارد: ${displayTitle}`,
+    );
+  } catch (err) {
+    console.warn('Could not broadcast episode switch message:', err);
   }
 }

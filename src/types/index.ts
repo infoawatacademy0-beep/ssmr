@@ -57,5 +57,5 @@ export type { StoryMediaType, Story, StoryGroup } from './story';
 export type { RoomInvite } from './invite';
 export type { ShopItemType, ShopItem, PurchaseRecord } from './shop';
 export type { PkTeam, PkBattleState, PkMode, PkContributor, StartPkBattleOptions } from './pkBattle';
-export type { RoomCinemaState, StartCinemaPayload, SavedCinemaMovie } from './cinema';
+export type { RoomCinemaState, StartCinemaPayload, SavedCinemaMovie, CinemaEpisode, CinemaFolder } from './cinema';
 
