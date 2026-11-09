@@ -2242,7 +2242,9 @@ export default function VoiceRoom() {
               type="button"
               onClick={() => setIsChatExpanded((v) => !v)}
               title={isChatExpanded ? tr('بچووککردنەوەی چات', 'Collapse Chat') : tr('گەورەکردنی چات', 'Expand Chat')}
-              className={`room-nav-btn ${isChatExpanded ? 'room-nav-btn-active' : ''}`}
+              className={`room-nav-btn ${isCinemaMode && !isChatExpanded ? '!border-rose-500/30 !bg-[#190309]/80 !text-amber-200 hover:!border-amber-400/60' : ''} ${
+                isChatExpanded ? (isCinemaMode ? '!bg-amber-500/25 !border-amber-400 !text-amber-300 shadow-[0_0_14px_rgba(245,158,11,0.5)]' : 'room-nav-btn-active') : ''
+              }`}
             >
               <MessageSquare className="h-[22px] w-[22px]" strokeWidth={2.2} />
             </button>
@@ -2275,7 +2277,9 @@ export default function VoiceRoom() {
               type="button"
               onClick={() => setIsRoomMenuOpen(true)}
               title={tr('زیاتر', 'More')}
-              className={`room-nav-btn relative ${isRoomMenuOpen ? 'room-nav-btn-active' : ''}`}
+              className={`room-nav-btn relative ${isCinemaMode && !isRoomMenuOpen ? '!border-rose-500/30 !bg-[#190309]/80 !text-amber-200 hover:!border-amber-400/60' : ''} ${
+                isRoomMenuOpen ? (isCinemaMode ? '!bg-amber-500/25 !border-amber-400 !text-amber-300 shadow-[0_0_14px_rgba(245,158,11,0.5)]' : 'room-nav-btn-active') : ''
+              }`}
             >
               <Menu className="h-[22px] w-[22px]" strokeWidth={2.2} />
               {activeJackarooGame && (
@@ -2286,8 +2290,12 @@ export default function VoiceRoom() {
 
           {/* Message input pill (expands wide when focused/typing so user clearly sees what they wrote) */}
           <div
-            className={`relative flex min-w-0 flex-1 items-center rounded-full border transition-all duration-200 ${
-              isChatInputFocused
+            className={`relative flex min-w-0 flex-1 items-center rounded-full border transition-all duration-300 ${
+              isCinemaMode
+                ? isChatInputFocused
+                  ? 'h-12 border-amber-400/90 bg-gradient-to-r from-[#24040c]/95 via-[#190308]/95 to-[#24040c]/95 pl-4 pr-1.5 shadow-[0_0_22px_rgba(245,158,11,0.4),inset_0_1px_10px_rgba(244,63,94,0.25)]'
+                  : 'h-11 border-rose-500/30 bg-gradient-to-r from-[#190309]/80 via-[#100206]/85 to-[#190309]/80 pl-4 pr-1 shadow-[inset_0_1px_8px_rgba(0,0,0,0.6)] hover:border-amber-400/50'
+                : isChatInputFocused
                 ? 'h-12 border-violet-400/70 bg-[#1a1829]/95 pl-4 pr-1.5 shadow-[0_0_20px_rgba(139,92,246,0.3)]'
                 : 'h-11 border-white/[0.06] bg-white/[0.07] pl-4 pr-1'
             }`}
@@ -2299,10 +2307,10 @@ export default function VoiceRoom() {
               onFocus={() => setIsChatInputFocused(true)}
               onBlur={() => setTimeout(() => setIsChatInputFocused(false), 160)}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder={tr('شتێک بڵێ...', 'Type a message...')}
+              placeholder={isCinemaMode ? tr('نامەیەک بنووسە لە هۆڵی سینەما...', 'Type a movie reaction...') : tr('شتێک بڵێ...', 'Type a message...')}
               className={`h-full min-w-0 flex-1 bg-transparent text-white placeholder-slate-400 outline-none transition-all ${
-                isChatInputFocused ? 'text-[15px] font-medium' : 'text-[13px]'
-              }`}
+                isCinemaMode ? 'placeholder-amber-200/40 text-amber-50' : ''
+              } ${isChatInputFocused ? 'text-[15px] font-medium' : 'text-[13px]'}`}
             />
             <AnimatePresence>
               {(chatInput.trim() || isChatInputFocused) && (
@@ -2313,9 +2321,13 @@ export default function VoiceRoom() {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 to-fuchsia-500 text-white shadow-lg shadow-violet-600/40 disabled:opacity-40"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-lg disabled:opacity-40 ${
+                    isCinemaMode
+                      ? 'bg-gradient-to-tr from-amber-500 via-rose-600 to-amber-400 text-black shadow-amber-500/40'
+                      : 'bg-gradient-to-tr from-violet-600 to-fuchsia-500 shadow-violet-600/40'
+                  }`}
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className={`h-4 w-4 ${isCinemaMode ? 'fill-black stroke-black' : ''}`} />
                 </motion.button>
               )}
             </AnimatePresence>
@@ -2326,7 +2338,9 @@ export default function VoiceRoom() {
             type="button"
             onClick={() => setIsEmojiPickerOpen(true)}
             title={tr('ئیمۆجی جوڵاو', 'Animated Emoji')}
-            className={`room-nav-btn ${isEmojiPickerOpen ? 'room-nav-btn-active' : ''}`}
+            className={`room-nav-btn ${isCinemaMode ? '!border-rose-500/30 !bg-[#190309]/80 !text-amber-200 hover:!border-amber-400/60 hover:!bg-[#26050e]' : ''} ${
+              isEmojiPickerOpen ? (isCinemaMode ? '!bg-amber-500/25 !border-amber-400 !text-amber-300 shadow-[0_0_14px_rgba(245,158,11,0.5)]' : 'room-nav-btn-active') : ''
+            }`}
           >
             <Smile className="h-[24px] w-[24px]" strokeWidth={2.2} />
           </button>
@@ -2344,6 +2358,8 @@ export default function VoiceRoom() {
               }}
               title={!mySeat ? tr('لەسەر کورسی نیت', 'Not in a seat') : mySeat.isMuted ? tr('کردنەوەی مایک', 'Unmute Mic') : tr('داخستنی مایک', 'Mute Mic')}
               className={`room-nav-btn ${
+                isCinemaMode && (!mySeat || mySeat.isMuted) ? '!border-rose-500/30 !bg-[#190309]/80 !text-amber-200 hover:!border-amber-400/60' : ''
+              } ${
                 mySeat && !mySeat.isMuted
                   ? '!border-emerald-400/50 !bg-emerald-500/25 !text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.45)]'
                   : ''
@@ -2363,7 +2379,9 @@ export default function VoiceRoom() {
               type="button"
               onClick={() => setIsSpeakerMuted((v) => !v)}
               title={isSpeakerMuted ? tr('کردنەوەی دەنگ', 'Unmute Speaker') : tr('بێدەنگکردنی ژوور', 'Mute Room Audio')}
-              className={`room-nav-btn ${isSpeakerMuted ? '!border-rose-400/40 !bg-rose-500/20 !text-rose-300' : ''}`}
+              className={`room-nav-btn ${
+                isCinemaMode && !isSpeakerMuted ? '!border-rose-500/30 !bg-[#190309]/80 !text-amber-200 hover:!border-amber-400/60' : ''
+              } ${isSpeakerMuted ? '!border-rose-400/40 !bg-rose-500/20 !text-rose-300' : ''}`}
             >
               {isSpeakerMuted ? (
                 <VolumeX className="h-[22px] w-[22px]" strokeWidth={2.2} />
