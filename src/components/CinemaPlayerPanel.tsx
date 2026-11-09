@@ -2862,23 +2862,8 @@ export default function CinemaPlayerPanel({
               </div>
             </div>
 
+            {/* Right side in audience strip: kept clean without Movie Folders or Watch Party text */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsPlaylistDrawerOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/25 transition active:scale-95"
-              >
-                <Film className="h-3 w-3" />
-                <span>{tr('فۆڵدەری فیلمەکان', 'Movie Folders')}</span>
-                {cinemaFolders.length > 0 && (
-                  <span className="rounded-full bg-amber-400/25 px-1.5 py-0.2 text-[9px] font-black text-amber-300">
-                    {cinemaFolders.length}
-                  </span>
-                )}
-              </button>
-
-              <span className="text-[10px] text-slate-500 font-semibold">
-                {tr('سەیرکردنی هاوبەش', 'Watch Party')}
-              </span>
             </div>
           </div>
         </>

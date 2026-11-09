@@ -2028,9 +2028,6 @@ export default function VoiceRoom() {
 
           <div className="flex items-center justify-between pb-2">
             <div className="flex items-center gap-2">
-              <span className={`text-[11px] font-semibold tracking-wider uppercase ${isCinemaMode ? 'text-amber-300/90' : 'text-slate-400'}`}>
-                {tr('چاتی ڕاستەوخۆی ژوور', 'Live Room Chat')}
-              </span>
               <button
                 type="button"
                 onClick={() => setIsChatExpanded((v) => !v)}
