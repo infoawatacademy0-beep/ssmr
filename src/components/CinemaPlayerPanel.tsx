@@ -1657,9 +1657,13 @@ export default function CinemaPlayerPanel({
         className={`relative overflow-hidden bg-black select-none transition-all duration-300 ${
           isFullscreen
             ? 'h-full w-full flex items-center justify-center cursor-pointer'
-            : 'w-full aspect-video rounded-2xl sm:rounded-3xl border-2 border-rose-950/80 shadow-[0_10px_35px_rgba(0,0,0,0.9),0_0_25px_rgba(225,29,72,0.2)] group cursor-pointer'
+            : 'w-full aspect-video rounded-2xl sm:rounded-3xl border-[3px] border-amber-500/45 ring-2 ring-rose-950/90 shadow-[0_18px_45px_rgba(0,0,0,0.95),0_0_38px_rgba(225,29,72,0.32),0_0_15px_rgba(245,158,11,0.2)] group cursor-pointer'
         }`}
       >
+        {/* Top Golden Theater Proscenium Arch Trim */}
+        {!isFullscreen && (
+          <div className="pointer-events-none absolute top-0 inset-x-0 z-20 h-[3px] bg-gradient-to-r from-rose-700/60 via-amber-300 to-rose-700/60 shadow-[0_2px_12px_rgba(251,191,36,0.75)]" />
+        )}
         {/* Cinema Screen Backlight / Ambient Glow */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none z-10" />
 
@@ -2499,11 +2503,20 @@ export default function CinemaPlayerPanel({
               </div>
             </div>
 
-            {/* Luxury TopTop-Style VIP Theater Couch Frame */}
-            <div className="relative overflow-hidden rounded-3xl border border-rose-500/35 bg-gradient-to-b from-[#3d0a16] via-[#26060e] to-[#120206] p-2.5 shadow-[0_14px_35px_rgba(0,0,0,0.85),inset_0_1px_18px_rgba(244,63,94,0.2)]">
-              {/* Gold & Crimson Ambient Theater Stage Lighting */}
-              <div className="pointer-events-none absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent" />
-              <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 h-20 w-2/3 rounded-full bg-rose-500/15 blur-2xl" />
+            {/* Luxury 3D Cinema Auditorium Seating Deck */}
+            <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-b from-[#380613] via-[#1e030a] to-[#0a0104] px-2.5 pt-3.5 pb-3 shadow-[0_18px_45px_rgba(0,0,0,0.92),inset_0_2px_22px_rgba(225,29,72,0.25)]">
+              {/* Curved Golden Theater Stage Lip & Footlight Glow */}
+              <div className="pointer-events-none absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-transparent via-amber-400/90 to-transparent shadow-[0_2px_12px_rgba(251,191,36,0.75)]" />
+              <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 h-24 w-3/4 rounded-full bg-rose-500/20 blur-2xl" />
+              {/* Theater Carpet Subtle Pattern & Aisle Step-Light Glow */}
+              <div
+                className="pointer-events-none absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage:
+                    'radial-gradient(circle at 50% 0%, rgba(251,191,36,0.22) 0%, transparent 65%), repeating-linear-gradient(90deg, rgba(244,63,94,0.06) 0px, rgba(244,63,94,0.06) 2px, transparent 2px, transparent 14px)',
+                }}
+              />
+              <div className="pointer-events-none absolute bottom-0 inset-x-6 h-[2px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent" />
 
               {(() => {
                 // Symmetrical TopTop-style grid & avatar sizing for 1 to 16 cinema seats
@@ -2515,11 +2528,11 @@ export default function CinemaPlayerPanel({
                     : targetSeatCount === 3
                     ? 'grid-cols-3 max-w-[310px] mx-auto gap-2.5'
                     : targetSeatCount === 4
-                    ? 'grid-cols-4 gap-2'
+                    ? 'grid-cols-4 gap-2.5'
                     : targetSeatCount === 5
                     ? 'grid-cols-5 gap-1.5'
                     : targetSeatCount === 6
-                    ? 'grid-cols-3 gap-2 max-w-[320px] mx-auto'
+                    ? 'grid-cols-3 gap-2.5 max-w-[320px] mx-auto'
                     : targetSeatCount <= 8
                     ? 'grid-cols-4 gap-2'
                     : targetSeatCount <= 10
@@ -2562,7 +2575,7 @@ export default function CinemaPlayerPanel({
                         speakingUids.has(seat.userId);
 
                       let avatarBorderClass =
-                        'border border-dashed border-rose-400/35 bg-black/50 hover:border-amber-400/70 hover:bg-black/70 shadow-inner';
+                        'border border-dashed border-amber-300/45 bg-black/55 hover:border-amber-300 hover:bg-black/75 shadow-inner';
                       if (seat.isPlatinum) {
                         avatarBorderClass =
                           'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/25 via-blue-950/50 to-black/90 shadow-[0_0_16px_rgba(6,182,212,0.6)] ring-1 ring-cyan-400/50';
@@ -2590,9 +2603,34 @@ export default function CinemaPlayerPanel({
                             'border-2 border-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.75)]';
                         } else {
                           avatarBorderClass =
-                            'border-2 border-amber-400/75 shadow-md shadow-amber-500/25';
+                            'border-2 border-amber-400/85 shadow-md shadow-amber-500/30';
                         }
                       }
+
+                      // 3D Velvet Upholstery Theme per Seat Type
+                      const chairBackrestTheme = seat.isPlatinum
+                        ? 'from-[#0e4f63] via-[#082c38] to-[#04151d] border-cyan-400/50 shadow-[inset_0_2px_12px_rgba(34,211,238,0.28)]'
+                        : seat.isIron
+                        ? 'from-[#475569] via-[#27303f] to-[#11161f] border-slate-300/45 shadow-[inset_0_2px_12px_rgba(226,232,240,0.25)]'
+                        : seat.isVip
+                        ? 'from-[#78350f] via-[#451a03] to-[#230c01] border-amber-400/60 shadow-[inset_0_2px_14px_rgba(251,191,36,0.3)]'
+                        : 'from-[#881337] via-[#4c0519] to-[#23020b] border-rose-400/35 shadow-[inset_0_2px_12px_rgba(251,113,133,0.25)]';
+
+                      const chairHeadrestTheme = seat.isPlatinum
+                        ? 'from-cyan-500/40 via-[#0d3b49] to-[#082630] border-t-2 border-cyan-300/80'
+                        : seat.isIron
+                        ? 'from-slate-300/40 via-[#334155] to-[#1e293b] border-t-2 border-slate-200/80'
+                        : seat.isVip
+                        ? 'from-amber-400/45 via-[#6b2e0a] to-[#3b1604] border-t-2 border-amber-300/90'
+                        : 'from-rose-500/40 via-[#6b0e28] to-[#3d0615] border-t-2 border-amber-400/75';
+
+                      const chairArmrestTheme = seat.isPlatinum
+                        ? 'from-[#0e4f63] via-[#062430] to-[#021017] border-cyan-400/40'
+                        : seat.isIron
+                        ? 'from-[#475569] via-[#1e293b] to-[#0f172a] border-slate-300/40'
+                        : seat.isVip
+                        ? 'from-[#78350f] via-[#3b1604] to-[#1c0901] border-amber-400/50'
+                        : 'from-[#6b0e28] via-[#3b0614] to-[#1a0208] border-rose-400/30';
 
                       const seatAvatarUrl =
                         seat.avatar ||
@@ -2619,147 +2657,188 @@ export default function CinemaPlayerPanel({
                                 : tr('کردنەوەی مایکم', 'Unmute My Mic')
                               : seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
                           }
-                          className="group relative flex cursor-pointer flex-col items-center min-w-0"
+                          className="group relative flex cursor-pointer flex-col items-center min-w-0 pt-1 pb-0.5 transition-transform duration-200 hover:-translate-y-0.5 active:scale-95"
                         >
-                          {/* Velvet Theater Armchair Cushion Card */}
-                          <div className="relative flex flex-col items-center justify-center w-full py-2 px-1 rounded-2xl bg-gradient-to-b from-[#540d1d]/90 via-[#330711]/95 to-[#1c0309] border border-rose-400/20 shadow-[inset_0_1px_8px_rgba(251,113,133,0.15)] group-hover:border-amber-400/50 transition-all">
-                            {/* Velvet Armrest Side Accents */}
-                            <div className="pointer-events-none absolute inset-y-2 left-0.5 w-1 rounded-full bg-rose-950/80 border-r border-rose-400/15" />
-                            <div className="pointer-events-none absolute inset-y-2 right-0.5 w-1 rounded-full bg-rose-950/80 border-l border-rose-400/15" />
+                          {/* ── 1. REALISTIC 3D CURVED VELVET HEADREST (Top Arch of Cinema Chair) ── */}
+                          <div
+                            className={`relative z-10 w-[76%] h-2.5 rounded-t-[14px] bg-gradient-to-b ${chairHeadrestTheme} shadow-[0_-2px_8px_rgba(0,0,0,0.6)] flex items-center justify-center overflow-hidden`}
+                          >
+                            {/* Golden Crown Piping & Center Brass Stud */}
+                            <div className="w-1/2 h-[1.5px] rounded-full bg-gradient-to-r from-transparent via-amber-300/90 to-transparent" />
+                          </div>
 
-                            {/* Avatar Circle Container */}
-                            <div className="relative flex items-center justify-center">
-                              {/* Speaking Animated Wave Ring */}
-                              {isSpeaking && (
-                                <motion.div
-                                  animate={{ scale: [1, 1.28, 1], opacity: [0.9, 0, 0.9] }}
-                                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                                  className="absolute inset-0 rounded-full border-2 border-emerald-400 pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.85)] z-20"
-                                />
-                              )}
-
-                              <div
-                                className={`relative flex ${seatCircleSizeClass} items-center justify-center rounded-full transition-all duration-300 ${avatarBorderClass}`}
-                              >
-                                {isOccupied ? (
-                                  <>
-                                    {/* User Avatar */}
-                                    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-rose-700 via-purple-600 to-amber-500 text-xs font-black text-white uppercase shadow-inner">
-                                      {seatAvatarUrl ? (
-                                        <img
-                                          src={seatAvatarUrl}
-                                          alt={seat.username || 'User'}
-                                          className="h-full w-full rounded-full object-cover"
-                                        />
-                                      ) : (
-                                        (seat.username || 'U').charAt(0).toUpperCase()
-                                      )}
-                                    </div>
-
-                                    {/* Level Ornate Frame Overlay on Cinema Seat */}
-                                    <AvatarFrameOverlay
-                                      frameId={
-                                        (isCurrentUser ? currentUser.avatarFrame : undefined) ||
-                                        seat.avatarFrame ||
-                                        (seat.userId ? usersLevelFrameMap[seat.userId] : undefined)
-                                      }
-                                      level={userLvl}
-                                    />
-
-                                    {/* VIP / Platinum / Iron Top-Left Badge */}
-                                    {seat.isPlatinum ? (
-                                      <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
-                                        <Diamond className="h-2.5 w-2.5 text-black fill-black" />
-                                      </span>
-                                    ) : seat.isIron ? (
-                                      <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]">
-                                        <Shield className="h-2.5 w-2.5 text-black fill-black" />
-                                      </span>
-                                    ) : isSeatVip ? (
-                                      <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
-                                        <Crown className="h-2.5 w-2.5 text-black fill-black" />
-                                      </span>
-                                    ) : null}
-
-                                    {/* Mic Muted / Open Status Indicator */}
-                                    <div
-                                      className={`absolute -bottom-0.5 -right-0.5 z-30 flex h-4 w-4 items-center justify-center rounded-full border border-black shadow ${
-                                        seat.isMuted ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-black'
-                                      }`}
-                                    >
-                                      {seat.isMuted ? (
-                                        <MicOff className="h-2.5 w-2.5 stroke-[2.5]" />
-                                      ) : (
-                                        <Mic className="h-2.5 w-2.5 stroke-[2.5]" />
-                                      )}
-                                    </div>
-                                  </>
-                                ) : seat.isPlatinum ? (
-                                  <div className="flex flex-col items-center justify-center text-cyan-300 group-hover:scale-105 transition">
-                                    <Diamond className="h-4 w-4 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-                                    <span className="text-[6.5px] font-black text-cyan-300 mt-0.5">
-                                      PLATINUM
-                                    </span>
-                                  </div>
-                                ) : seat.isIron ? (
-                                  <div className="flex flex-col items-center justify-center text-slate-200 group-hover:scale-105 transition">
-                                    <Shield className="h-4 w-4 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]" />
-                                    <span className="text-[6.5px] font-black text-slate-200 mt-0.5">
-                                      IRON
-                                    </span>
-                                  </div>
-                                ) : seat.isVip ? (
-                                  <div className="flex flex-col items-center justify-center text-amber-300 group-hover:scale-105 transition">
-                                    <Crown className="h-4 w-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_#f59e0b]" />
-                                    <span className="text-[6.5px] font-black text-amber-300 mt-0.5">
-                                      VIP
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center text-rose-300/70 group-hover:text-amber-300 transition">
-                                    <Plus className="h-3.5 w-3.5 group-hover:scale-110 transition" />
-                                    <span className="text-[8px] font-black text-rose-300/80">
-                                      {seat.seatNo}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
+                          {/* ── 2. MAIN 3D VELVET ARMCHAIR BACKREST & SEAT CUSHION ── */}
+                          <div className="relative flex flex-col items-center justify-center w-full px-1.5">
+                            {/* Left 3D Sculpted Padded Armrest with Gold Cupholder Cap */}
+                            <div
+                              className={`pointer-events-none absolute -left-0.5 bottom-1.5 top-2 z-20 w-2 sm:w-2.5 rounded-t-md rounded-b-lg border bg-gradient-to-b ${chairArmrestTheme} shadow-[2px_4px_8px_rgba(0,0,0,0.85)] flex flex-col items-center pt-0.5`}
+                            >
+                              <span className="h-1 w-1 rounded-full bg-amber-300/80 shadow-[0_0_4px_rgba(251,191,36,0.8)]" />
+                              <span className="mt-1 w-[1px] flex-1 bg-white/10 rounded-full" />
                             </div>
 
-                            {/* Seat Footer: Compact Number Badge + Username */}
-                            <div className="mt-1.5 flex items-center justify-center gap-1 max-w-full px-0.5">
-                              {isOccupied && (
-                                <span className="shrink-0 rounded bg-amber-400/20 border border-amber-400/40 px-1 py-0 text-[7.5px] font-black text-amber-300 leading-tight">
+                            {/* Right 3D Sculpted Padded Armrest with Gold Cupholder Cap */}
+                            <div
+                              className={`pointer-events-none absolute -right-0.5 bottom-1.5 top-2 z-20 w-2 sm:w-2.5 rounded-t-md rounded-b-lg border bg-gradient-to-b ${chairArmrestTheme} shadow-[-2px_4px_8px_rgba(0,0,0,0.85)] flex flex-col items-center pt-0.5`}
+                            >
+                              <span className="h-1 w-1 rounded-full bg-amber-300/80 shadow-[0_0_4px_rgba(251,191,36,0.8)]" />
+                              <span className="mt-1 w-[1px] flex-1 bg-white/10 rounded-full" />
+                            </div>
+
+                            {/* Tufted Velvet Backrest Body + 3D Bottom Seat Cushion Lip */}
+                            <div
+                              className={`relative flex flex-col items-center justify-center w-full pt-2 pb-1.5 px-1 rounded-t-xl rounded-b-2xl bg-gradient-to-b ${chairBackrestTheme} border border-b-[5px] border-b-[#140106] group-hover:border-amber-400/65 transition-all overflow-hidden`}
+                            >
+                              {/* Quilted Velvet Vertical Stitching Seams */}
+                              <div className="pointer-events-none absolute inset-y-1 left-1/4 w-[1px] bg-black/30 shadow-[1px_0_0_rgba(255,255,255,0.06)]" />
+                              <div className="pointer-events-none absolute inset-y-1 left-1/2 w-[1px] bg-black/25 shadow-[1px_0_0_rgba(255,255,255,0.05)]" />
+                              <div className="pointer-events-none absolute inset-y-1 right-1/4 w-[1px] bg-black/30 shadow-[1px_0_0_rgba(255,255,255,0.06)]" />
+                              {/* Plush Seat Cushion Horizontal Crease */}
+                              <div className="pointer-events-none absolute bottom-5 inset-x-2 h-[1.5px] bg-gradient-to-r from-transparent via-black/55 to-transparent shadow-[0_1px_0_rgba(255,255,255,0.1)]" />
+
+                              {/* Avatar Circle Container */}
+                              <div className="relative z-10 flex items-center justify-center">
+                                {/* Speaking Animated Wave Ring */}
+                                {isSpeaking && (
+                                  <motion.div
+                                    animate={{ scale: [1, 1.28, 1], opacity: [0.9, 0, 0.9] }}
+                                    transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                                    className="absolute inset-0 rounded-full border-2 border-emerald-400 pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.85)] z-20"
+                                  />
+                                )}
+
+                                <div
+                                  className={`relative flex ${seatCircleSizeClass} items-center justify-center rounded-full transition-all duration-300 ${avatarBorderClass}`}
+                                >
+                                  {isOccupied ? (
+                                    <>
+                                      {/* User Avatar */}
+                                      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-rose-700 via-purple-600 to-amber-500 text-xs font-black text-white uppercase shadow-inner">
+                                        {seatAvatarUrl ? (
+                                          <img
+                                            src={seatAvatarUrl}
+                                            alt={seat.username || 'User'}
+                                            className="h-full w-full rounded-full object-cover"
+                                          />
+                                        ) : (
+                                          (seat.username || 'U').charAt(0).toUpperCase()
+                                        )}
+                                      </div>
+
+                                      {/* Level Ornate Frame Overlay on Cinema Seat */}
+                                      <AvatarFrameOverlay
+                                        frameId={
+                                          (isCurrentUser ? currentUser.avatarFrame : undefined) ||
+                                          seat.avatarFrame ||
+                                          (seat.userId ? usersLevelFrameMap[seat.userId] : undefined)
+                                        }
+                                        level={userLvl}
+                                      />
+
+                                      {/* VIP / Platinum / Iron Top-Left Badge */}
+                                      {seat.isPlatinum ? (
+                                        <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
+                                          <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                                        </span>
+                                      ) : seat.isIron ? (
+                                        <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]">
+                                          <Shield className="h-2.5 w-2.5 text-black fill-black" />
+                                        </span>
+                                      ) : isSeatVip ? (
+                                        <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+                                          <Crown className="h-2.5 w-2.5 text-black fill-black" />
+                                        </span>
+                                      ) : null}
+
+                                      {/* Mic Muted / Open Status Indicator */}
+                                      <div
+                                        className={`absolute -bottom-0.5 -right-0.5 z-30 flex h-4 w-4 items-center justify-center rounded-full border border-black shadow ${
+                                          seat.isMuted ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-black'
+                                        }`}
+                                      >
+                                        {seat.isMuted ? (
+                                          <MicOff className="h-2.5 w-2.5 stroke-[2.5]" />
+                                        ) : (
+                                          <Mic className="h-2.5 w-2.5 stroke-[2.5]" />
+                                        )}
+                                      </div>
+                                    </>
+                                  ) : seat.isPlatinum ? (
+                                    <div className="flex flex-col items-center justify-center text-cyan-300 group-hover:scale-105 transition">
+                                      <Diamond className="h-4 w-4 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                                      <span className="text-[6.5px] font-black text-cyan-300 mt-0.5">
+                                        PLATINUM
+                                      </span>
+                                    </div>
+                                  ) : seat.isIron ? (
+                                    <div className="flex flex-col items-center justify-center text-slate-200 group-hover:scale-105 transition">
+                                      <Shield className="h-4 w-4 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]" />
+                                      <span className="text-[6.5px] font-black text-slate-200 mt-0.5">
+                                        IRON
+                                      </span>
+                                    </div>
+                                  ) : seat.isVip ? (
+                                    <div className="flex flex-col items-center justify-center text-amber-300 group-hover:scale-105 transition">
+                                      <Crown className="h-4 w-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_#f59e0b]" />
+                                      <span className="text-[6.5px] font-black text-amber-300 mt-0.5">
+                                        VIP
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center text-amber-200/80 group-hover:text-amber-300 transition">
+                                      <Plus className="h-3.5 w-3.5 group-hover:scale-110 transition drop-shadow" />
+                                      <span className="text-[8px] font-black text-amber-300/90">
+                                        {seat.seatNo}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* ── 3. FRONT SEAT CUSHION APRON: Golden Brass Number Plaque + Username ── */}
+                              <div className="relative z-10 mt-1.5 flex items-center justify-center gap-1 max-w-full px-1 py-0.5 rounded-md bg-black/45 border border-amber-400/20 shadow-inner">
+                                <span className="shrink-0 rounded bg-gradient-to-b from-amber-300 to-amber-600 px-1 py-0 text-[7px] font-black text-black shadow-sm leading-tight">
                                   {seat.seatNo}
                                 </span>
-                              )}
-                              <span
-                                className={`truncate text-center leading-tight ${nameMaxWidthClass} ${
-                                  isOccupied
-                                    ? `font-bold ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
+                                <span
+                                  className={`truncate text-center leading-tight ${nameMaxWidthClass} ${
+                                    isOccupied
+                                      ? `font-bold ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
+                                      : seat.isPlatinum
+                                      ? 'text-cyan-300 font-black'
+                                      : seat.isIron
+                                      ? 'text-slate-200 font-black'
+                                      : seat.isVip
+                                      ? 'text-amber-300 font-black'
+                                      : 'text-amber-100/85 font-semibold'
+                                  }`}
+                                >
+                                  {isOccupied
+                                    ? seat.username
+                                    : seat.vipAssignedName
+                                    ? seat.vipAssignedName
                                     : seat.isPlatinum
-                                    ? 'text-cyan-300 font-black'
+                                    ? 'PLAT'
                                     : seat.isIron
-                                    ? 'text-slate-200 font-black'
+                                    ? 'IRON'
                                     : seat.isVip
-                                    ? 'text-amber-300 font-black'
-                                    : 'text-rose-200/70 font-semibold'
-                                }`}
-                              >
-                                {isOccupied
-                                  ? seat.username
-                                  : seat.vipAssignedName
-                                  ? seat.vipAssignedName
-                                  : seat.isPlatinum
-                                  ? `Plat #${seat.seatNo}`
-                                  : seat.isIron
-                                  ? `Iron #${seat.seatNo}`
-                                  : seat.isVip
-                                  ? `VIP #${seat.seatNo}`
-                                  : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
-                              </span>
+                                    ? 'VIP'
+                                    : tr('کورسی', 'Seat')}
+                                </span>
+                              </div>
                             </div>
                           </div>
+
+                          {/* ── 4. 3D FLOOR SHADOW & UNDER-SEAT AISLE GLOW ── */}
+                          <div
+                            className={`mt-0.5 h-1.5 w-4/5 rounded-full blur-[2px] transition-all ${
+                              isSpeaking
+                                ? 'bg-emerald-400/70 shadow-[0_0_10px_rgba(16,185,129,0.9)]'
+                                : isOccupied
+                                ? 'bg-amber-400/45'
+                                : 'bg-black/80'
+                            }`}
+                          />
                         </div>
                       );
                     })}

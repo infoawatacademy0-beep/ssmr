@@ -799,16 +799,33 @@ export default function VoiceRoom() {
     );
   }
 
-  const isGradientBg = hostRoomBackground && !hostRoomBackground.startsWith('http') && !hostRoomBackground.startsWith('data:');
-  const isImageBg = hostRoomBackground && (hostRoomBackground.startsWith('http') || hostRoomBackground.startsWith('data:'));
+  const isCinemaMode = Boolean(cinemaState?.isActive);
+  const isGradientBg =
+    !isCinemaMode &&
+    hostRoomBackground &&
+    !hostRoomBackground.startsWith('http') &&
+    !hostRoomBackground.startsWith('data:');
+  const isImageBg =
+    !isCinemaMode &&
+    hostRoomBackground &&
+    (hostRoomBackground.startsWith('http') || hostRoomBackground.startsWith('data:'));
 
   return (
     <div
-      className={`relative mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden bg-surface-900 text-white select-none transition-all duration-700 ${
-        isGradientBg ? 'vip-animated-cover' : 'bg-cover bg-center'
+      className={`relative mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden text-white select-none transition-all duration-700 ${
+        isCinemaMode
+          ? 'bg-[#090205]'
+          : isGradientBg
+          ? 'bg-surface-900 vip-animated-cover'
+          : 'bg-surface-900 bg-cover bg-center'
       }`}
       style={
-        isImageBg
+        isCinemaMode
+          ? {
+              background:
+                'radial-gradient(ellipse at top, #3b0714 0%, #1a0309 42%, #070104 100%)',
+            }
+          : isImageBg
           ? {
               backgroundImage: `linear-gradient(to bottom, rgba(13, 13, 22, 0.78), rgba(13, 13, 22, 0.94)), url(${hostRoomBackground})`,
             }
@@ -821,20 +838,61 @@ export default function VoiceRoom() {
     >
       {/* ── Background Glow Effects & Curated Animated Theme Overlay ── */}
       {isGradientBg && <AnimatedThemeOverlay themeValue={hostRoomBackground} />}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-        <div
-          className="absolute -top-24 -left-24 h-72 w-72 rounded-full opacity-20 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }}
-        />
-        <div
-          className="absolute top-1/3 -right-20 h-64 w-64 rounded-full opacity-15 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)' }}
-        />
-        <div
-          className="absolute bottom-10 left-10 h-64 w-64 rounded-full opacity-10 blur-3xl"
-          style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }}
-        />
-      </div>
+
+      {/* ── Royal Cinema Auditorium Curtain Drapes & Projector Beam Overlay (Active in Cinema Mode) ── */}
+      {isCinemaMode ? (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden z-0" aria-hidden="true">
+          {/* Left & Right Velvet Theater Curtains */}
+          <div
+            className="absolute inset-y-0 left-0 w-10 sm:w-14 opacity-65"
+            style={{
+              background:
+                'repeating-linear-gradient(90deg, rgba(136,19,55,0.65) 0px, rgba(76,5,25,0.85) 6px, rgba(24,2,10,0.9) 12px)',
+              maskImage: 'linear-gradient(to right, black 35%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to right, black 35%, transparent 100%)',
+            }}
+          />
+          <div
+            className="absolute inset-y-0 right-0 w-10 sm:w-14 opacity-65"
+            style={{
+              background:
+                'repeating-linear-gradient(270deg, rgba(136,19,55,0.65) 0px, rgba(76,5,25,0.85) 6px, rgba(24,2,10,0.9) 12px)',
+              maskImage: 'linear-gradient(to left, black 35%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to left, black 35%, transparent 100%)',
+            }}
+          />
+          {/* Top Golden Valance & Projector Light Cone */}
+          <div
+            className="absolute -top-12 left-1/2 -translate-x-1/2 h-80 w-full opacity-35 blur-3xl"
+            style={{
+              background:
+                'conic-gradient(from 180deg at 50% 0%, transparent 32%, rgba(251,191,36,0.32) 47%, rgba(244,63,94,0.38) 50%, rgba(251,191,36,0.32) 53%, transparent 68%)',
+            }}
+          />
+          {/* Warm Crimson Floor Sconce Glow */}
+          <div
+            className="absolute bottom-0 inset-x-0 h-56 opacity-25 blur-3xl"
+            style={{
+              background: 'radial-gradient(circle at 50% 100%, #e11d48 0%, transparent 75%)',
+            }}
+          />
+        </div>
+      ) : (
+        <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+          <div
+            className="absolute -top-24 -left-24 h-72 w-72 rounded-full opacity-20 blur-3xl"
+            style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }}
+          />
+          <div
+            className="absolute top-1/3 -right-20 h-64 w-64 rounded-full opacity-15 blur-3xl"
+            style={{ background: 'radial-gradient(circle, #06b6d4 0%, transparent 70%)' }}
+          />
+          <div
+            className="absolute bottom-10 left-10 h-64 w-64 rounded-full opacity-10 blur-3xl"
+            style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }}
+          />
+        </div>
+      )}
 
       {/* Audio Streams Provider (renders autoplay banners & error toasts silently) */}
       <AudioStreams
@@ -849,7 +907,13 @@ export default function VoiceRoom() {
       {/* ─────────────────────────────────────────────────────────
          TOP BAR: Clean Header with Zero Overlap on Mobile
          ───────────────────────────────────────────────────────── */}
-      <header className="relative z-20 flex shrink-0 items-center justify-between border-b border-white/[0.06] bg-surface-900/80 px-3 py-2.5 backdrop-blur-xl gap-2">
+      <header
+        className={`relative z-20 flex shrink-0 items-center justify-between px-3 py-2.5 backdrop-blur-xl gap-2 transition-colors duration-500 ${
+          isCinemaMode
+            ? 'border-b border-amber-500/25 bg-gradient-to-r from-[#1a0309]/95 via-[#0f0206]/95 to-[#1a0309]/95 shadow-[0_4px_25px_rgba(225,29,72,0.2)]'
+            : 'border-b border-white/[0.06] bg-surface-900/80'
+        }`}
+      >
         {/* Left Side: Host Info & Room Name */}
         <div
           onClick={() => room.hostId && setSelectedProfileUid(room.hostId)}
@@ -880,11 +944,19 @@ export default function VoiceRoom() {
           </div>
 
           <div className="min-w-0">
-            <h1 className="truncate text-xs sm:text-sm font-bold text-white tracking-wide max-w-[110px] xs:max-w-[140px] sm:max-w-[200px] group-hover:text-amber-300 transition">
-              {room.roomName}
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="truncate text-xs sm:text-sm font-bold text-white tracking-wide max-w-[110px] xs:max-w-[140px] sm:max-w-[200px] group-hover:text-amber-300 transition">
+                {room.roomName}
+              </h1>
+              {isCinemaMode && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-gradient-to-r from-rose-600/80 to-amber-600/80 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-amber-100 shadow-[0_0_10px_rgba(245,158,11,0.35)] shrink-0">
+                  <Film className="h-2.5 w-2.5 text-amber-300" />
+                  <span>VIP CINEMA</span>
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <span className="truncate max-w-[110px]">{tr('خاوەن', 'Host')}: <strong className="text-violet-400">{room.hostName}</strong></span>
+              <span className="truncate max-w-[110px]">{tr('خاوەن', 'Host')}: <strong className={isCinemaMode ? 'text-amber-300' : 'text-violet-400'}>{room.hostName}</strong></span>
               {(hostIsVerified || vipUsersMap[room.hostId]) && (
                 <span title="Verified VIP Host" className="inline-flex items-center gap-0.5 shrink-0">
                   <Crown className="h-3 w-3 text-amber-400 fill-amber-400 vip-crown-animation" />
@@ -1941,7 +2013,13 @@ export default function VoiceRoom() {
         )}
 
         {/* ── REAL-TIME LIVE CHAT DOCKED SECTION ── */}
-        <section className="relative flex flex-1 flex-col overflow-hidden border-t border-white/[0.06] bg-surface-900/50 p-4">
+        <section
+          className={`relative flex flex-1 flex-col overflow-hidden p-4 transition-colors duration-500 ${
+            isCinemaMode
+              ? 'border-t border-rose-500/20 bg-gradient-to-b from-[#170309]/85 via-[#0d0205]/90 to-[#060103]/95 shadow-[inset_0_8px_24px_rgba(225,29,72,0.12)]'
+              : 'border-t border-white/[0.06] bg-surface-900/50'
+          }`}
+        >
           {/* Luxury User Entrance Visual Animations */}
           <EntranceAnimation entranceEvent={entranceEvent} />
 
@@ -1950,13 +2028,17 @@ export default function VoiceRoom() {
 
           <div className="flex items-center justify-between pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
-                {tr('چاتی ڕاستەوخۆی ژوور', 'Live Room Chat')}
+              <span className={`text-[11px] font-semibold tracking-wider uppercase ${isCinemaMode ? 'text-amber-300/90' : 'text-slate-400'}`}>
+                {isCinemaMode ? `🎬 ${tr('چاتی هۆڵی سینەما', 'Cinema Hall Chat')}` : tr('چاتی ڕاستەوخۆی ژوور', 'Live Room Chat')}
               </span>
               <button
                 type="button"
                 onClick={() => setIsChatExpanded((v) => !v)}
-                className="flex items-center gap-1 rounded-lg border border-violet-500/35 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-300 transition hover:bg-violet-500/25 active:scale-95"
+                className={`flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold transition active:scale-95 ${
+                  isCinemaMode
+                    ? 'border border-amber-500/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25'
+                    : 'border border-violet-500/35 bg-violet-500/15 text-violet-300 hover:bg-violet-500/25'
+                }`}
                 title={isChatExpanded ? tr('بچووککردنەوەی چات', 'Collapse Chat') : tr('گەورەکردنی چات', 'Expand Chat')}
               >
                 {isChatExpanded ? (
@@ -2147,7 +2229,11 @@ export default function VoiceRoom() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 24, stiffness: 260 }}
         dir="ltr"
-        className="relative z-20 shrink-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-2 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] backdrop-blur-md"
+        className={`relative z-20 shrink-0 px-2 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] backdrop-blur-md transition-colors duration-500 ${
+          isCinemaMode
+            ? 'border-t border-rose-500/20 bg-gradient-to-t from-[#080103] via-[#150207]/90 to-[#0d0104]/80'
+            : 'bg-gradient-to-t from-black/70 via-black/40 to-transparent'
+        }`}
       >
         <form onSubmit={handleSendMessage} className="flex items-center gap-1.5 sm:gap-2.5">
           {/* Chat expand / collapse */}
