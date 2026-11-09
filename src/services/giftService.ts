@@ -75,8 +75,8 @@ export async function sendGift(
         const seatList = Array.isArray(seats) ? seats : Object.values(seats);
         const recipientSeat = seatList.find((s: any) => s?.userId === recipient.uid);
         if (recipientSeat && typeof recipientSeat.seatNo === 'number') {
-          const redSeats: number[] = pkData.redSeats || [1, 2, 5, 6];
-          const blueSeats: number[] = pkData.blueSeats || [3, 4, 7, 8];
+          const redSeats: number[] = pkData.redSeats || [1, 2, 3, 4];
+          const blueSeats: number[] = pkData.blueSeats || [5, 6, 7, 8];
 
           if (redSeats.includes(recipientSeat.seatNo)) {
             await addPkBattlePoints(roomId, 'red', gift.cost, {

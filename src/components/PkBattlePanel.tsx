@@ -105,11 +105,11 @@ export default function PkBattlePanel({
 
   // Seats assigned to Red and Blue
   const redSeatsList = useMemo(() => {
-    return pkBattle?.redSeats || (selectedMode === '1v1' ? [1] : selectedMode === '2v2' ? [1, 2] : [1, 2, 5, 6]);
+    return pkBattle?.redSeats || (selectedMode === '1v1' ? [1] : selectedMode === '2v2' ? [1, 2] : selectedMode === '3v3' ? [1, 2, 3] : [1, 2, 3, 4]);
   }, [pkBattle?.redSeats, selectedMode]);
 
   const blueSeatsList = useMemo(() => {
-    return pkBattle?.blueSeats || (selectedMode === '1v1' ? [2] : selectedMode === '2v2' ? [3, 4] : [3, 4, 7, 8]);
+    return pkBattle?.blueSeats || (selectedMode === '1v1' ? [2] : selectedMode === '2v2' ? [3, 4] : selectedMode === '3v3' ? [4, 5, 6] : [5, 6, 7, 8]);
   }, [pkBattle?.blueSeats, selectedMode]);
 
   // Identify current user's team
@@ -153,11 +153,12 @@ export default function PkBattlePanel({
       setCustomRedSeats([1, 2]);
       setCustomBlueSeats([3, 4]);
     } else if (mode === '3v3') {
-      setCustomRedSeats([1, 2, 5]);
-      setCustomBlueSeats([3, 4, 7]);
+      setCustomRedSeats([1, 2, 3]);
+      setCustomBlueSeats([4, 5, 6]);
     } else if (mode === '4v4') {
-      setCustomRedSeats([1, 2, 5, 6]);
-      setCustomBlueSeats([3, 4, 7, 8]);
+      const half = Math.max(4, Math.floor(seats.length / 2));
+      setCustomRedSeats(Array.from({ length: Math.min(4, half) }, (_, i) => i + 1));
+      setCustomBlueSeats(Array.from({ length: Math.min(4, half) }, (_, i) => i + 1 + Math.min(4, half)));
     }
   };
 
@@ -194,11 +195,15 @@ export default function PkBattlePanel({
 
   const handleQuickStart5Min = async () => {
     try {
+      const total = seats.length;
+      const half = Math.max(1, Math.floor(total / 2));
+      const rSeats = total >= 8 ? [1, 2, 3, 4] : Array.from({ length: half }, (_, i) => i + 1);
+      const bSeats = total >= 8 ? [5, 6, 7, 8] : Array.from({ length: total - half }, (_, i) => i + 1 + half);
       await startPkBattle(roomId, currentUser.username, {
         mode: '4v4',
         durationSeconds: 300,
-        redSeats: [1, 2, 5, 6],
-        blueSeats: [3, 4, 7, 8],
+        redSeats: rSeats,
+        blueSeats: bSeats,
         penalty: '🎤 گۆرانی گوتن / 🎤 Sing a song',
       });
     } catch (err: any) {
@@ -275,25 +280,48 @@ export default function PkBattlePanel({
     return (
       <div className="mb-2 px-1">
         <div className="flex items-center gap-2">
-          {/* Main Quick Start Button */}
+          {/* Main Quick Start Button (Pro Red vs Blue Split Gradient) */}
           <button
             onClick={handleQuickStart5Min}
-            className="group flex flex-1 items-center justify-between rounded-2xl border border-rose-500/30 bg-gradient-to-r from-rose-600/25 via-surface-800 to-blue-600/25 px-3 py-2 text-xs font-bold text-white shadow-md shadow-rose-500/10 transition-all hover:border-rose-400/50 hover:from-rose-600/35 active:scale-98"
+            className="group relative flex flex-1 items-center justify-between overflow-hidden rounded-2xl border border-white/20 bg-slate-950 px-3 py-2 text-xs font-bold text-white shadow-[0_6px_25px_rgba(0,0,0,0.5)] transition-all hover:border-amber-400/60 active:scale-98"
           >
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-md shadow-rose-500/40">
-                <Swords className="h-4 w-4" />
+            {/* Split Red vs Blue Background inside Launcher */}
+            <div className="pointer-events-none absolute inset-0 flex opacity-85 transition-opacity group-hover:opacity-100">
+              <div
+                className="h-full w-1/2"
+                style={{
+                  background:
+                    'linear-gradient(135deg, rgba(225, 29, 72, 0.5) 0%, rgba(159, 18, 57, 0.25) 70%, transparent 100%)',
+                }}
+              />
+              <div
+                className="h-full w-1/2"
+                style={{
+                  background:
+                    'linear-gradient(225deg, rgba(2, 132, 199, 0.5) 0%, rgba(29, 78, 216, 0.25) 70%, transparent 100%)',
+                }}
+              />
+            </div>
+
+            <div className="relative z-10 flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 via-amber-500 to-sky-500 p-0.5 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]">
+                <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-slate-950/80">
+                  <Swords className="h-4 w-4 text-amber-300" />
+                </div>
               </div>
               <div className="text-left">
-                <span className="block font-black text-white text-xs tracking-wide">
-                  {tr('جەنگی خێرای ٤ بە ٤ (PK)', 'Quick 4v4 PK Battle')}
+                <span className="flex items-center gap-1.5 font-black text-white text-xs tracking-wide drop-shadow">
+                  <span>{tr('جەنگی خێرای ٤ بە ٤ (PK)', 'Quick 4v4 PK Battle')}</span>
+                  <span className="rounded bg-gradient-to-r from-rose-500 to-sky-500 px-1 py-0 text-[8px] font-black uppercase text-white">
+                    VS
+                  </span>
                 </span>
-                <span className="text-[10px] text-slate-400">
-                  {tr('٥ خولەک • ڕکابەری بەخشین', '5 Min • Real-Time Gifting')}
+                <span className="text-[10px] text-slate-300/90">
+                  {tr('٥ خولەک • سوور دژی شین', '5 Min • Red vs Blue Arena')}
                 </span>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-amber-300 group-hover:underline">
+            <span className="relative z-10 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-sky-500 px-2.5 py-1 text-[10px] font-black text-white shadow-md transition-transform group-hover:scale-105">
               {tr('دەستپێکردن ←', 'Start →')}
             </span>
           </button>
@@ -301,11 +329,11 @@ export default function PkBattlePanel({
           {/* Setup / Custom Battle Button */}
           <button
             onClick={() => setShowSetupModal(true)}
-            className="flex h-11 items-center gap-1.5 rounded-2xl border border-white/10 bg-surface-800/80 px-3 text-xs font-bold text-slate-200 shadow hover:border-amber-400/50 hover:bg-white/10 hover:text-amber-300 transition active:scale-95"
+            className="flex h-12 items-center gap-1.5 rounded-2xl border border-white/15 bg-slate-900/90 px-3 text-xs font-bold text-slate-200 shadow-lg hover:border-amber-400/50 hover:bg-slate-800 hover:text-amber-300 transition active:scale-95"
             title="PK Battle Settings & Modes"
           >
             <Settings2 className="h-4 w-4 text-amber-400" />
-            <span className="hidden sm:inline">{tr('ڕێکخستن و مۆدەکان', 'Custom Mode')}</span>
+            <span className="hidden xs:inline">{tr('مۆدەکان', 'Custom Mode')}</span>
           </button>
         </div>
 
@@ -539,113 +567,149 @@ export default function PkBattlePanel({
   // ─────────────────────────────────────────────────────────────
   return (
     <div className="mb-3 px-1">
-      <div className="overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-b from-slate-900/95 via-surface-900/90 to-slate-950 p-2.5 shadow-2xl backdrop-blur-xl">
-        {/* Top Header: Team Names, Mode Tag, Timer & Host Controls */}
-        <div className="flex items-center justify-between gap-1 pb-1.5">
-          {/* Red Team Label & Score */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1">
-                <span className="font-display text-xs font-black text-rose-400 uppercase tracking-wider truncate">
-                  {tr('سوور', 'RED')}
-                </span>
-                {myTeam === 'red' && (
-                  <span className="rounded bg-rose-500/20 px-1 text-[8px] font-bold text-rose-300">
-                    {tr('تۆ', 'YOU')}
-                  </span>
-                )}
-              </div>
-              <span className="font-mono text-xs font-black text-white">
-                {redScore.toLocaleString()}
-              </span>
-            </div>
+        {/* ── ULTRA-PROFESSIONAL RED VS BLUE ARENA CONTAINER ── */}
+        <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-slate-950 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.75)]">
+          {/* Dynamic Split Red & Blue Background Glows */}
+          <div className="pointer-events-none absolute inset-0 flex overflow-hidden">
+            <div
+              className="h-full transition-all duration-700"
+              style={{
+                width: `${redPercentage}%`,
+                background:
+                  'linear-gradient(135deg, rgba(225,29,72,0.55) 0%, rgba(190,18,60,0.32) 60%, rgba(15,23,42,0.15) 100%)',
+              }}
+            />
+            <div
+              className="h-full transition-all duration-700"
+              style={{
+                width: `${bluePercentage}%`,
+                background:
+                  'linear-gradient(225deg, rgba(2,132,199,0.55) 0%, rgba(29,78,216,0.32) 60%, rgba(15,23,42,0.15) 100%)',
+              }}
+            />
+          </div>
+          {/* Ambient Top Edge Neon Highlights */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex h-[2px]">
+            <div className="w-1/2 bg-gradient-to-r from-transparent via-rose-500 to-amber-400" />
+            <div className="w-1/2 bg-gradient-to-l from-transparent via-sky-400 to-amber-400" />
           </div>
 
-          {/* Center Timer, Mode & VS Emblem */}
-          <div className="flex flex-col items-center shrink-0">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/60 border border-white/10 text-xs font-black">
-              {pkBattle.status === 'active' ? (
-                <>
-                  <Clock
-                    className="h-3 w-3 text-amber-400 animate-spin"
-                    style={{ animationDuration: '4s' }}
-                  />
-                  <span className="text-amber-300 font-mono tracking-wider font-black">
-                    {formatTime(timeLeft)}
+          <div className="relative z-10">
+            {/* Top Header: Team Names, Mode Tag, Timer & Host Controls */}
+            <div className="flex items-center justify-between gap-1 pb-2">
+              {/* Red Team Label & Score */}
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-red-700 shadow-[0_0_15px_rgba(244,63,94,0.6)] border border-rose-300/40">
+                  <Flame className="h-4 w-4 text-white fill-white/20 animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="font-display text-[11px] font-black text-rose-300 uppercase tracking-wider truncate drop-shadow">
+                      {tr('تیمی سوور', 'RED TEAM')}
+                    </span>
+                    {myTeam === 'red' && (
+                      <span className="rounded-md bg-rose-500/40 border border-rose-300/40 px-1 text-[8px] font-black text-white">
+                        {tr('تۆ', 'YOU')}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-sm font-black text-white drop-shadow-[0_2px_6px_rgba(244,63,94,0.8)]">
+                    {redScore.toLocaleString()}
                   </span>
-                  <span className="rounded bg-rose-500/30 px-1 text-[8px] font-black text-rose-300 uppercase">
-                    {pkBattle.mode || '4v4'}
-                  </span>
-                </>
-              ) : (
-                <span className="text-rose-400 uppercase tracking-widest text-[10px] font-black">
-                  {tr('تەواوبوو', 'FINISHED')}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Blue Team Label & Score + Host End Button */}
-          <div className="flex items-center gap-1.5 min-w-0 justify-end">
-            <div className="min-w-0 text-right">
-              <div className="flex items-center justify-end gap-1">
-                {myTeam === 'blue' && (
-                  <span className="rounded bg-sky-500/20 px-1 text-[8px] font-bold text-sky-300">
-                    {tr('تۆ', 'YOU')}
-                  </span>
-                )}
-                <span className="font-display text-xs font-black text-sky-400 uppercase tracking-wider truncate">
-                  {tr('شین', 'BLUE')}
-                </span>
+                </div>
               </div>
-              <span className="font-mono text-xs font-black text-white">
-                {blueScore.toLocaleString()}
-              </span>
-            </div>
-            <span className="flex h-2.5 w-2.5 rounded-full bg-sky-500 animate-pulse shrink-0" />
 
-            {isHost && pkBattle.status === 'active' && (
-              <button
-                onClick={handleEnd}
-                className="ml-1 rounded-lg border border-white/10 bg-white/5 p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
-                title={tr('کۆتاییهێنان بە جەنگ', 'End Battle')}
+              {/* Center Timer, Mode & VS Emblem */}
+              <div className="flex flex-col items-center shrink-0">
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/90 border border-amber-400/40 text-xs font-black shadow-[0_0_18px_rgba(251,191,36,0.25)]">
+                  {pkBattle.status === 'active' ? (
+                    <>
+                      <Clock
+                        className="h-3.5 w-3.5 text-amber-400 animate-spin"
+                        style={{ animationDuration: '4s' }}
+                      />
+                      <span className="text-amber-300 font-mono tracking-wider font-black text-xs">
+                        {formatTime(timeLeft)}
+                      </span>
+                      <span className="rounded bg-gradient-to-r from-rose-500 to-sky-500 px-1.5 py-0.2 text-[8px] font-black text-white uppercase shadow-sm">
+                        {pkBattle.mode || '4v4'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-amber-300 uppercase tracking-widest text-[10px] font-black">
+                      {tr('تەواوبوو', 'FINISHED')}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Blue Team Label & Score + Host End Button */}
+              <div className="flex items-center gap-2 min-w-0 justify-end">
+                <div className="min-w-0 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    {myTeam === 'blue' && (
+                      <span className="rounded-md bg-sky-500/40 border border-sky-300/40 px-1 text-[8px] font-black text-white">
+                        {tr('تۆ', 'YOU')}
+                      </span>
+                    )}
+                    <span className="font-display text-[11px] font-black text-sky-300 uppercase tracking-wider truncate drop-shadow">
+                      {tr('تیمی شین', 'BLUE TEAM')}
+                    </span>
+                  </div>
+                  <span className="font-mono text-sm font-black text-white drop-shadow-[0_2px_6px_rgba(56,189,248,0.8)]">
+                    {blueScore.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-700 shadow-[0_0_15px_rgba(56,189,248,0.6)] border border-sky-300/40">
+                  <Sparkles className="h-4 w-4 text-white fill-white/20 animate-pulse" />
+                </div>
+
+                {isHost && pkBattle.status === 'active' && (
+                  <button
+                    onClick={handleEnd}
+                    className="ml-0.5 rounded-xl border border-white/15 bg-black/50 p-1.5 text-slate-300 hover:text-rose-400 hover:border-rose-400/50 transition"
+                    title={tr('کۆتاییهێنان بە جەنگ', 'End Battle')}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Tug-of-War Real-Time Score Bar (TopTop Style Clash Bar) */}
+            <div className="relative my-1.5">
+              <div className="flex h-5 w-full overflow-hidden rounded-full bg-slate-950 p-0.5 border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.8)]">
+                {/* Red Team Bar */}
+                <motion.div
+                  style={{ width: `${redPercentage}%` }}
+                  className="relative flex items-center justify-start pl-2.5 rounded-l-full bg-gradient-to-r from-red-700 via-rose-500 to-amber-400 transition-all duration-500 shadow-[0_0_15px_rgba(244,63,94,0.8)]"
+                >
+                  <span className="font-mono text-[10px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                    {redPercentage}%
+                  </span>
+                </motion.div>
+
+                {/* Blue Team Bar */}
+                <motion.div
+                  style={{ width: `${bluePercentage}%` }}
+                  className="relative flex items-center justify-end pr-2.5 rounded-r-full bg-gradient-to-l from-blue-700 via-sky-500 to-cyan-300 transition-all duration-500 shadow-[0_0_15px_rgba(56,189,248,0.8)]"
+                >
+                  <span className="font-mono text-[10px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+                    {bluePercentage}%
+                  </span>
+                </motion.div>
+              </div>
+
+              {/* Dynamic Clash Spark / VS Emblem at exact collision point */}
+              <div
+                style={{ left: `${redPercentage}%` }}
+                className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-rose-600 via-amber-400 to-sky-500 p-0.5 shadow-[0_0_18px_rgba(251,191,36,0.95)] transition-all duration-500"
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Tug-of-War Real-Time Score Bar */}
-        <div className="relative my-1">
-          <div className="flex h-4 w-full overflow-hidden rounded-full bg-slate-950 border border-white/10 shadow-inner">
-            {/* Red Team Bar */}
-            <motion.div
-              style={{ width: `${redPercentage}%` }}
-              className="relative flex items-center justify-start pl-2 bg-gradient-to-r from-rose-700 via-rose-500 to-pink-500 transition-all duration-500"
-            >
-              <span className="font-mono text-[9px] font-black text-white drop-shadow">
-                {redPercentage}%
-              </span>
-            </motion.div>
-
-            {/* Blue Team Bar */}
-            <motion.div
-              style={{ width: `${bluePercentage}%` }}
-              className="relative flex items-center justify-end pr-2 bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-600 transition-all duration-500"
-            >
-              <span className="font-mono text-[9px] font-black text-white drop-shadow">
-                {bluePercentage}%
-              </span>
-            </motion.div>
-          </div>
-
-          {/* Glowing Center VS Emblem */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950 border-2 border-amber-400 font-black text-[9px] text-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.6)]">
-            VS
-          </div>
-        </div>
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-slate-950 font-black text-[9px] text-amber-300 tracking-tighter">
+                  VS
+                </div>
+              </div>
+            </div>
 
         {/* Penalty Task Banner (If set) */}
         {pkBattle.penalty && (
@@ -869,7 +933,8 @@ export default function PkBattlePanel({
             )}
           </div>
         )}
-      </div>
+          </div>
+        </div>
     </div>
   );
 }

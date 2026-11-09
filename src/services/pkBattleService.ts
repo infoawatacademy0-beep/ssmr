@@ -39,12 +39,12 @@ export async function startPkBattle(
       redSeats = [1, 2];
       blueSeats = [3, 4];
     } else if (mode === '3v3') {
-      redSeats = [1, 2, 5];
-      blueSeats = [3, 4, 7];
+      redSeats = [1, 2, 3];
+      blueSeats = [4, 5, 6];
     } else {
       // 4v4 default
-      redSeats = [1, 2, 5, 6];
-      blueSeats = [3, 4, 7, 8];
+      redSeats = [1, 2, 3, 4];
+      blueSeats = [5, 6, 7, 8];
     }
   }
 

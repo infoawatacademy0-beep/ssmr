@@ -1346,20 +1346,29 @@ export default function VoiceRoom() {
             </div>
           </div>
 
-          <div
-            className={`grid gap-2.5 sm:gap-3 ${
-              room.seats.length <= 2
-                ? 'grid-cols-2 max-w-xs mx-auto'
-                : room.seats.length <= 4
-                ? 'grid-cols-2 sm:grid-cols-4'
-                : room.seats.length <= 8
-                ? 'grid-cols-4'
-                : room.seats.length <= 12
-                ? 'grid-cols-4 sm:grid-cols-6'
-                : 'grid-cols-4 sm:grid-cols-8'
-            }`}
-          >
-            {room.seats.map((seat) => {
+          {/* ── TOPTOP-STYLE STAGE CONTAINER & PK SPLIT BACKGROUND ── */}
+          {(() => {
+            const totalSeats = room.seats.length;
+            const isPkArenaActive = pkBattle?.status === 'active' || pkBattle?.status === 'finished';
+
+            const seatCircleSizeClass =
+              totalSeats <= 4
+                ? 'h-14 w-14 sm:h-16 sm:w-16'
+                : totalSeats <= 8
+                ? 'h-12 w-12 sm:h-14 sm:w-14'
+                : totalSeats <= 12
+                ? 'h-11 w-11 sm:h-12 sm:w-12'
+                : 'h-10 w-10 sm:h-11 sm:w-11';
+
+            const nameMaxWidthClass =
+              totalSeats <= 4
+                ? 'max-w-[74px] text-[11px]'
+                : totalSeats <= 8
+                ? 'max-w-[64px] text-[10px]'
+                : 'max-w-[54px] text-[9.5px]';
+
+            // Helper to render an individual seat card cleanly
+            const renderSeatItem = (seat: Seat) => {
               const isOccupied = Boolean(seat.userId);
               const isCurrentUser = seat.userId === user?.uid;
               const isHostSeat = seat.userId === room.hostId;
@@ -1369,44 +1378,59 @@ export default function VoiceRoom() {
                     (seat.userId && vipUsersMap[seat.userId]) ||
                     (isCurrentUser && user?.isVerified)),
               );
-              const isPkActive = pkBattle?.status === 'active';
-              const isTeamRed = pkBattle?.redSeats ? pkBattle.redSeats.includes(seat.seatNo) : [1, 2, 5, 6].includes(seat.seatNo);
-              const isTeamBlue = pkBattle?.blueSeats ? pkBattle.blueSeats.includes(seat.seatNo) : [3, 4, 7, 8].includes(seat.seatNo);
-              const isInPkTeam = isPkActive && (isTeamRed || isTeamBlue);
-              // True WebRTC speaking indicator powered by LiveKit Voice Activity Detection
+              const defaultHalf = Math.max(1, Math.floor(totalSeats / 2));
+              const isTeamRed = pkBattle?.redSeats
+                ? pkBattle.redSeats.includes(seat.seatNo)
+                : seat.seatNo <= Math.min(4, defaultHalf);
+              const isTeamBlue = pkBattle?.blueSeats
+                ? pkBattle.blueSeats.includes(seat.seatNo)
+                : !isTeamRed && seat.seatNo <= 8;
+              const isInPkTeam = isPkArenaActive && (isTeamRed || isTeamBlue);
+
               const isSpeaking =
                 isOccupied &&
                 !seat.isMuted &&
                 seat.userId !== null &&
                 speakingUids.has(seat.userId);
 
-              // Dynamic border & glow depending on VIP fire stroke / speaking / PK team status
-              let avatarBorderClass = 'border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-violet-500/50 hover:bg-white/[0.04]';
+              let avatarBorderClass = isInPkTeam
+                ? isTeamRed
+                  ? 'border-2 border-dashed border-rose-400/60 bg-rose-950/40 hover:border-rose-300 hover:bg-rose-900/50 shadow-[0_0_12px_rgba(244,63,94,0.25)]'
+                  : 'border-2 border-dashed border-sky-400/60 bg-sky-950/40 hover:border-sky-300 hover:bg-sky-900/50 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                : 'border border-white/15 bg-slate-900/55 hover:border-violet-400/60 hover:bg-slate-800/70 shadow-inner';
+
               if (seat.isPlatinum) {
-                avatarBorderClass = 'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/25 via-blue-950/40 to-black shadow-[0_0_24px_rgba(6,182,212,0.65)] ring-1 ring-cyan-400/50';
+                avatarBorderClass =
+                  'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/25 via-blue-950/50 to-black shadow-[0_0_20px_rgba(6,182,212,0.55)] ring-1 ring-cyan-400/50';
               } else if (seat.isIron) {
-                avatarBorderClass = 'border-2 border-slate-300 bg-gradient-to-b from-slate-400/25 via-zinc-800/40 to-black shadow-[0_0_18px_rgba(203,213,225,0.6)] ring-1 ring-slate-400/50';
+                avatarBorderClass =
+                  'border-2 border-slate-300 bg-gradient-to-b from-slate-400/25 via-zinc-800/50 to-black shadow-[0_0_16px_rgba(203,213,225,0.5)] ring-1 ring-slate-400/50';
               } else if (seat.isVip) {
-                avatarBorderClass = 'border-2 border-amber-400/90 bg-gradient-to-b from-amber-500/15 via-amber-950/30 to-black/60 shadow-[0_0_18px_rgba(245,158,11,0.45)]';
+                avatarBorderClass =
+                  'border-2 border-amber-400/90 bg-gradient-to-b from-amber-500/20 via-amber-950/40 to-black/70 shadow-[0_0_16px_rgba(245,158,11,0.4)]';
               }
               if (isOccupied) {
                 if (seat.isPlatinum) {
-                  avatarBorderClass = 'border-2 border-cyan-300 shadow-[0_0_24px_rgba(6,182,212,0.85)] ring-2 ring-cyan-400/60';
+                  avatarBorderClass =
+                    'border-2 border-cyan-300 shadow-[0_0_22px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400/60';
                 } else if (seat.isIron) {
-                  avatarBorderClass = 'border-2 border-slate-300 shadow-[0_0_20px_rgba(203,213,225,0.8)] ring-2 ring-slate-400/60';
+                  avatarBorderClass =
+                    'border-2 border-slate-300 shadow-[0_0_18px_rgba(203,213,225,0.75)] ring-2 ring-slate-400/60';
                 } else if (isSeatVip || seat.isVip) {
                   avatarBorderClass = getVipAvatarClass(
                     true,
                     seat.userId ? vipFramesMap[seat.userId] : undefined,
                   );
                 } else if (isSpeaking) {
-                  avatarBorderClass = 'border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)]';
+                  avatarBorderClass =
+                    'border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.6)]';
                 } else if (isInPkTeam) {
                   avatarBorderClass = isTeamRed
-                    ? 'border-2 border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
-                    : 'border-2 border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.6)]';
+                    ? 'border-2 border-rose-500 shadow-[0_0_18px_rgba(244,63,94,0.8)] ring-2 ring-rose-500/35'
+                    : 'border-2 border-sky-400 shadow-[0_0_18px_rgba(56,189,248,0.8)] ring-2 ring-sky-400/35';
                 } else {
-                  avatarBorderClass = 'border-2 border-violet-500/60 shadow-md shadow-violet-500/20';
+                  avatarBorderClass =
+                    'border-2 border-violet-500/70 shadow-md shadow-violet-500/25';
                 }
               }
 
@@ -1414,14 +1438,14 @@ export default function VoiceRoom() {
                 <div
                   key={`seat-${seat.seatNo}`}
                   onClick={() => handleSeatClick(seat)}
-                  className="group flex cursor-pointer flex-col items-center"
+                  className="group flex cursor-pointer flex-col items-center min-w-0 py-0.5"
                 >
                   {/* Seat Avatar Container */}
                   <div className="relative flex items-center justify-center">
                     {/* Speaking Animated Wave Ring */}
                     {isSpeaking && (
                       <motion.div
-                        animate={{ scale: [1, 1.35, 1], opacity: [0.9, 0, 0.9] }}
+                        animate={{ scale: [1, 1.28, 1], opacity: [0.9, 0, 0.9] }}
                         transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
                         className="absolute inset-0 rounded-full border-2 border-emerald-400 pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.8)]"
                       />
@@ -1430,8 +1454,10 @@ export default function VoiceRoom() {
                     {/* PK Battle Team Pill Indicator on Seat */}
                     {isInPkTeam && (
                       <div
-                        className={`absolute -top-2 left-1/2 -translate-x-1/2 rounded px-1.5 py-0.2 text-[7px] font-black uppercase text-white shadow-md z-20 ${
-                          isTeamRed ? 'bg-rose-600 border border-rose-400/80' : 'bg-sky-600 border border-sky-400/80'
+                        className={`absolute -top-1.5 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0 text-[7px] font-black uppercase text-white shadow-md z-30 tracking-wider ${
+                          isTeamRed
+                            ? 'bg-gradient-to-r from-rose-600 to-red-500 border border-rose-300/80 shadow-rose-500/50'
+                            : 'bg-gradient-to-r from-sky-500 to-blue-600 border border-sky-300/80 shadow-sky-500/50'
                         }`}
                       >
                         {isTeamRed ? 'RED' : 'BLUE'}
@@ -1441,13 +1467,12 @@ export default function VoiceRoom() {
                     {/* Avatar / Empty Seat Base */}
                     <div
                       className={`
-                        relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full transition-all duration-300
+                        relative flex ${seatCircleSizeClass} items-center justify-center rounded-full transition-all duration-300
                         ${avatarBorderClass}
                       `}
                     >
                       {isOccupied ? (
                         <>
-                          {/* Occupied Seat Avatar (Profile Picture or Initial) */}
                           {(() => {
                             const seatAvatarUrl =
                               seat.avatar ||
@@ -1456,7 +1481,7 @@ export default function VoiceRoom() {
                               audience.find((a) => a.uid === seat.userId)?.avatar ||
                               null;
                             return (
-                              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-violet-700 via-purple-600 to-cyan-500 text-sm font-bold text-white uppercase shadow-inner">
+                              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-violet-700 via-purple-600 to-cyan-500 text-xs font-bold text-white uppercase shadow-inner">
                                 {seatAvatarUrl ? (
                                   <img
                                     src={seatAvatarUrl}
@@ -1489,8 +1514,11 @@ export default function VoiceRoom() {
 
                           {/* Host Crown Indicator */}
                           {isHostSeat && (
-                            <div className="absolute -top-1.5 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow z-20">
-                              <Crown className="h-2.5 w-2.5 text-black fill-black" strokeWidth={2.5} />
+                            <div className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow z-30">
+                              <Crown
+                                className="h-2.5 w-2.5 text-black fill-black"
+                                strokeWidth={2.5}
+                              />
                             </div>
                           )}
 
@@ -1498,43 +1526,32 @@ export default function VoiceRoom() {
                           {seat.isPlatinum ? (
                             <div
                               title="Platinum Reserved"
-                              className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-400 via-sky-300 to-white shadow-[0_0_12px_rgba(6,182,212,0.9)] z-20"
+                              className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-400 via-sky-300 to-white shadow-[0_0_10px_rgba(6,182,212,0.9)] z-30"
                             >
-                              <Diamond className="h-3 w-3 text-cyan-950 fill-cyan-950" strokeWidth={2.5} />
+                              <Diamond
+                                className="h-2.5 w-2.5 text-cyan-950 fill-cyan-950"
+                                strokeWidth={2.5}
+                              />
                             </div>
                           ) : seat.isIron ? (
                             <div
                               title="Iron Reserved"
-                              className="absolute -top-1.5 -left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-tr from-slate-300 via-zinc-400 to-slate-100 shadow-[0_0_12px_rgba(203,213,225,0.9)] z-20"
+                              className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-tr from-slate-300 via-zinc-400 to-slate-100 shadow-[0_0_10px_rgba(203,213,225,0.9)] z-30"
                             >
-                              <Shield className="h-3 w-3 text-black fill-black" strokeWidth={2.5} />
+                              <Shield
+                                className="h-2.5 w-2.5 text-black fill-black"
+                                strokeWidth={2.5}
+                              />
                             </div>
-                          ) : (
-                            isOccupied &&
-                            !isHostSeat && (
-                              <div className="absolute -top-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-md shadow-cyan-400/40 z-10">
-                                <Diamond className="h-2.5 w-2.5 text-black fill-black" />
-                              </div>
-                            )
-                          )}
+                          ) : null}
 
-                          {/* Clear Seat Number Badge on Occupied Avatar */}
-                          {isOccupied && (
-                            <div
-                              title={`${tr('کورسی', 'Seat')} #${seat.seatNo}`}
-                              className="absolute -top-1.5 -right-1.5 z-20 flex h-4 min-w-[17px] px-1 items-center justify-center rounded-full bg-slate-950 border border-amber-400 text-[9px] font-black text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.6)]"
-                            >
-                              #{seat.seatNo}
-                            </div>
-                          )}
-
-                          {/* Gift / PK Coins Badge on Seat Profile Icon */}
+                          {/* Gift / PK Coins Pill Badge at bottom of Avatar */}
                           {seat.userId && (seatGiftCoins[seat.userId] ?? 0) > 0 && (
                             <div
                               title={`${formatCoinsK(seatGiftCoins[seat.userId] ?? 0)} PK Points`}
-                              className="absolute -bottom-2 -left-1.5 z-20 flex items-center gap-0.5 rounded-full border border-amber-400/80 bg-gradient-to-r from-amber-500 to-yellow-500 px-1.5 py-0.5 text-[8px] font-black text-slate-950 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
+                              className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 rounded-full border border-amber-300/90 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 px-1.5 py-0 text-[7.5px] font-black text-slate-950 shadow-[0_2px_8px_rgba(245,158,11,0.65)] whitespace-nowrap"
                             >
-                              <Coins className="h-2.5 w-2.5 text-slate-950 shrink-0" />
+                              <Coins className="h-2 w-2 text-slate-950 shrink-0" />
                               <span>{formatCoinsK(seatGiftCoins[seat.userId] ?? 0)}</span>
                             </div>
                           )}
@@ -1542,7 +1559,7 @@ export default function VoiceRoom() {
                           {/* Mic Status Badge */}
                           <div
                             className={`
-                              absolute -bottom-1 -right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-surface-900 shadow-md
+                              absolute -bottom-0.5 -right-0.5 z-30 flex h-4 w-4 items-center justify-center rounded-full border border-surface-900 shadow-md
                               ${seat.isMuted ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-black'}
                             `}
                           >
@@ -1553,7 +1570,7 @@ export default function VoiceRoom() {
                             )}
                           </div>
 
-                          {/* 3D Animated Emoji Overlay Directly on Seat (like Screenshot 1) */}
+                          {/* 3D Animated Emoji Overlay Directly on Seat */}
                           <AnimatePresence>
                             {activeSeatEmojis[seat.seatNo] &&
                               Date.now() - activeSeatEmojis[seat.seatNo].timestamp < 4200 && (
@@ -1566,27 +1583,49 @@ export default function VoiceRoom() {
                         </>
                       ) : (
                         <>
-                          {/* Empty Seat State */}
                           {seat.isLocked ? (
-                            <Lock className="h-5 w-5 text-slate-600" />
+                            <div className="flex flex-col items-center justify-center text-slate-500">
+                              <Lock className="h-4 w-4 text-rose-400/70" />
+                              <span className="mt-0.5 text-[8px] font-bold text-slate-500">
+                                #{seat.seatNo}
+                              </span>
+                            </div>
                           ) : seat.isPlatinum ? (
-                            <div className="flex flex-col items-center justify-center text-cyan-300 transition-transform group-hover:scale-110">
-                              <Diamond className="h-6 w-6 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.9)]" strokeWidth={2.2} />
-                              <span className="text-[8px] font-black uppercase tracking-wider text-cyan-300 mt-0.5">PLATINUM</span>
+                            <div className="flex flex-col items-center justify-center text-cyan-300 transition-transform group-hover:scale-105">
+                              <Diamond
+                                className="h-4 w-4 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.9)]"
+                                strokeWidth={2.2}
+                              />
+                              <span className="text-[6.5px] font-black uppercase tracking-wider text-cyan-300 mt-0.5">
+                                PLATINUM
+                              </span>
                             </div>
                           ) : seat.isIron ? (
-                            <div className="flex flex-col items-center justify-center text-slate-200 transition-transform group-hover:scale-110">
-                              <Shield className="h-6 w-6 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]" strokeWidth={2.2} />
-                              <span className="text-[8px] font-black uppercase tracking-wider text-slate-200 mt-0.5">IRON</span>
+                            <div className="flex flex-col items-center justify-center text-slate-200 transition-transform group-hover:scale-105">
+                              <Shield
+                                className="h-4 w-4 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]"
+                                strokeWidth={2.2}
+                              />
+                              <span className="text-[6.5px] font-black uppercase tracking-wider text-slate-200 mt-0.5">
+                                IRON
+                              </span>
                             </div>
                           ) : seat.isVip ? (
-                            <div className="flex flex-col items-center justify-center text-amber-300 transition-transform group-hover:scale-110">
-                              <Crown className="h-6 w-6 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_#f59e0b]" strokeWidth={2.2} />
-                              <span className="text-[8px] font-black uppercase tracking-wider text-amber-300 mt-0.5">VIP</span>
+                            <div className="flex flex-col items-center justify-center text-amber-300 transition-transform group-hover:scale-105">
+                              <Crown
+                                className="h-4 w-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_#f59e0b]"
+                                strokeWidth={2.2}
+                              />
+                              <span className="text-[6.5px] font-black uppercase tracking-wider text-amber-300 mt-0.5">
+                                VIP
+                              </span>
                             </div>
                           ) : (
-                            <div className="flex flex-col items-center justify-center text-slate-500 transition-colors group-hover:text-violet-400">
-                              <Plus className="h-5 w-5" />
+                            <div className="flex flex-col items-center justify-center text-slate-400/70 transition-colors group-hover:text-white">
+                              <Plus className="h-3.5 w-3.5 opacity-75 group-hover:scale-110 transition-transform" />
+                              <span className="text-[8px] font-bold opacity-60">
+                                {seat.seatNo}
+                              </span>
                             </div>
                           )}
                         </>
@@ -1594,12 +1633,25 @@ export default function VoiceRoom() {
                     </div>
                   </div>
 
-                  {/* Seat Title / Colored Username + VIP / Platinum / Iron Icon */}
-                  <div className="mt-1.5 flex items-center justify-center gap-0.5 max-w-full px-1">
+                  {/* Seat Title / Colored Username + Compact Seat Number */}
+                  <div className="mt-1.5 flex items-center justify-center gap-1 max-w-full px-0.5">
+                    {isOccupied && (
+                      <span
+                        className={`shrink-0 rounded px-1 py-0 text-[8px] font-black leading-tight ${
+                          isInPkTeam
+                            ? isTeamRed
+                              ? 'bg-rose-500/35 text-rose-200 border border-rose-400/50'
+                              : 'bg-sky-500/35 text-sky-200 border border-sky-400/50'
+                            : 'bg-white/10 text-amber-300'
+                        }`}
+                      >
+                        {seat.seatNo}
+                      </span>
+                    )}
                     {seat.isPlatinum ? (
-                      <Diamond className="h-2.5 w-2.5 shrink-0 text-cyan-400 fill-cyan-400 drop-shadow-[0_0_4px_rgba(6,182,212,0.8)]" />
+                      <Diamond className="h-2.5 w-2.5 shrink-0 text-cyan-400 fill-cyan-400" />
                     ) : seat.isIron ? (
-                      <Shield className="h-2.5 w-2.5 shrink-0 text-slate-300 fill-slate-300 drop-shadow-[0_0_4px_rgba(203,213,225,0.8)]" />
+                      <Shield className="h-2.5 w-2.5 shrink-0 text-slate-300 fill-slate-300" />
                     ) : isOccupied && isSeatVip && seat.userId ? (
                       <VipLevelBadge
                         isVip={true}
@@ -1608,7 +1660,7 @@ export default function VoiceRoom() {
                       />
                     ) : null}
                     <span
-                      className={`truncate text-center text-[11px] leading-tight max-w-[72px] ${
+                      className={`truncate text-center leading-tight ${nameMaxWidthClass} ${
                         isOccupied
                           ? `font-bold ${SEAT_NAME_COLORS[(seat.seatNo - 1) % SEAT_NAME_COLORS.length]}`
                           : seat.isPlatinum
@@ -1617,20 +1669,31 @@ export default function VoiceRoom() {
                           ? 'text-slate-200 font-black'
                           : seat.isVip
                           ? 'text-amber-300 font-black'
-                          : 'text-slate-500 font-medium'
+                          : isInPkTeam
+                          ? isTeamRed
+                            ? 'text-rose-200/80 font-semibold'
+                            : 'text-sky-200/80 font-semibold'
+                          : 'text-slate-400/80 font-medium'
                       }`}
                       title={
                         isOccupied
                           ? `${tr('کورسی', 'Seat')} ${seat.seatNo}: ${seat.username || ''}`
-                          : seat.vipAssignedName || (seat.isPlatinum ? `Platinum #${seat.seatNo}` : seat.isIron ? `Iron #${seat.seatNo}` : seat.isVip ? `VIP #${seat.seatNo}` : `${tr('کورسی', 'Seat')} ${seat.seatNo}`)
+                          : seat.vipAssignedName ||
+                            (seat.isPlatinum
+                              ? `Platinum #${seat.seatNo}`
+                              : seat.isIron
+                              ? `Iron #${seat.seatNo}`
+                              : seat.isVip
+                              ? `VIP #${seat.seatNo}`
+                              : `${tr('کورسی', 'Seat')} ${seat.seatNo}`)
                       }
                     >
                       {isOccupied
-                        ? (isCurrentUser ? `${seat.username} (${tr('تۆ', 'You')})` : seat.username)
+                        ? seat.username
                         : seat.vipAssignedName
                         ? seat.vipAssignedName
                         : seat.isPlatinum
-                        ? `Platinum #${seat.seatNo}`
+                        ? `Plat #${seat.seatNo}`
                         : seat.isIron
                         ? `Iron #${seat.seatNo}`
                         : seat.isVip
@@ -1640,8 +1703,150 @@ export default function VoiceRoom() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+            };
+
+            if (isPkArenaActive) {
+              const defaultHalf = Math.max(1, Math.floor(totalSeats / 2));
+              const redSeatList = room.seats.filter((s) =>
+                pkBattle?.redSeats
+                  ? pkBattle.redSeats.includes(s.seatNo)
+                  : s.seatNo <= Math.min(4, defaultHalf),
+              );
+              const blueSeatList = room.seats.filter((s) =>
+                pkBattle?.blueSeats
+                  ? pkBattle.blueSeats.includes(s.seatNo)
+                  : !redSeatList.some((r) => r.seatNo === s.seatNo) && s.seatNo <= 8,
+              );
+              const neutralSeats = room.seats.filter(
+                (s) =>
+                  !redSeatList.some((r) => r.seatNo === s.seatNo) &&
+                  !blueSeatList.some((b) => b.seatNo === s.seatNo),
+              );
+
+              return (
+                <div className="space-y-2">
+                  {/* Split Red vs Blue PK Arena Stage */}
+                  <div className="relative overflow-hidden rounded-3xl border border-white/25 bg-slate-950 shadow-[0_12px_40px_rgba(0,0,0,0.8)]">
+                    {/* Split Red (Left) & Blue (Right) Vivid Neon Arena Background */}
+                    <div className="pointer-events-none absolute inset-0 z-0 flex">
+                      <div
+                        className="relative h-full w-1/2 overflow-hidden"
+                        style={{
+                          background:
+                            'linear-gradient(135deg, rgba(225, 29, 72, 0.55) 0%, rgba(159, 18, 57, 0.35) 55%, rgba(15, 23, 42, 0.85) 100%)',
+                        }}
+                      >
+                        <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-rose-500/30 blur-2xl" />
+                      </div>
+                      <div
+                        className="relative h-full w-1/2 overflow-hidden"
+                        style={{
+                          background:
+                            'linear-gradient(225deg, rgba(2, 132, 199, 0.55) 0%, rgba(29, 78, 216, 0.35) 55%, rgba(15, 23, 42, 0.85) 100%)',
+                        }}
+                      >
+                        <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-sky-500/30 blur-2xl" />
+                      </div>
+                    </div>
+
+                    {/* Center Glowing VS Lightning Divider */}
+                    <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center justify-center">
+                      <div className="h-full w-[2px] bg-gradient-to-b from-rose-400 via-amber-300 to-sky-400 shadow-[0_0_15px_rgba(251,191,36,0.95)]" />
+                      <div className="absolute top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-amber-300 bg-slate-950 text-[9px] font-black text-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.9)]">
+                        VS
+                      </div>
+                    </div>
+
+                    {/* Left (Red Team) vs Right (Blue Team) Seats Grid */}
+                    <div className="relative z-10 grid grid-cols-2">
+                      {/* Red Team Side */}
+                      <div className="p-2.5 pr-3.5">
+                        <div className="mb-2 flex items-center justify-between border-b border-rose-400/25 pb-1">
+                          <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-rose-300 drop-shadow">
+                            <Flame className="h-3 w-3 text-rose-400 fill-rose-400" />
+                            {tr('بەرەی سوور', 'RED SIDE')}
+                          </span>
+                          <span className="rounded-full bg-rose-500/30 border border-rose-400/40 px-1.5 text-[8px] font-black text-white">
+                            {redSeatList.filter((s) => s.userId).length}/{redSeatList.length}
+                          </span>
+                        </div>
+                        <div
+                          className={`grid gap-2 ${
+                            redSeatList.length <= 1
+                              ? 'grid-cols-1 place-items-center py-2'
+                              : 'grid-cols-2'
+                          }`}
+                        >
+                          {redSeatList.map((seat) => renderSeatItem(seat))}
+                        </div>
+                      </div>
+
+                      {/* Blue Team Side */}
+                      <div className="p-2.5 pl-3.5">
+                        <div className="mb-2 flex items-center justify-between border-b border-sky-400/25 pb-1">
+                          <span className="rounded-full bg-sky-500/30 border border-sky-400/40 px-1.5 text-[8px] font-black text-white">
+                            {blueSeatList.filter((s) => s.userId).length}/{blueSeatList.length}
+                          </span>
+                          <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-sky-300 drop-shadow">
+                            {tr('بەرەی شین', 'BLUE SIDE')}
+                            <Sparkles className="h-3 w-3 text-sky-400 fill-sky-400" />
+                          </span>
+                        </div>
+                        <div
+                          className={`grid gap-2 ${
+                            blueSeatList.length <= 1
+                              ? 'grid-cols-1 place-items-center py-2'
+                              : 'grid-cols-2'
+                          }`}
+                        >
+                          {blueSeatList.map((seat) => renderSeatItem(seat))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Extra / Spectator Seats below PK Arena (if room has >8 seats) */}
+                  {neutralSeats.length > 0 && (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-2">
+                      <div className="grid grid-cols-4 gap-2">
+                        {neutralSeats.map((seat) => renderSeatItem(seat))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // Standard TopTop-Style Symmetrical Stage Grid (1 to 16 seats)
+            const gridColsClass =
+              totalSeats === 1
+                ? 'grid-cols-1 max-w-[140px] mx-auto'
+                : totalSeats === 2
+                ? 'grid-cols-2 max-w-[240px] mx-auto gap-4'
+                : totalSeats === 3
+                ? 'grid-cols-3 max-w-[310px] mx-auto gap-3'
+                : totalSeats === 4
+                ? 'grid-cols-4 gap-2.5'
+                : totalSeats <= 6
+                ? 'grid-cols-3 gap-y-3 gap-x-2.5 max-w-[330px] mx-auto'
+                : totalSeats <= 8
+                ? 'grid-cols-4 gap-y-3 gap-x-2'
+                : totalSeats === 9
+                ? 'grid-cols-3 gap-y-2.5 gap-x-2.5 max-w-[330px] mx-auto'
+                : totalSeats === 10
+                ? 'grid-cols-5 gap-y-2.5 gap-x-1.5'
+                : totalSeats <= 12
+                ? 'grid-cols-4 gap-y-2.5 gap-x-2'
+                : 'grid-cols-4 gap-y-2 gap-x-1.5';
+
+            return (
+              <div className="relative rounded-3xl border border-white/[0.07] bg-white/[0.02] p-2.5 shadow-inner">
+                <div className={`grid ${gridColsClass}`}>
+                  {room.seats.map((seat) => renderSeatItem(seat))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── FLOATING VIP JACKAROO NOTIFICATION BANNER ── */}
           <div className="mt-2 space-y-2">
