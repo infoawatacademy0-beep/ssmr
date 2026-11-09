@@ -1631,19 +1631,6 @@ export default function CinemaPlayerPanel({
           : undefined
       }
     >
-      {/* Mobile Auto-Rotate / Fullscreen Quick Pill (Shown on mobile when not fullscreen) */}
-      {!isFullscreen && (
-        <div className="flex items-center justify-between px-1 mb-2 sm:hidden">
-          <button
-            onClick={enterLandscapeFullscreen}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 px-3 py-1.5 text-xs font-black text-white shadow-lg shadow-rose-500/25 active:scale-95 transition"
-          >
-            <Smartphone className="h-3.5 w-3.5 rotate-90" />
-            <span>{tr('شاشەی تەواو و ئاسۆیی (Auto Rotate)', 'Full Size & Auto Rotate')}</span>
-          </button>
-        </div>
-      )}
-
       {/* ─────────────────────────────────────────────────────────────
           1. CINEMA SCREEN WIDESCREEN VIDEO PLAYER
           ───────────────────────────────────────────────────────────── */}
