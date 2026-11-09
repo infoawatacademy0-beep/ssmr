@@ -980,15 +980,6 @@ export default function VoiceRoom() {
 
         {/* Right Side: Action Buttons (Organized & Sleek) */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          {/* Live Audience Counter */}
-          <div
-            className="flex h-8 items-center gap-1 rounded-xl bg-white/[0.04] border border-white/[0.06] px-2 text-xs font-bold text-slate-300"
-            title={tr('گوێگرانی ژوور', 'Audience')}
-          >
-            <Users className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-[11px] text-white">{audience.length}</span>
-          </div>
-
           {/* Guest Anon Badge & Quick Login */}
           {user?.isAnonymous && (
             <button
