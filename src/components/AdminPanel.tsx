@@ -91,6 +91,7 @@ import {
   uploadImageToImgBB,
 } from '../services';
 import { useLanguage } from '../contexts/LanguageContext';
+import EpisodeVideoThumbnail from './EpisodeVideoThumbnail';
 
 interface AnimatedCoverPreset {
   id: string;
@@ -2170,9 +2171,14 @@ export default function AdminPanel({
                           className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800/90 bg-slate-950/75 p-3 hover:border-purple-500/40 transition"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600/30 to-pink-600/20 border border-purple-500/30 font-mono text-xs font-black text-purple-200">
-                              #{ep.episodeNumber}
-                            </div>
+                            <EpisodeVideoThumbnail
+                              videoUrl={ep.videoUrl}
+                              fallbackPosterUrl={ep.posterUrl || selectedCinemaFolder.posterUrl}
+                              episodeNumber={ep.episodeNumber}
+                              title={ep.title}
+                              className="h-14 w-24"
+                              showPlayOverlay={false}
+                            />
                             <div className="min-w-0">
                               <h4 className="text-xs font-black text-white truncate">
                                 {ep.title}

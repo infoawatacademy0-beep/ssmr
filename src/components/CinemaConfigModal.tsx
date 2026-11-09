@@ -21,12 +21,17 @@ import type {
   CinemaEpisode,
 } from '../types';
 import {
+  startCinemaMode,
+  setCinemaVideoUrl,
   stopCinemaMode,
   updateCinemaSeatCount,
   subscribeToCinemaFolders,
   playCinemaEpisodeInRoom,
+  sendRoomMessage,
 } from '../services';
 import { useLanguage } from '../contexts';
+import EpisodeVideoThumbnail from './EpisodeVideoThumbnail';
+import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from '../utils/youtube';
 
 interface CinemaConfigModalProps {
   roomId: string;
@@ -52,6 +57,8 @@ export default function CinemaConfigModal({
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [youtubeUrlInput, setYoutubeUrlInput] = useState('');
+  const [youtubeTitleInput, setYoutubeTitleInput] = useState('');
   const [seatCount, setSeatCount] = useState(5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -135,6 +142,70 @@ export default function CinemaConfigModal({
     } catch (err: any) {
       showNotification(
         err.message || tr('نەتوانرا فیلمەکە پەخش بکرێت', 'Failed to play episode'),
+        false,
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Play a YouTube video link directly in the room (Open to Room Host & Users)
+  const handlePlayYouTubeVideo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUrl = youtubeUrlInput.trim();
+    const ytId = extractYouTubeVideoId(cleanUrl);
+    if (!ytId) {
+      showNotification(
+        tr(
+          'تکایە لینکێکی دروستی ڤیدیۆی یوتیوب (YouTube) دابنێ',
+          'Please enter a valid YouTube video URL',
+        ),
+        false,
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    try {
+      const canonicalYtUrl = `https://www.youtube.com/watch?v=${ytId}`;
+      const finalTitle =
+        youtubeTitleInput.trim() ||
+        tr('ڤیدیۆی یوتیوب · سەیرکردنی ڕاستەوخۆ', 'YouTube Live Watch Party');
+
+      if (cinemaState?.isActive) {
+        await setCinemaVideoUrl(
+          roomId,
+          canonicalYtUrl,
+          finalTitle,
+          { uid: currentUser.uid, username: currentUser.username },
+          isAdminOrHost ? seatCount : undefined,
+        );
+      } else {
+        await startCinemaMode(roomId, {
+          videoUrl: canonicalYtUrl,
+          title: finalTitle,
+          hostUid: currentUser.uid,
+          hostName: currentUser.username,
+          seatCount: isAdminOrHost ? seatCount : 5,
+        });
+      }
+
+      try {
+        await sendRoomMessage(
+          roomId,
+          'system',
+          'YouTube',
+          `▶️ ${currentUser.username} ڤیدیۆیەکی یوتیوبی خستە سەر شاشە: ${finalTitle}`,
+        );
+      } catch {}
+
+      setYoutubeUrlInput('');
+      setYoutubeTitleInput('');
+      onClose();
+    } catch (err: any) {
+      showNotification(
+        err.message || tr('نەتوانرا ڤیدیۆی یوتیوب پەخش بکرێت', 'Failed to start YouTube video'),
         false,
       );
     } finally {
@@ -247,8 +318,74 @@ export default function CinemaConfigModal({
           </div>
         )}
 
-        {/* Main Content Area: Folder Grid OR Inside Folder Episodes List */}
+        {/* Main Content Area: YouTube Quick Player + Folder Grid OR Inside Folder Episodes List */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3.5 space-y-4 overscroll-contain min-h-0">
+          {/* ── YOUTUBE VIDEO LINK WATCH PARTY BOX (OPEN TO HOST & USERS) ── */}
+          <form
+            onSubmit={handlePlayYouTubeVideo}
+            className="rounded-2xl border border-red-500/35 bg-gradient-to-r from-red-950/40 via-black/60 to-rose-950/30 p-3 space-y-2.5 shadow-inner"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-red-600 text-white shadow-sm shadow-red-600/40">
+                  <Play className="h-3.5 w-3.5 fill-current" />
+                </span>
+                <span className="text-xs font-black text-white">
+                  {tr('پەخشکردنی ڤیدیۆی یوتیوب (YouTube)', 'Watch YouTube Video Together')}
+                </span>
+              </div>
+              <span className="rounded-full bg-red-500/20 border border-red-500/30 px-2 py-0.5 text-[9px] font-bold text-red-300">
+                {tr('بۆ خاوەن ژوور و بەکارهێنەران', 'Host & Users')}
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="url"
+                required
+                value={youtubeUrlInput}
+                onChange={(e) => setYoutubeUrlInput(e.target.value)}
+                placeholder={tr('لینکی ڤیدیۆی یوتیوب لێرە دابنێ (https://youtu.be/...)', 'Paste YouTube link here (https://youtu.be/...)')}
+                dir="ltr"
+                className="flex-1 rounded-xl border border-white/15 bg-black/75 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500 font-mono"
+              />
+              <input
+                type="text"
+                maxLength={50}
+                value={youtubeTitleInput}
+                onChange={(e) => setYoutubeTitleInput(e.target.value)}
+                placeholder={tr('ناوی ڤیدیۆ (ئارەزوومەندانە)', 'Title (optional)')}
+                className="sm:w-40 rounded-xl border border-white/15 bg-black/75 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500"
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting || !youtubeUrlInput.trim()}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2 text-xs font-black text-white shadow-lg shadow-red-600/30 hover:brightness-110 active:scale-95 transition disabled:opacity-40 shrink-0"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" />
+                <span>{tr('پەخشکردن', 'Play YouTube')}</span>
+              </button>
+            </div>
+
+            {getYouTubeThumbnailUrl(youtubeUrlInput) && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-red-500/30 bg-black/60 p-2">
+                <img
+                  src={getYouTubeThumbnailUrl(youtubeUrlInput)!}
+                  alt="YouTube Preview"
+                  className="h-12 w-20 rounded-lg object-cover border border-white/15 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-emerald-400">
+                    {tr('ڤیدیۆی یوتیوب ئامادەیە بۆ پەخشکردن', 'YouTube video ready to play')}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate font-mono" dir="ltr">
+                    {youtubeUrlInput}
+                  </p>
+                </div>
+              </div>
+            )}
+          </form>
+
           {activeFolder ? (
             /* ── VIEW 2: INSIDE A MOVIE FOLDER -> SHOW ALL EPISODES ── */
             <div className="space-y-3.5">
@@ -324,24 +461,15 @@ export default function CinemaConfigModal({
                             : 'border-white/10 bg-white/[0.04] hover:border-amber-400/50 hover:bg-white/[0.08]'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          {/* Poster Thumbnail with Episode Number Badge */}
-                          <div className="relative h-12 w-10 shrink-0 overflow-hidden rounded-xl border border-white/15 bg-slate-900">
-                            {ep.posterUrl || activeFolder.posterUrl ? (
-                              <img
-                                src={ep.posterUrl || activeFolder.posterUrl}
-                                alt={ep.title}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center bg-amber-500/20 text-amber-300">
-                                <Film className="h-4 w-4" />
-                              </div>
-                            )}
-                            <span className="absolute bottom-0 inset-x-0 bg-black/80 text-center font-mono text-[9px] font-black text-amber-300 py-0.5">
-                              #{ep.episodeNumber}
-                            </span>
-                          </div>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {/* Auto-Extracted Video Frame Thumbnail from inside the Episode */}
+                          <EpisodeVideoThumbnail
+                            videoUrl={ep.videoUrl}
+                            fallbackPosterUrl={ep.posterUrl || activeFolder.posterUrl}
+                            episodeNumber={ep.episodeNumber}
+                            title={ep.title}
+                            className="h-14 w-24 sm:h-16 sm:w-28"
+                          />
 
                           <div className="min-w-0 flex-1">
                             <h5 className="text-xs font-black text-white truncate group-hover:text-amber-300 transition-colors">

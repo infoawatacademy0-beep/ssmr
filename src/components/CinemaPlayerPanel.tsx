@@ -51,14 +51,18 @@ import type {
 import { getVipAvatarClass } from '../types';
 import { AvatarFrameOverlay } from './AvatarFrameOverlay';
 import {
+  setCinemaVideoUrl,
   updateCinemaPlayback,
   updateCinemaDuration,
   updateCinemaSeatCount,
   subscribeToCinemaFolders,
   playCinemaEpisodeInRoom,
+  sendRoomMessage,
 } from '../services';
 import { useLanguage } from '../contexts';
 import { renderTextWithLinks } from '../utils/linkify';
+import EpisodeVideoThumbnail from './EpisodeVideoThumbnail';
+import { extractYouTubeVideoId, getYouTubeThumbnailUrl } from '../utils/youtube';
 
 interface CinemaPlayerPanelProps {
   roomId: string;
@@ -160,12 +164,19 @@ export default function CinemaPlayerPanel({
   const hasSyncedInitialRef = useRef<boolean>(false);
   const lastHandledSeekSeqRef = useRef<number>(cinemaState.seekSeq || 0);
 
-  // Global Admin Cinema Folders & Episodes State
+  // Global Admin Cinema Folders & Episodes + YouTube Link State
   const [isPlaylistDrawerOpen, setIsPlaylistDrawerOpen] = useState(false);
   const [cinemaFolders, setCinemaFolders] = useState<CinemaFolder[]>([]);
   const [selectedDrawerFolderId, setSelectedDrawerFolderId] = useState<string | null>(null);
   const [drawerSearch, setDrawerSearch] = useState('');
+  const [drawerYtUrl, setDrawerYtUrl] = useState('');
+  const [drawerYtTitle, setDrawerYtTitle] = useState('');
   const [playlistToast, setPlaylistToast] = useState<string | null>(null);
+
+  // YouTube IFrame Player API reference
+  const ytPlayerRef = useRef<any>(null);
+  const ytContainerId = `yt-cinema-player-${roomId}`;
+  const youtubeVideoId = extractYouTubeVideoId(cinemaState.videoUrl);
 
   // Top Section Menu & Network MS (Ping) State
   const [isTopMenuOpen, setIsTopMenuOpen] = useState(false);
@@ -237,6 +248,48 @@ export default function CinemaPlayerPanel({
       setIsPlaylistDrawerOpen(false);
     } catch (err: any) {
       console.warn('Failed to play episode:', err);
+    }
+  };
+
+  const handlePlayYouTubeFromDrawer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ytId = extractYouTubeVideoId(drawerYtUrl);
+    if (!ytId) {
+      setPlaylistToast(
+        tr('تکایە لینکێکی دروستی ڤیدیۆی یوتیوب دابنێ', 'Please enter a valid YouTube link'),
+      );
+      setTimeout(() => setPlaylistToast(null), 3000);
+      return;
+    }
+
+    try {
+      const canonicalYtUrl = `https://www.youtube.com/watch?v=${ytId}`;
+      const finalTitle =
+        drawerYtTitle.trim() ||
+        tr('ڤیدیۆی یوتیوب · سەیرکردنی ڕاستەوخۆ', 'YouTube Live Watch Party');
+
+      await setCinemaVideoUrl(
+        roomId,
+        canonicalYtUrl,
+        finalTitle,
+        { uid: currentUser.uid, username: currentUser.username },
+        cinemaState?.seatCount || 5,
+      );
+
+      try {
+        await sendRoomMessage(
+          roomId,
+          'system',
+          'YouTube',
+          `▶️ ${currentUser.username} ڤیدیۆیەکی یوتیوبی خستە سەر شاشە: ${finalTitle}`,
+        );
+      } catch {}
+
+      setDrawerYtUrl('');
+      setDrawerYtTitle('');
+      setIsPlaylistDrawerOpen(false);
+    } catch (err) {
+      console.warn('Failed to play YouTube video from drawer:', err);
     }
   };
 
@@ -461,8 +514,33 @@ export default function CinemaPlayerPanel({
     return target;
   }, [cinemaState.isPlaying, cinemaState.currentTime, cinemaState.lastUpdated, effectiveDuration]);
 
-  // Synchronize video playback with Firebase Realtime Database
+  // Synchronize video playback with Firebase Realtime Database (Both HTML5 Video & YouTube IFrame API)
   useEffect(() => {
+    if (youtubeVideoId) {
+      const ytPlayer = ytPlayerRef.current;
+      if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+
+      try {
+        const playerState = ytPlayer.getPlayerState(); // 1 = playing, 2 = paused
+        if (cinemaState.isPlaying && playerState !== 1) {
+          ytPlayer.playVideo?.();
+        } else if (!cinemaState.isPlaying && playerState === 1) {
+          ytPlayer.pauseVideo?.();
+        }
+
+        if (
+          (cinemaState.syncType === 'seek' || cinemaState.syncType === 'movie_change') &&
+          lastHandledSeekSeqRef.current !== cinemaState.seekSeq
+        ) {
+          lastHandledSeekSeqRef.current = cinemaState.seekSeq || 0;
+          const targetSec = cinemaState.syncType === 'movie_change' ? 0 : cinemaState.currentTime || 0;
+          ytPlayer.seekTo?.(targetSec, true);
+          setCurrentTime(targetSec);
+        }
+      } catch {}
+      return;
+    }
+
     const video = videoRef.current;
     if (!video || !cinemaState.videoUrl) return;
 
@@ -605,9 +683,168 @@ export default function CinemaPlayerPanel({
     }
   };
 
+  // Initialize & Sync YouTube IFrame API Player when youtubeVideoId is active
+  useEffect(() => {
+    if (!youtubeVideoId) {
+      if (ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.destroy?.();
+        } catch {}
+        ytPlayerRef.current = null;
+      }
+      return;
+    }
+
+    let isCancelled = false;
+    let timeTrackerInterval: any = null;
+
+    const createYtPlayer = () => {
+      if (isCancelled) return;
+      const YT = (window as any).YT;
+      if (!YT || !YT.Player) return;
+
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
+        try {
+          ytPlayerRef.current.loadVideoById({
+            videoId: youtubeVideoId,
+            startSeconds: Math.max(0, Math.floor(getExpectedLiveTime())),
+          });
+          return;
+        } catch {}
+      }
+
+      ytPlayerRef.current = new YT.Player(ytContainerId, {
+        videoId: youtubeVideoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          playsinline: 1,
+          rel: 0,
+          modestbranding: 1,
+          start: Math.max(0, Math.floor(getExpectedLiveTime())),
+          origin: window.location.origin,
+        },
+        events: {
+          onReady: (event: any) => {
+            if (isCancelled) return;
+            setVideoError(false);
+            const player = event.target;
+            const dur = Number(player?.getDuration?.()) || 0;
+            if (dur > 0) {
+              setDuration(dur);
+              if (isHost) {
+                updateCinemaDuration(roomId, dur).catch(() => {});
+              }
+            }
+            const startPos = getExpectedLiveTime();
+            if (startPos > 1) {
+              try {
+                player.seekTo(startPos, true);
+                setCurrentTime(startPos);
+              } catch {}
+            }
+            if (cinemaState.isPlaying) {
+              try {
+                player.playVideo();
+              } catch {}
+            } else {
+              try {
+                player.pauseVideo();
+              } catch {}
+            }
+          },
+          onStateChange: (event: any) => {
+            if (isCancelled) return;
+            const player = event.target;
+            const state = event.data; // 1 = playing, 2 = paused
+            const dur = Number(player?.getDuration?.()) || 0;
+            if (dur > 0 && !duration) {
+              setDuration(dur);
+            }
+            if (state === 1) {
+              setIsLocalPaused(false);
+            } else if (state === 2) {
+              setIsLocalPaused(true);
+            }
+          },
+        },
+      });
+    };
+
+    if ((window as any).YT && (window as any).YT.Player) {
+      createYtPlayer();
+    } else {
+      const existingScript = document.getElementById('youtube-iframe-api-script');
+      if (!existingScript) {
+        const tag = document.createElement('script');
+        tag.id = 'youtube-iframe-api-script';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+      }
+      const prevCallback = (window as any).onYouTubeIframeAPIReady;
+      (window as any).onYouTubeIframeAPIReady = () => {
+        if (typeof prevCallback === 'function') prevCallback();
+        createYtPlayer();
+      };
+    }
+
+    timeTrackerInterval = setInterval(() => {
+      const p = ytPlayerRef.current;
+      if (p && typeof p.getCurrentTime === 'function' && !isSeeking) {
+        try {
+          const cur = Number(p.getCurrentTime()) || 0;
+          if (cur >= 0) setCurrentTime(cur);
+          const dur = Number(p.getDuration?.()) || 0;
+          if (dur > 0 && dur !== duration) setDuration(dur);
+        } catch {}
+      }
+    }, 1000);
+
+    return () => {
+      isCancelled = true;
+      if (timeTrackerInterval) clearInterval(timeTrackerInterval);
+    };
+  }, [youtubeVideoId, ytContainerId]);
+
   // Handle master play / pause toggle (Host toggles room state, Members toggle their local video)
   const handleTogglePlayPause = async () => {
     handleUserGestureAudioUnlock();
+
+    if (youtubeVideoId && ytPlayerRef.current) {
+      const p = ytPlayerRef.current;
+      const curSec = Number(p.getCurrentTime?.()) || currentTime || 0;
+      if (!isHost && !currentUser.isAdmin) {
+        const st = p.getPlayerState?.();
+        if (st === 1) {
+          p.pauseVideo?.();
+          setIsLocalPaused(true);
+        } else {
+          p.playVideo?.();
+          setIsLocalPaused(false);
+        }
+        return;
+      }
+
+      const nextPlaying = !cinemaState.isPlaying;
+      try {
+        if (nextPlaying) p.playVideo?.();
+        else p.pauseVideo?.();
+      } catch {}
+
+      try {
+        await updateCinemaPlayback(
+          roomId,
+          nextPlaying,
+          curSec,
+          { uid: currentUser.uid, username: currentUser.username },
+          effectiveDuration,
+          !nextPlaying ? currentUser.username : null,
+          'play_pause',
+        );
+      } catch {}
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -648,6 +885,33 @@ export default function CinemaPlayerPanel({
   // Fast forward / Rewind relative seek (e.g. +10s / -10s)
   const handleSeekRelative = async (deltaSeconds: number) => {
     handleUserGestureAudioUnlock();
+
+    if (youtubeVideoId && ytPlayerRef.current) {
+      const p = ytPlayerRef.current;
+      const baseTime = Number(p.getCurrentTime?.()) || currentTime || 0;
+      const maxDur = effectiveDuration > 0 ? effectiveDuration : 36000;
+      const targetTime = Math.max(0, Math.min(maxDur, baseTime + deltaSeconds));
+      try {
+        p.seekTo?.(targetTime, true);
+      } catch {}
+      setCurrentTime(targetTime);
+
+      if (isHost || currentUser.isAdmin) {
+        try {
+          await updateCinemaPlayback(
+            roomId,
+            cinemaState.isPlaying,
+            targetTime,
+            { uid: currentUser.uid, username: currentUser.username },
+            effectiveDuration,
+            !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+            'seek',
+          );
+        } catch {}
+      }
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -683,6 +947,31 @@ export default function CinemaPlayerPanel({
   const handleSeekTo = async (newTime: number) => {
     handleUserGestureAudioUnlock();
     setIsSeeking(false);
+
+    if (youtubeVideoId && ytPlayerRef.current) {
+      const maxDur = effectiveDuration > 0 ? effectiveDuration : 36000;
+      const targetTime = Math.max(0, Math.min(maxDur, newTime));
+      try {
+        ytPlayerRef.current.seekTo?.(targetTime, true);
+      } catch {}
+      setCurrentTime(targetTime);
+
+      if (isHost || currentUser.isAdmin) {
+        try {
+          await updateCinemaPlayback(
+            roomId,
+            cinemaState.isPlaying,
+            targetTime,
+            { uid: currentUser.uid, username: currentUser.username },
+            effectiveDuration,
+            !cinemaState.isPlaying ? (cinemaState.pausedByName || currentUser.username) : null,
+            'seek',
+          );
+        } catch {}
+      }
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -718,6 +1007,15 @@ export default function CinemaPlayerPanel({
     handleUserGestureAudioUnlock();
     setVolume(newVol);
     setIsMuted(newVol === 0);
+    if (youtubeVideoId && ytPlayerRef.current) {
+      try {
+        if (newVol === 0) ytPlayerRef.current.mute?.();
+        else {
+          ytPlayerRef.current.unMute?.();
+          ytPlayerRef.current.setVolume?.(Math.round(newVol * 100));
+        }
+      } catch {}
+    }
     if (videoRef.current) {
       videoRef.current.volume = newVol;
       videoRef.current.muted = newVol === 0;
@@ -729,12 +1027,23 @@ export default function CinemaPlayerPanel({
     if (isMuted) {
       setIsMuted(false);
       setAudioBlockedNotice(false);
+      if (youtubeVideoId && ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.unMute?.();
+          ytPlayerRef.current.setVolume?.(Math.round((volume || 0.8) * 100));
+        } catch {}
+      }
       if (videoRef.current) {
         videoRef.current.muted = false;
         videoRef.current.volume = volume || 0.8;
       }
     } else {
       setIsMuted(true);
+      if (youtubeVideoId && ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.mute?.();
+        } catch {}
+      }
       if (videoRef.current) {
         videoRef.current.muted = true;
       }
@@ -1182,45 +1491,55 @@ export default function CinemaPlayerPanel({
         {/* Cinema Screen Backlight / Ambient Glow */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none z-10" />
 
-        {/* Video Element */}
-        <video
-          key={cinemaState.videoUrl}
-          ref={videoRef}
-          src={cinemaState.videoUrl}
-          playsInline
-          webkit-playsinline="true"
-          preload="auto"
-          onError={(e) => {
-            const vid = videoRef.current;
-            console.warn('Cinema video error:', vid?.error, e);
-            setVideoError(true);
-          }}
-          onLoadedData={() => setVideoError(false)}
-          onCanPlay={handleCanPlay}
-          onLoadedMetadata={handleLoadedMetadata}
-          onTimeUpdate={handleTimeUpdate}
-          onPlay={() => setIsLocalPaused(false)}
-          onPause={() => setIsLocalPaused(true)}
-          onEnded={() => {
-            const vid = videoRef.current;
-            const isNearEnd = vid && effectiveDuration > 10 && vid.currentTime >= (effectiveDuration - 3);
-            if (isHost && isNearEnd) {
-              updateCinemaPlayback(
-                roomId,
-                false,
-                effectiveDuration,
-                { uid: currentUser.uid, username: currentUser.username },
-                effectiveDuration,
-                null,
-                'play_pause',
-              );
-            }
-          }}
-          className={`h-full w-full ${isObjectCover && isFullscreen ? 'object-cover' : 'object-contain'} bg-black`}
-        >
-          <source src={cinemaState.videoUrl} type="video/mp4" />
-          <source src={cinemaState.videoUrl} />
-        </video>
+        {/* Video Element OR Synchronized YouTube IFrame Player */}
+        {youtubeVideoId ? (
+          <div
+            key={`yt-wrap-${youtubeVideoId}`}
+            className="relative h-full w-full bg-black flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div id={ytContainerId} className="h-full w-full" />
+          </div>
+        ) : (
+          <video
+            key={cinemaState.videoUrl}
+            ref={videoRef}
+            src={cinemaState.videoUrl}
+            playsInline
+            webkit-playsinline="true"
+            preload="auto"
+            onError={(e) => {
+              const vid = videoRef.current;
+              console.warn('Cinema video error:', vid?.error, e);
+              setVideoError(true);
+            }}
+            onLoadedData={() => setVideoError(false)}
+            onCanPlay={handleCanPlay}
+            onLoadedMetadata={handleLoadedMetadata}
+            onTimeUpdate={handleTimeUpdate}
+            onPlay={() => setIsLocalPaused(false)}
+            onPause={() => setIsLocalPaused(true)}
+            onEnded={() => {
+              const vid = videoRef.current;
+              const isNearEnd = vid && effectiveDuration > 10 && vid.currentTime >= (effectiveDuration - 3);
+              if (isHost && isNearEnd) {
+                updateCinemaPlayback(
+                  roomId,
+                  false,
+                  effectiveDuration,
+                  { uid: currentUser.uid, username: currentUser.username },
+                  effectiveDuration,
+                  null,
+                  'play_pause',
+                );
+              }
+            }}
+            className={`h-full w-full ${isObjectCover && isFullscreen ? 'object-cover' : 'object-contain'} bg-black`}
+          >
+            <source src={cinemaState.videoUrl} type="video/mp4" />
+            <source src={cinemaState.videoUrl} />
+          </video>
+        )}
 
         {/* Always-visible slim glowing progress bar at the bottom edge */}
         <div className="absolute bottom-0 inset-x-0 h-1 bg-black/60 z-20 pointer-events-none">
@@ -2369,7 +2688,68 @@ export default function CinemaPlayerPanel({
               )}
 
               {/* Scrollable Folder Grid OR Folder Episodes List */}
-              <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3.5 space-y-3 overscroll-contain min-h-0">
+              <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-3.5 space-y-3.5 overscroll-contain min-h-0">
+                {/* ── YOUTUBE VIDEO LINK BAR (OPEN TO ROOM HOST & ALL USERS) ── */}
+                <form
+                  onSubmit={handlePlayYouTubeFromDrawer}
+                  className="rounded-2xl border border-red-500/35 bg-gradient-to-r from-red-950/40 via-black/60 to-rose-950/30 p-3 space-y-2 shadow-inner"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-md bg-red-600 text-white shadow-sm">
+                        <Play className="h-3 w-3 fill-current" />
+                      </span>
+                      <span className="text-xs font-black text-white">
+                        {tr('پەخشکردنی ڤیدیۆی یوتیوب (YouTube)', 'Watch YouTube Video Together')}
+                      </span>
+                    </div>
+                    <span className="rounded-full bg-red-500/20 border border-red-500/30 px-2 py-0.5 text-[8px] font-bold text-red-300">
+                      {tr('بۆ خاوەن ژوور و بەکارهێنەران', 'Host & Users')}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="url"
+                      required
+                      value={drawerYtUrl}
+                      onChange={(e) => setDrawerYtUrl(e.target.value)}
+                      placeholder={tr('لینکی ڤیدیۆی یوتیوب دابنێ (https://youtu.be/...)', 'Paste YouTube link (https://youtu.be/...)')}
+                      dir="ltr"
+                      className="flex-1 rounded-xl border border-white/15 bg-black/75 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500 font-mono"
+                    />
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={drawerYtTitle}
+                      onChange={(e) => setDrawerYtTitle(e.target.value)}
+                      placeholder={tr('ناوی ڤیدیۆ (ئارەزوومەندانە)', 'Title (optional)')}
+                      className="sm:w-36 rounded-xl border border-white/15 bg-black/75 px-2.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-red-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!drawerYtUrl.trim()}
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-3.5 py-2 text-xs font-black text-white shadow-lg shadow-red-600/30 hover:brightness-110 active:scale-95 transition disabled:opacity-40 shrink-0"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                      <span>{tr('پەخشکردن', 'Play')}</span>
+                    </button>
+                  </div>
+
+                  {getYouTubeThumbnailUrl(drawerYtUrl) && (
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-black/60 p-1.5">
+                      <img
+                        src={getYouTubeThumbnailUrl(drawerYtUrl)!}
+                        alt="YouTube Preview"
+                        className="h-10 w-16 rounded-lg object-cover border border-white/15 shrink-0"
+                      />
+                      <span className="text-[10px] font-bold text-emerald-400 truncate">
+                        {tr('ڤیدیۆی یوتیوب ئامادەیە بۆ سەیرکردن', 'YouTube video ready to watch')}
+                      </span>
+                    </div>
+                  )}
+                </form>
+
                 {(() => {
                   const activeDrawerFolder =
                     cinemaFolders.find((f) => f.id === selectedDrawerFolderId) || null;
@@ -2441,22 +2821,13 @@ export default function CinemaPlayerPanel({
                                   }`}
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                    <div className="relative h-11 w-9 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-slate-900">
-                                      {ep.posterUrl || activeDrawerFolder.posterUrl ? (
-                                        <img
-                                          src={ep.posterUrl || activeDrawerFolder.posterUrl}
-                                          alt={ep.title}
-                                          className="h-full w-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-amber-500/20 text-amber-300">
-                                          <Film className="h-3.5 w-3.5" />
-                                        </div>
-                                      )}
-                                      <span className="absolute bottom-0 inset-x-0 bg-black/80 text-center font-mono text-[8px] font-black text-amber-300">
-                                        #{ep.episodeNumber}
-                                      </span>
-                                    </div>
+                                    <EpisodeVideoThumbnail
+                                      videoUrl={ep.videoUrl}
+                                      fallbackPosterUrl={ep.posterUrl || activeDrawerFolder.posterUrl}
+                                      episodeNumber={ep.episodeNumber}
+                                      title={ep.title}
+                                      className="h-14 w-24"
+                                    />
 
                                     <div className="min-w-0 flex-1">
                                       <h5 className="text-xs font-black text-white truncate">
