@@ -75,6 +75,7 @@ import {
   toggleSeatMute,
   setSeatVoiceEffect,
   sendRoomMessage,
+  deleteRoomMessage,
   clearRoomChat,
   deleteRoom,
   closeJackarooGame,
@@ -205,6 +206,8 @@ export default function VoiceRoom() {
   const [isSending, setIsSending] = useState(false);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  // Timestamp when user joined this room session (so previous/old messages are hidden upon entering)
+  const [sessionJoinTimestamp] = useState<number>(() => Date.now());
 
   // Seat Action Sheet Modal
   const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null);
@@ -2080,15 +2083,25 @@ export default function VoiceRoom() {
             ref={chatScrollRef}
             className="flex-1 space-y-2.5 overflow-y-auto overflow-x-hidden pt-1.5 pr-1 text-xs"
           >
-            {room.activeChat.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-slate-500 text-center">
-                <p>{tr('هێشتا هیچ نامەیەک نییە.', 'No messages yet.')}<br />{tr('یەکەم کەس بە کە سڵاو بنێرێت!', 'Be the first to say hi!')}</p>
-              </div>
-            ) : (
-              room.activeChat.map((msg) => {
+            {(() => {
+              // Only display messages sent during or after the user joined this session so past conversations are not shown upon re-entry
+              const visibleChat = room.activeChat.filter(
+                (msg) => !msg.timestamp || msg.timestamp >= sessionJoinTimestamp - 5000,
+              );
+
+              if (visibleChat.length === 0) {
+                return (
+                  <div className="flex h-full items-center justify-center text-slate-500 text-center">
+                    <p>{tr('هێشتا هیچ نامەیەک نییە.', 'No messages yet.')}<br />{tr('یەکەم کەس بە کە سڵاو بنێرێت!', 'Be the first to say hi!')}</p>
+                  </div>
+                );
+              }
+
+              return visibleChat.map((msg) => {
                 const isSystem = msg.senderId === 'system';
                 const isMe = msg.senderId === user?.uid;
                 const isHostSender = msg.senderId === room.hostId;
+                const canDelete = Boolean(isMe || isHost || user?.isAdmin);
 
                 if (isSystem) {
                   return (
@@ -2128,7 +2141,7 @@ export default function VoiceRoom() {
                 return (
                   <div
                     key={msg.id}
-                    className={`flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
+                    className={`group/msg flex items-end gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                   >
                     {/* Sender Profile Picture in Room Chat (Steady circular golden border for VIP so chat NEVER shakes) */}
                     <button
@@ -2183,6 +2196,26 @@ export default function VoiceRoom() {
                             <Crown className="h-2 w-2" /> {tr('خاوەن', 'Host')}
                           </span>
                         )}
+                        {/* Member / Sender Message Delete Button */}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm(tr('ئایا دڵنیایت لە سڕینەوەی ئەم نامەیە؟', 'Delete this message?'))) {
+                                try {
+                                  await deleteRoomMessage(room.id, msg.id);
+                                } catch (err) {
+                                  console.error('Failed to delete message:', err);
+                                }
+                              }
+                            }}
+                            className="opacity-70 group-hover/msg:opacity-100 hover:text-rose-400 text-slate-500 transition p-0.5"
+                            title={tr('سڕینەوەی ئەم نامەیە', 'Delete message')}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                       {isEmojiOnly ? (
                         <div className="py-1 text-3xl sm:text-4xl tracking-wider select-none drop-shadow">
@@ -2211,8 +2244,8 @@ export default function VoiceRoom() {
                     </div>
                   </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
 
         </section>

@@ -446,6 +446,16 @@ export async function sendRoomMessage(
 }
 
 /**
+ * Deletes a single chat message from `/rooms/{roomId}/activeChat/{messageId}`.
+ * Allowed for the message sender, the room host, or an admin.
+ */
+export async function deleteRoomMessage(roomId: string, messageId: string): Promise<void> {
+  if (!roomId || !messageId) return;
+  const msgRef = ref(database, `rooms/${roomId}/activeChat/${messageId}`);
+  await set(msgRef, null);
+}
+
+/**
  * Clears all chat messages in the room (Host / Admin action).
  */
 export async function clearRoomChat(roomId: string): Promise<void> {

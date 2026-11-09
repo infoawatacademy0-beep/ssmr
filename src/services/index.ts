@@ -14,6 +14,7 @@ export {
   toggleSeatMute,
   setSeatVoiceEffect,
   sendRoomMessage,
+  deleteRoomMessage,
   clearRoomChat,
   deleteRoom,
   broadcastUserEntrance,
