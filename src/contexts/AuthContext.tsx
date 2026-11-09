@@ -120,6 +120,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         });
       } else {
+        // If entering via a room link, immediately authenticate as guest
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/room/')) {
+          signInAnonUser()
+            .then((profile) => {
+              setUser(normalizeUserProfile(profile, { uid: profile.uid, isAnonymous: true }));
+              setLoading(false);
+            })
+            .catch((err) => {
+              console.error('Failed to auto-sign-in anonymous user:', err);
+              setUser(null);
+              setLoading(false);
+            });
+          return;
+        }
+
         setUser(null);
         setLoading(false);
       }

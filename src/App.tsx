@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Ban, LogOut, Clock, AlertTriangle } from 'lucide-react';
 import { AuthProvider, useAuth, LanguageProvider, useLanguage } from './contexts';
@@ -134,25 +134,40 @@ function BannedNoticeScreen({
 
 function RoomRoute() {
   const { user, loading, signInAnon } = useAuth();
-  const [isSigningInAnon, setIsSigningInAnon] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const signingInRef = useRef(false);
 
   useEffect(() => {
     // If not logged in and auth finished checking, auto-sign in anonymously for this room
-    if (!loading && !user && !isSigningInAnon) {
-      setIsSigningInAnon(true);
+    if (!loading && !user && !signingInRef.current) {
+      signingInRef.current = true;
       signInAnon().catch((err) => {
         console.error('Anonymous room sign-in failed:', err);
-        setIsSigningInAnon(false);
+        setError(err?.message || 'Failed to enter room as guest');
+        signingInRef.current = false;
       });
     }
-  }, [loading, user, isSigningInAnon, signInAnon]);
+  }, [loading, user, signInAnon]);
 
-  if (loading || (!user && isSigningInAnon)) {
+  if (loading || !user) {
+    if (error) {
+      return (
+        <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-slate-950 p-6 text-center text-slate-100">
+          <p className="text-sm text-rose-400 mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              signingInRef.current = false;
+              window.location.reload();
+            }}
+            className="rounded-2xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white shadow"
+          >
+            دووبارە هەوڵبدەرەوە
+          </button>
+        </div>
+      );
+    }
     return <LoadingScreen />;
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
   }
 
   return <VoiceRoom />;

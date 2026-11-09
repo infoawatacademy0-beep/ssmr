@@ -181,6 +181,10 @@ export async function signInAnonUser(): Promise<User> {
     isAnonymous: true,
   };
 
-  await set(ref(database, `users/${uid}`), anonProfile);
+  try {
+    await set(ref(database, `users/${uid}`), anonProfile);
+  } catch (err) {
+    console.warn('Failed to save anon profile to DB, continuing with local profile:', err);
+  }
   return anonProfile;
 }
