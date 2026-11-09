@@ -81,6 +81,24 @@ export async function updateCinemaPlayback(
   syncType: 'seek' | 'play_pause' | 'heartbeat' = 'seek',
 ): Promise<void> {
   const cinemaRef = ref(database, `rooms/${roomId}/cinema`);
+
+  // For periodic background heartbeats, verify the movie is still playing in Firebase
+  // so a slightly delayed heartbeat never overwrites a member's Pause action or pauser name!
+  if (syncType === 'heartbeat') {
+    const snap = await get(cinemaRef);
+    const val = snap.val();
+    if (!val || !val.isPlaying) {
+      return;
+    }
+    await update(cinemaRef, {
+      currentTime: Math.max(0, currentTime),
+      lastUpdated: Date.now(),
+      syncType: 'heartbeat',
+      ...(duration !== undefined && duration > 0 ? { duration } : {}),
+    });
+    return;
+  }
+
   const updates: Record<string, any> = {
     isPlaying,
     currentTime: Math.max(0, currentTime),

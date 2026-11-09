@@ -316,14 +316,18 @@ export default function CinemaPlayerPanel({
 
   // Broadcast toast notification whenever someone pauses playback
   useEffect(() => {
-    if (prevIsPlayingRef.current && !cinemaState.isPlaying) {
+    if (!cinemaState.isPlaying) {
       const pauser = cinemaState.pausedByName || cinemaState.updatedByName;
-      if (pauser) {
+      if (pauser && prevIsPlayingRef.current) {
         setPauseToastUser(pauser);
         const timer = setTimeout(() => {
           setPauseToastUser(null);
         }, 4500);
+        prevIsPlayingRef.current = cinemaState.isPlaying;
         return () => clearTimeout(timer);
+      }
+      if (pauser && pauseToastUser && pauseToastUser !== pauser) {
+        setPauseToastUser(pauser);
       }
     } else if (cinemaState.isPlaying) {
       setPauseToastUser(null);
@@ -840,7 +844,8 @@ export default function CinemaPlayerPanel({
         videoId: youtubeVideoId,
         playerVars: {
           autoplay: 1,
-          controls: 1,
+          controls: 0,
+          disablekb: 1,
           playsinline: 1,
           rel: 0,
           modestbranding: 1,
@@ -912,53 +917,18 @@ export default function CinemaPlayerPanel({
                 updateCinemaDuration(roomId, dur).catch(() => {});
               }
             }
-            const curSec = Number(player?.getCurrentTime?.()) || 0;
 
             if (state === 1) {
               setIsLocalPaused(false);
-              // Broadcast if user resumed via native YouTube controls OR sought via native YouTube scrubber
-              if (!isRemoteActionRef.current) {
-                const timeDiff = Math.abs(curSec - lastKnownYtTimeRef.current);
-                if (!cinemaStateRef.current.isPlaying) {
-                  lastKnownYtTimeRef.current = curSec;
-                  updateCinemaPlayback(
-                    roomId,
-                    true,
-                    curSec,
-                    { uid: currentUser.uid, username: currentUser.username },
-                    dur || effectiveDuration,
-                    null,
-                    'play_pause',
-                  ).catch(() => {});
-                } else if (timeDiff > 3.5) {
-                  lastKnownYtTimeRef.current = curSec;
-                  updateCinemaPlayback(
-                    roomId,
-                    true,
-                    curSec,
-                    { uid: currentUser.uid, username: currentUser.username },
-                    dur || effectiveDuration,
-                    null,
-                    'seek',
-                  ).catch(() => {});
-                }
+              // Enforce room pause state if local YouTube player tried to auto-play while room is paused
+              if (!cinemaStateRef.current.isPlaying && !isRemoteActionRef.current) {
+                try {
+                  player.pauseVideo?.();
+                  setIsLocalPaused(true);
+                } catch {}
               }
-              lastKnownYtTimeRef.current = curSec;
             } else if (state === 2) {
               setIsLocalPaused(true);
-              // Broadcast if user paused via native YouTube controls
-              if (!isRemoteActionRef.current && cinemaStateRef.current.isPlaying) {
-                lastKnownYtTimeRef.current = curSec;
-                updateCinemaPlayback(
-                  roomId,
-                  false,
-                  curSec,
-                  { uid: currentUser.uid, username: currentUser.username },
-                  dur || effectiveDuration,
-                  currentUser.username,
-                  'play_pause',
-                ).catch(() => {});
-              }
             }
           },
         },
@@ -994,27 +964,7 @@ export default function CinemaPlayerPanel({
         try {
           const cur = Number(p.getCurrentTime()) || 0;
           if (cur >= 0) {
-            // Detect native YouTube scrubber seek even while playing continuously
-            if (
-              !isRemoteActionRef.current &&
-              lastKnownYtTimeRef.current > 0 &&
-              Math.abs(cur - lastKnownYtTimeRef.current) > 4.5
-            ) {
-              lastKnownYtTimeRef.current = cur;
-              updateCinemaPlayback(
-                roomId,
-                cinemaStateRef.current.isPlaying,
-                cur,
-                { uid: currentUser.uid, username: currentUser.username },
-                Number(p.getDuration?.()) || effectiveDuration,
-                !cinemaStateRef.current.isPlaying
-                  ? cinemaStateRef.current.pausedByName || currentUser.username
-                  : null,
-                'seek',
-              ).catch(() => {});
-            } else {
-              lastKnownYtTimeRef.current = cur;
-            }
+            lastKnownYtTimeRef.current = cur;
             setCurrentTime(cur);
           }
           const dur = Number(p.getDuration?.()) || 0;
@@ -1031,22 +981,24 @@ export default function CinemaPlayerPanel({
   }, [youtubeVideoId, ytContainerId]);
 
   // Handle master play / pause toggle (Synchronized across ALL room members)
-  const handleTogglePlayPause = async () => {
+  const handleTogglePlayPause = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     handleUserGestureAudioUnlock();
 
-    if (youtubeVideoId && ytPlayerRef.current) {
+    const nextPlaying = !cinemaStateRef.current.isPlaying;
+
+    if (youtubeVideoId) {
       const p = ytPlayerRef.current;
-      const curSec = Number(p.getCurrentTime?.()) || currentTime || 0;
-      const nextPlaying = !cinemaState.isPlaying;
+      const curSec = Number(p?.getCurrentTime?.()) || currentTime || cinemaStateRef.current.currentTime || 0;
 
       markRemoteAction();
       lastKnownYtTimeRef.current = curSec;
       try {
         if (nextPlaying) {
-          p.playVideo?.();
+          p?.playVideo?.();
           setIsLocalPaused(false);
         } else {
-          p.pauseVideo?.();
+          p?.pauseVideo?.();
           setIsLocalPaused(true);
         }
       } catch {}
@@ -1066,21 +1018,22 @@ export default function CinemaPlayerPanel({
     }
 
     const video = videoRef.current;
-    if (!video) return;
+    const safeBaseTime =
+      video && video.currentTime > 0
+        ? video.currentTime
+        : cinemaStateRef.current.currentTime || currentTime || 0;
 
-    // Any member in the room can Play / Pause for everyone
-    const nextPlaying = !cinemaState.isPlaying;
-    const safeBaseTime = video.currentTime > 0 ? video.currentTime : (cinemaState.currentTime || currentTime || 0);
-
-    try {
-      if (nextPlaying) {
-        video.play().catch(() => {});
-        setIsLocalPaused(false);
-      } else {
-        video.pause();
-        setIsLocalPaused(true);
-      }
-    } catch {}
+    if (video) {
+      try {
+        if (nextPlaying) {
+          video.play().catch(() => {});
+          setIsLocalPaused(false);
+        } else {
+          video.pause();
+          setIsLocalPaused(true);
+        }
+      } catch {}
+    }
 
     try {
       await updateCinemaPlayback(
@@ -1711,11 +1664,8 @@ export default function CinemaPlayerPanel({
 
         {/* Video Element OR Synchronized YouTube IFrame Player */}
         {youtubeVideoId ? (
-          <div
-            className="relative h-full w-full bg-black flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div id={ytContainerId} className="h-full w-full" />
+          <div className="relative h-full w-full bg-black flex items-center justify-center">
+            <div id={ytContainerId} className="h-full w-full pointer-events-none" />
             {isResolvingYtFallback && (
               <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm gap-2">
                 <div className="h-8 w-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
@@ -1775,6 +1725,25 @@ export default function CinemaPlayerPanel({
             }}
           />
         </div>
+
+        {/* Center Resume Play Button Overlay when movie is Paused (Allows anyone including the pauser to 1-tap Play) */}
+        {!cinemaState.isPlaying && (
+          <div className="absolute inset-0 z-25 flex items-center justify-center pointer-events-none">
+            <button
+              type="button"
+              onClick={handleTogglePlayPause}
+              className="pointer-events-auto flex flex-col items-center gap-1.5 rounded-3xl bg-black/75 border-2 border-amber-400/80 px-5 py-3.5 text-white shadow-[0_0_35px_rgba(245,158,11,0.5)] backdrop-blur-md hover:scale-105 active:scale-95 transition"
+              title={tr('لێدانەوەی فیلم بۆ هەمووان', 'Resume movie for everyone')}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-black shadow-lg">
+                <Play className="h-6 w-6 fill-black ml-0.5" />
+              </div>
+              <span className="text-[11px] font-black text-amber-300">
+                {tr('رتە بکە بۆ دەستپێکردنەوە', 'Tap to Play')}
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Subtle Pause Status Pill (When controls are hidden) */}
         {!cinemaState.isPlaying && (cinemaState.pausedByName || cinemaState.updatedByName) && !showControls && (
@@ -2024,9 +1993,9 @@ export default function CinemaPlayerPanel({
                   <button
                     onClick={handleTogglePlayPause}
                     className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400 text-black hover:bg-amber-300 transition active:scale-95 shadow shrink-0"
-                    title={!isLocalPaused ? tr('وەستاندن', 'Pause') : tr('لێدان', 'Play')}
+                    title={cinemaState.isPlaying ? tr('وەستاندن', 'Pause') : tr('لێدان', 'Play')}
                   >
-                    {!isLocalPaused ? (
+                    {cinemaState.isPlaying ? (
                       <Pause className="h-4 w-4 fill-black" />
                     ) : (
                       <Play className="h-4 w-4 fill-black ml-0.5" />
@@ -2310,9 +2279,9 @@ export default function CinemaPlayerPanel({
                   <button
                     onClick={handleTogglePlayPause}
                     className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-amber-400 text-black hover:bg-amber-300 active:scale-90 transition shadow shrink-0"
-                    title={!isLocalPaused ? tr('وەستاندن', 'Pause') : tr('لێدان', 'Play')}
+                    title={cinemaState.isPlaying ? tr('وەستاندن', 'Pause') : tr('لێدان', 'Play')}
                   >
-                    {!isLocalPaused ? (
+                    {cinemaState.isPlaying ? (
                       <Pause className="h-3 w-3 fill-black" />
                     ) : (
                       <Play className="h-3 w-3 fill-black ml-0.5" />
