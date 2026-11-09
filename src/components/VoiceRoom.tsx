@@ -2305,7 +2305,7 @@ export default function VoiceRoom() {
               onBlur={() => setTimeout(() => setIsChatInputFocused(false), 160)}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder={isCinemaMode ? tr('نامەیەک بنووسە لە هۆڵی سینەما...', 'Type a movie reaction...') : tr('شتێک بڵێ...', 'Type a message...')}
-              className={`h-full min-w-0 flex-1 bg-transparent text-white placeholder-slate-400 outline-none transition-all ${
+              className={`h-full min-w-0 flex-1 bg-transparent text-white placeholder-slate-400 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none border-none ring-0 shadow-none transition-all ${
                 isCinemaMode ? 'placeholder-amber-200/40 text-amber-50' : ''
               } ${isChatInputFocused ? 'text-[15px] font-medium' : 'text-[13px]'}`}
             />
