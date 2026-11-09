@@ -1588,12 +1588,12 @@ export default function CinemaPlayerPanel({
               className="absolute bottom-3 inset-x-4 z-40 flex items-center justify-center pointer-events-auto"
             >
               {/* Floating Custom-Seat Audio Mic Bar */}
-              <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 py-1.5 px-3 rounded-2xl bg-black/80 backdrop-blur-md border border-white/15 shadow-xl">
-                <span className="text-[9px] font-black text-rose-400 hidden xs:inline uppercase tracking-wider">
+              <div className="flex max-w-[94vw] items-center gap-1.5 xs:gap-2 overflow-x-auto no-scrollbar py-1.5 px-3 rounded-2xl bg-black/85 backdrop-blur-xl border border-rose-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.85)]">
+                <span className="shrink-0 text-[9px] font-black text-amber-400 hidden xs:inline uppercase tracking-wider">
                   {targetSeatCount} MICS:
                 </span>
                 {isHost && (
-                  <div className="flex items-center gap-1 mr-1">
+                  <div className="flex shrink-0 items-center gap-1 mr-1">
                     <button
                       onClick={handleDecreaseCinemaSeats}
                       disabled={targetSeatCount <= 1}
@@ -1637,15 +1637,15 @@ export default function CinemaPlayerPanel({
                           ? (!seat.isMuted ? tr('بێدەنگکردنی مایکم', 'Mute My Mic') : tr('کردنەوەی مایکم', 'Unmute My Mic'))
                           : seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
                       }
-                      className="group relative flex flex-col items-center cursor-pointer"
+                      className="group relative flex shrink-0 flex-col items-center cursor-pointer px-0.5"
                     >
                       <div
                         className={`relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full transition-all duration-200 ${
                           isSpeaking
                             ? 'border-2 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.9)] scale-105'
                             : isOccupied
-                            ? 'border border-amber-400/70 bg-black'
-                            : 'border border-dashed border-white/30 bg-black/50'
+                            ? 'border border-amber-400/80 bg-black shadow-md'
+                            : 'border border-dashed border-rose-400/35 bg-black/60 hover:border-amber-400/60'
                         }`}
                       >
                         {isOccupied ? (
@@ -1672,7 +1672,7 @@ export default function CinemaPlayerPanel({
                               }
                             />
                             <div
-                              className={`absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-black shadow ${
+                              className={`absolute -bottom-0.5 -right-0.5 z-30 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-black shadow ${
                                 seat.isMuted ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-black'
                               }`}
                             >
@@ -1684,15 +1684,15 @@ export default function CinemaPlayerPanel({
                             </div>
                           </>
                         ) : (
-                          <Plus className="h-3 w-3 text-white/50" />
+                          <span className="text-[9px] font-black text-rose-300/70">{seat.seatNo}</span>
                         )}
                       </div>
                       <span
-                        className={`truncate text-center text-[8px] sm:text-[9px] max-w-[40px] mt-0.5 ${
+                        className={`truncate text-center text-[8px] sm:text-[9px] max-w-[42px] mt-0.5 font-semibold ${
                           isOccupied ? SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length] : 'text-slate-400'
                         }`}
                       >
-                        {isOccupied ? seat.username : `${seat.seatNo}`}
+                        {isOccupied ? seat.username : `#${seat.seatNo}`}
                       </span>
                     </div>
                   );
@@ -2015,262 +2015,273 @@ export default function CinemaPlayerPanel({
               </div>
             </div>
 
-            {/* Luxury Theater Couch Frame */}
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-rose-900/60 bg-gradient-to-b from-[#3a0a14] via-[#2a070e] to-[#1a0408] p-2 sm:p-3 shadow-[0_12px_30px_rgba(0,0,0,0.8),inset_0_2px_15px_rgba(244,63,94,0.15)]">
-              {/* Gold Trim Decorative Accent */}
-              <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+            {/* Luxury TopTop-Style VIP Theater Couch Frame */}
+            <div className="relative overflow-hidden rounded-3xl border border-rose-500/35 bg-gradient-to-b from-[#3d0a16] via-[#26060e] to-[#120206] p-2.5 shadow-[0_14px_35px_rgba(0,0,0,0.85),inset_0_1px_18px_rgba(244,63,94,0.2)]">
+              {/* Gold & Crimson Ambient Theater Stage Lighting */}
+              <div className="pointer-events-none absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent" />
+              <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 h-20 w-2/3 rounded-full bg-rose-500/15 blur-2xl" />
 
-              {/* Dynamic Connected Plush Cushions Grid */}
-              <div
-                className={`grid gap-1 sm:gap-2 ${
-                  targetSeatCount <= 3
-                    ? 'grid-cols-3'
+              {(() => {
+                // Symmetrical TopTop-style grid & avatar sizing for 1 to 16 cinema seats
+                const gridColsClass =
+                  targetSeatCount === 1
+                    ? 'grid-cols-1 max-w-[130px] mx-auto'
+                    : targetSeatCount === 2
+                    ? 'grid-cols-2 max-w-[230px] mx-auto gap-3'
+                    : targetSeatCount === 3
+                    ? 'grid-cols-3 max-w-[310px] mx-auto gap-2.5'
                     : targetSeatCount === 4
-                    ? 'grid-cols-4'
+                    ? 'grid-cols-4 gap-2'
                     : targetSeatCount === 5
-                    ? 'grid-cols-5'
+                    ? 'grid-cols-5 gap-1.5'
                     : targetSeatCount === 6
-                    ? 'grid-cols-3 sm:grid-cols-6'
+                    ? 'grid-cols-3 gap-2 max-w-[320px] mx-auto'
                     : targetSeatCount <= 8
-                    ? 'grid-cols-4 sm:grid-cols-8'
-                    : targetSeatCount <= 12
-                    ? 'grid-cols-4 sm:grid-cols-6'
-                    : 'grid-cols-4 sm:grid-cols-8'
-                }`}
-              >
-                {cinemaSeats.map((seat, index) => {
-                  const isOccupied = Boolean(seat.userId);
-                  const isCurrentUser = seat.userId === currentUser.uid;
-                  const isHostSeat = seat.userId === roomId; // or room.hostId
-                  const isSeatVip = Boolean(
-                    isOccupied &&
-                      (seat.isVerified ||
-                        (seat.userId && vipUsersMap[seat.userId]) ||
-                        (isCurrentUser && currentUser.isVerified)),
-                  );
-                  const isSpeaking =
-                    isOccupied &&
-                    !seat.isMuted &&
-                    seat.userId !== null &&
-                    speakingUids.has(seat.userId);
+                    ? 'grid-cols-4 gap-2'
+                    : targetSeatCount <= 10
+                    ? 'grid-cols-5 gap-1.5'
+                    : 'grid-cols-4 gap-1.5';
 
-                  // Seat avatar style
-                  let avatarBorderClass =
-                    'border-2 border-dashed border-rose-400/30 bg-black/40 hover:border-amber-400/60 hover:bg-black/60';
-                  if (seat.isPlatinum) {
-                    avatarBorderClass =
-                      'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/20 via-blue-950/40 to-black/80 shadow-[0_0_15px_rgba(6,182,212,0.6)] ring-1 ring-cyan-400/50';
-                  } else if (seat.isIron) {
-                    avatarBorderClass =
-                      'border-2 border-slate-300 bg-gradient-to-b from-slate-400/20 via-zinc-800/40 to-black/80 shadow-[0_0_12px_rgba(203,213,225,0.6)] ring-1 ring-slate-400/50';
-                  } else if (seat.isVip) {
-                    avatarBorderClass =
-                      'border-2 border-amber-400/80 bg-gradient-to-b from-amber-500/20 via-amber-950/30 to-black/60 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
-                  }
-                  if (isOccupied) {
-                    if (seat.isPlatinum) {
-                      avatarBorderClass =
-                        'border-2 border-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.8)] ring-2 ring-cyan-400/50';
-                    } else if (seat.isIron) {
-                      avatarBorderClass =
-                        'border-2 border-slate-300 shadow-[0_0_15px_rgba(203,213,225,0.8)] ring-2 ring-slate-400/50';
-                    } else if (isSeatVip) {
-                      avatarBorderClass = getVipAvatarClass(
-                        true,
-                        seat.userId ? vipFramesMap[seat.userId] : undefined,
+                const seatCircleSizeClass =
+                  targetSeatCount <= 4
+                    ? 'h-12 w-12 sm:h-14 sm:w-14'
+                    : targetSeatCount === 5
+                    ? 'h-11 w-11 sm:h-12 sm:w-12'
+                    : targetSeatCount <= 8
+                    ? 'h-11 w-11 sm:h-12 sm:w-12'
+                    : 'h-10 w-10 sm:h-11 sm:w-11';
+
+                const nameMaxWidthClass =
+                  targetSeatCount <= 4
+                    ? 'max-w-[68px] text-[10px]'
+                    : targetSeatCount === 5
+                    ? 'max-w-[54px] text-[9.5px]'
+                    : targetSeatCount <= 8
+                    ? 'max-w-[60px] text-[9.5px]'
+                    : 'max-w-[52px] text-[9px]';
+
+                return (
+                  <div className={`relative z-10 grid ${gridColsClass}`}>
+                    {cinemaSeats.map((seat, index) => {
+                      const isOccupied = Boolean(seat.userId);
+                      const isCurrentUser = seat.userId === currentUser.uid;
+                      const isSeatVip = Boolean(
+                        isOccupied &&
+                          (seat.isVerified ||
+                            (seat.userId && vipUsersMap[seat.userId]) ||
+                            (isCurrentUser && currentUser.isVerified)),
                       );
-                    } else if (isSpeaking) {
-                      avatarBorderClass =
-                        'border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.7)]';
-                    } else {
-                      avatarBorderClass =
-                        'border-2 border-amber-400/60 shadow-md shadow-amber-500/20';
-                    }
-                  }
+                      const isSpeaking =
+                        isOccupied &&
+                        !seat.isMuted &&
+                        seat.userId !== null &&
+                        speakingUids.has(seat.userId);
 
-                  const seatAvatarUrl =
-                    seat.avatar ||
-                    (seat.userId ? usersAvatarMap[seat.userId] : null) ||
-                    (isCurrentUser ? currentUser.avatar || currentUser.profileImage : null) ||
-                    audience.find((a) => a.uid === seat.userId)?.avatar ||
-                    null;
-
-                  return (
-                    <div
-                      key={`cinema-seat-${seat.seatNo}`}
-                      onClick={() => handleSeatItemClick(seat)}
-                      title={
-                        isCurrentUser
-                          ? (!seat.isMuted ? tr('بێدەنگکردنی مایکم', 'Mute My Mic') : tr('کردنەوەی مایکم', 'Unmute My Mic'))
-                          : seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
+                      let avatarBorderClass =
+                        'border border-dashed border-rose-400/35 bg-black/50 hover:border-amber-400/70 hover:bg-black/70 shadow-inner';
+                      if (seat.isPlatinum) {
+                        avatarBorderClass =
+                          'border-2 border-cyan-300 bg-gradient-to-b from-cyan-500/25 via-blue-950/50 to-black/90 shadow-[0_0_16px_rgba(6,182,212,0.6)] ring-1 ring-cyan-400/50';
+                      } else if (seat.isIron) {
+                        avatarBorderClass =
+                          'border-2 border-slate-300 bg-gradient-to-b from-slate-400/25 via-zinc-800/50 to-black/90 shadow-[0_0_14px_rgba(203,213,225,0.6)] ring-1 ring-slate-400/50';
+                      } else if (seat.isVip) {
+                        avatarBorderClass =
+                          'border-2 border-amber-400/85 bg-gradient-to-b from-amber-500/20 via-amber-950/40 to-black/80 shadow-[0_0_14px_rgba(245,158,11,0.45)]';
                       }
-                      className="group relative flex cursor-pointer flex-col items-center"
-                    >
-                      {/* Velvet Sofa Armchair Indentation Backing */}
-                      <div className="relative flex flex-col items-center justify-center w-full py-1.5 sm:py-2 rounded-xl bg-gradient-to-b from-[#4d0d1a] to-[#22040a] border border-rose-500/20 shadow-inner group-hover:border-rose-400/50 transition">
-                        {/* Speaking Animated Wave Ring */}
-                        {isSpeaking && (
-                          <motion.div
-                            animate={{ scale: [1, 1.35, 1], opacity: [0.9, 0, 0.9] }}
-                            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                            className="absolute -inset-1 rounded-2xl border-2 border-emerald-400 pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.8)] z-10"
-                          />
-                        )}
+                      if (isOccupied) {
+                        if (seat.isPlatinum) {
+                          avatarBorderClass =
+                            'border-2 border-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.85)] ring-2 ring-cyan-400/50';
+                        } else if (seat.isIron) {
+                          avatarBorderClass =
+                            'border-2 border-slate-300 shadow-[0_0_16px_rgba(203,213,225,0.8)] ring-2 ring-slate-400/50';
+                        } else if (isSeatVip) {
+                          avatarBorderClass = getVipAvatarClass(
+                            true,
+                            seat.userId ? vipFramesMap[seat.userId] : undefined,
+                          );
+                        } else if (isSpeaking) {
+                          avatarBorderClass =
+                            'border-2 border-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.75)]';
+                        } else {
+                          avatarBorderClass =
+                            'border-2 border-amber-400/75 shadow-md shadow-amber-500/25';
+                        }
+                      }
 
-                        {/* Avatar / Empty Seat Button */}
+                      const seatAvatarUrl =
+                        seat.avatar ||
+                        (seat.userId ? usersAvatarMap[seat.userId] : null) ||
+                        (isCurrentUser ? currentUser.avatar || currentUser.profileImage : null) ||
+                        audience.find((a) => a.uid === seat.userId)?.avatar ||
+                        null;
+
+                      const userLvl =
+                        (isCurrentUser ? currentUser.level : undefined) ||
+                        seat.level ||
+                        (seat.userId ? usersLevelMap[seat.userId] : undefined) ||
+                        audience.find((a) => a.uid === seat.userId)?.level ||
+                        1;
+
+                      return (
                         <div
-                          className={`relative flex h-10 w-10 xs:h-11 xs:w-11 sm:h-13 sm:w-13 items-center justify-center rounded-full transition-all duration-300 ${avatarBorderClass}`}
+                          key={`cinema-seat-${seat.seatNo}`}
+                          onClick={() => handleSeatItemClick(seat)}
+                          title={
+                            isCurrentUser
+                              ? !seat.isMuted
+                                ? tr('بێدەنگکردنی مایکم', 'Mute My Mic')
+                                : tr('کردنەوەی مایکم', 'Unmute My Mic')
+                              : seat.username || `${tr('کورسی', 'Seat')} ${seat.seatNo}`
+                          }
+                          className="group relative flex cursor-pointer flex-col items-center min-w-0"
                         >
-                          {isOccupied ? (
-                            <>
-                              {/* User Avatar */}
-                              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-rose-700 via-purple-600 to-amber-500 text-xs font-black text-white uppercase shadow-inner">
-                                {seatAvatarUrl ? (
-                                  <img
-                                    src={seatAvatarUrl}
-                                    alt={seat.username || 'User'}
-                                    className="h-full w-full object-cover"
-                                  />
+                          {/* Velvet Theater Armchair Cushion Card */}
+                          <div className="relative flex flex-col items-center justify-center w-full py-2 px-1 rounded-2xl bg-gradient-to-b from-[#540d1d]/90 via-[#330711]/95 to-[#1c0309] border border-rose-400/20 shadow-[inset_0_1px_8px_rgba(251,113,133,0.15)] group-hover:border-amber-400/50 transition-all">
+                            {/* Velvet Armrest Side Accents */}
+                            <div className="pointer-events-none absolute inset-y-2 left-0.5 w-1 rounded-full bg-rose-950/80 border-r border-rose-400/15" />
+                            <div className="pointer-events-none absolute inset-y-2 right-0.5 w-1 rounded-full bg-rose-950/80 border-l border-rose-400/15" />
+
+                            {/* Avatar Circle Container */}
+                            <div className="relative flex items-center justify-center">
+                              {/* Speaking Animated Wave Ring */}
+                              {isSpeaking && (
+                                <motion.div
+                                  animate={{ scale: [1, 1.28, 1], opacity: [0.9, 0, 0.9] }}
+                                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                                  className="absolute inset-0 rounded-full border-2 border-emerald-400 pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.85)] z-20"
+                                />
+                              )}
+
+                              <div
+                                className={`relative flex ${seatCircleSizeClass} items-center justify-center rounded-full transition-all duration-300 ${avatarBorderClass}`}
+                              >
+                                {isOccupied ? (
+                                  <>
+                                    {/* User Avatar */}
+                                    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-tr from-rose-700 via-purple-600 to-amber-500 text-xs font-black text-white uppercase shadow-inner">
+                                      {seatAvatarUrl ? (
+                                        <img
+                                          src={seatAvatarUrl}
+                                          alt={seat.username || 'User'}
+                                          className="h-full w-full rounded-full object-cover"
+                                        />
+                                      ) : (
+                                        (seat.username || 'U').charAt(0).toUpperCase()
+                                      )}
+                                    </div>
+
+                                    {/* Level Ornate Frame Overlay on Cinema Seat */}
+                                    <AvatarFrameOverlay
+                                      frameId={
+                                        (isCurrentUser ? currentUser.avatarFrame : undefined) ||
+                                        seat.avatarFrame ||
+                                        (seat.userId ? usersLevelFrameMap[seat.userId] : undefined)
+                                      }
+                                      level={userLvl}
+                                    />
+
+                                    {/* VIP / Platinum / Iron Top-Left Badge */}
+                                    {seat.isPlatinum ? (
+                                      <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
+                                        <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                                      </span>
+                                    ) : seat.isIron ? (
+                                      <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]">
+                                        <Shield className="h-2.5 w-2.5 text-black fill-black" />
+                                      </span>
+                                    ) : isSeatVip ? (
+                                      <span className="absolute -top-1 -left-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
+                                        <Crown className="h-2.5 w-2.5 text-black fill-black" />
+                                      </span>
+                                    ) : null}
+
+                                    {/* Mic Muted / Open Status Indicator */}
+                                    <div
+                                      className={`absolute -bottom-0.5 -right-0.5 z-30 flex h-4 w-4 items-center justify-center rounded-full border border-black shadow ${
+                                        seat.isMuted ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-black'
+                                      }`}
+                                    >
+                                      {seat.isMuted ? (
+                                        <MicOff className="h-2.5 w-2.5 stroke-[2.5]" />
+                                      ) : (
+                                        <Mic className="h-2.5 w-2.5 stroke-[2.5]" />
+                                      )}
+                                    </div>
+                                  </>
+                                ) : seat.isPlatinum ? (
+                                  <div className="flex flex-col items-center justify-center text-cyan-300 group-hover:scale-105 transition">
+                                    <Diamond className="h-4 w-4 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
+                                    <span className="text-[6.5px] font-black text-cyan-300 mt-0.5">
+                                      PLATINUM
+                                    </span>
+                                  </div>
+                                ) : seat.isIron ? (
+                                  <div className="flex flex-col items-center justify-center text-slate-200 group-hover:scale-105 transition">
+                                    <Shield className="h-4 w-4 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]" />
+                                    <span className="text-[6.5px] font-black text-slate-200 mt-0.5">
+                                      IRON
+                                    </span>
+                                  </div>
+                                ) : seat.isVip ? (
+                                  <div className="flex flex-col items-center justify-center text-amber-300 group-hover:scale-105 transition">
+                                    <Crown className="h-4 w-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_#f59e0b]" />
+                                    <span className="text-[6.5px] font-black text-amber-300 mt-0.5">
+                                      VIP
+                                    </span>
+                                  </div>
                                 ) : (
-                                  (seat.username || 'U').charAt(0).toUpperCase()
+                                  <div className="flex flex-col items-center justify-center text-rose-300/70 group-hover:text-amber-300 transition">
+                                    <Plus className="h-3.5 w-3.5 group-hover:scale-110 transition" />
+                                    <span className="text-[8px] font-black text-rose-300/80">
+                                      {seat.seatNo}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
+                            </div>
 
-                              {/* Level Ornate Frame Overlay on Cinema Seat */}
-                              <AvatarFrameOverlay
-                                frameId={
-                                  (isCurrentUser ? currentUser.avatarFrame : undefined) ||
-                                  seat.avatarFrame ||
-                                  (seat.userId ? usersLevelFrameMap[seat.userId] : undefined)
-                                }
-                                level={
-                                  (isCurrentUser ? currentUser.level : undefined) ||
-                                  seat.level ||
-                                  (seat.userId ? usersLevelMap[seat.userId] : undefined) ||
-                                  audience.find((a) => a.uid === seat.userId)?.level ||
-                                  1
-                                }
-                              />
-
-                              {/* VIP / Platinum / Iron Badge */}
-                              {seat.isPlatinum ? (
-                                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]">
-                                  <Diamond className="h-2.5 w-2.5 text-black fill-black" />
+                            {/* Seat Footer: Compact Number Badge + Username */}
+                            <div className="mt-1.5 flex items-center justify-center gap-1 max-w-full px-0.5">
+                              {isOccupied && (
+                                <span className="shrink-0 rounded bg-amber-400/20 border border-amber-400/40 px-1 py-0 text-[7.5px] font-black text-amber-300 leading-tight">
+                                  {seat.seatNo}
                                 </span>
-                              ) : seat.isIron ? (
-                                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 shadow-[0_0_8px_rgba(203,213,225,0.8)]">
-                                  <Shield className="h-2.5 w-2.5 text-black fill-black" />
-                                </span>
-                              ) : isSeatVip ? (
-                                <span className="absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 shadow">
-                                  <Crown className="h-2.5 w-2.5 text-black fill-black" />
-                                </span>
-                              ) : null}
-
-                              {/* Mic Muted / Open Status Indicator */}
-                              <div
-                                className={`absolute -bottom-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full border border-black shadow ${
-                                  seat.isMuted ? 'bg-rose-600 text-white' : 'bg-emerald-500 text-black'
+                              )}
+                              <span
+                                className={`truncate text-center leading-tight ${nameMaxWidthClass} ${
+                                  isOccupied
+                                    ? `font-bold ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
+                                    : seat.isPlatinum
+                                    ? 'text-cyan-300 font-black'
+                                    : seat.isIron
+                                    ? 'text-slate-200 font-black'
+                                    : seat.isVip
+                                    ? 'text-amber-300 font-black'
+                                    : 'text-rose-200/70 font-semibold'
                                 }`}
                               >
-                                {seat.isMuted ? (
-                                  <MicOff className="h-2 w-2 stroke-[2.5]" />
-                                ) : (
-                                  <Mic className="h-2 w-2 stroke-[2.5]" />
-                                )}
-                              </div>
-                            </>
-                          ) : seat.isPlatinum ? (
-                            /* Platinum Seat Cushion */
-                            <div className="flex flex-col items-center justify-center text-cyan-300 group-hover:scale-105 transition">
-                              <Diamond className="h-4 w-4 sm:h-5 sm:w-5 fill-cyan-400 text-cyan-400 drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
-                              <span className="text-[8px] font-black text-cyan-300">
-                                PLATINUM
-                              </span>
-                            </div>
-                          ) : seat.isIron ? (
-                            /* Iron Seat Cushion */
-                            <div className="flex flex-col items-center justify-center text-slate-200 group-hover:scale-105 transition">
-                              <Shield className="h-4 w-4 sm:h-5 sm:w-5 fill-slate-300 text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.8)]" />
-                              <span className="text-[8px] font-black text-slate-200">
-                                IRON
-                              </span>
-                            </div>
-                          ) : seat.isVip ? (
-                            /* VIP Seat Cushion */
-                            <div className="flex flex-col items-center justify-center text-amber-300 group-hover:scale-105 transition">
-                              <Crown className="h-4 w-4 sm:h-5 sm:w-5 fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_#f59e0b]" />
-                              <span className="text-[8px] font-black text-amber-300">
-                                VIP
-                              </span>
-                            </div>
-                          ) : (
-                            /* Empty Seat Cushion with Plus Sign */
-                            <div className="flex flex-col items-center justify-center text-rose-300/70 group-hover:text-amber-400 transition">
-                              <Plus className="h-4 w-4 sm:h-5 sm:w-5 group-hover:scale-110 transition" />
-                              <span className="text-[9px] font-black text-rose-400/80">
-                                {seat.seatNo}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Seat Footer / Username / Level Badge */}
-                        <div className="mt-1 flex flex-col items-center max-w-full px-0.5">
-                          <span
-                            className={`truncate text-center text-[9px] sm:text-[11px] leading-tight max-w-[48px] sm:max-w-[60px] ${
-                              isOccupied
-                                ? `font-black ${SEAT_NAME_COLORS[index % SEAT_NAME_COLORS.length]}`
-                                : seat.isPlatinum
-                                ? 'text-cyan-300 font-black'
-                                : seat.isIron
-                                ? 'text-slate-200 font-black'
-                                : seat.isVip
-                                ? 'text-amber-300 font-black'
-                                : 'text-rose-300/60 font-semibold'
-                            }`}
-                          >
-                            {isOccupied
-                              ? isCurrentUser
-                                ? `${seat.username} (${tr('تۆ', 'You')})`
-                                : seat.username
-                              : seat.isPlatinum
-                              ? seat.vipAssignedName
-                                ? `💎 ${seat.vipAssignedName}`
-                                : `💎 Platinum #${seat.seatNo}`
-                              : seat.isIron
-                              ? seat.vipAssignedName
-                                ? `🛡️ ${seat.vipAssignedName}`
-                                : `🛡️ Iron #${seat.seatNo}`
-                              : seat.vipAssignedName
-                              ? `👑 ${seat.vipAssignedName}`
-                              : seat.isVip
-                              ? `👑 VIP #${seat.seatNo}`
-                              : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
-                          </span>
-
-                          {/* Level / VIP Badge pill like screenshot */}
-                          {isOccupied && (
-                            <div className="mt-0.5 flex items-center gap-1">
-                              <span className={`rounded border px-1 py-0.2 text-[8px] font-black ${
-                                seat.isPlatinum
-                                  ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300'
+                                {isOccupied
+                                  ? seat.username
+                                  : seat.vipAssignedName
+                                  ? seat.vipAssignedName
+                                  : seat.isPlatinum
+                                  ? `Plat #${seat.seatNo}`
                                   : seat.isIron
-                                  ? 'bg-slate-500/20 border-slate-400/40 text-slate-200'
-                                  : isSeatVip
-                                  ? 'bg-black/60 border-white/10 text-amber-300'
-                                  : 'bg-black/60 border-white/10 text-amber-300'
-                              }`}>
-                                {seat.isPlatinum ? 'PL' : seat.isIron ? 'IR' : isSeatVip ? 'V5' : `Lv.${index + 1}`}
+                                  ? `Iron #${seat.seatNo}`
+                                  : seat.isVip
+                                  ? `VIP #${seat.seatNo}`
+                                  : `${tr('کورسی', 'Seat')} ${seat.seatNo}`}
                               </span>
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
