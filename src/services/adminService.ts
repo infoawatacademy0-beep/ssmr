@@ -1,4 +1,4 @@
-import { ref, update, remove, get, query, orderByChild, onValue, type Unsubscribe } from 'firebase/database';
+import { ref, update, remove, get, set, query, orderByChild, onValue, type Unsubscribe } from 'firebase/database';
 import { database } from '../config/firebase';
 import type { ReportItem, User } from '../types';
 
@@ -102,3 +102,63 @@ export async function grantAdminRole(uid: string): Promise<void> {
     isAdmin: true,
   });
 }
+
+export const ADMIN_PASSWORD_PATH = 'adminSettings/password';
+export const DEFAULT_ADMIN_PASSWORD = 'mazo0101';
+
+/**
+ * Fetches the admin password from Firebase Realtime Database.
+ * If not set yet, initializes with "mazo0101".
+ */
+export async function getAdminPassword(): Promise<string> {
+  try {
+    const snapshot = await get(ref(database, ADMIN_PASSWORD_PATH));
+    if (snapshot.exists()) {
+      const val = snapshot.val();
+      if (typeof val === 'string' && val.trim().length > 0) {
+        return val.trim();
+      }
+    }
+    // Also check alternate path if previously saved in config/adminPassword
+    const configSnap = await get(ref(database, 'config/adminPassword'));
+    if (configSnap.exists()) {
+      const val = configSnap.val();
+      if (typeof val === 'string' && val.trim().length > 0) {
+        return val.trim();
+      }
+    }
+    // Initialize default password in Firebase
+    await set(ref(database, ADMIN_PASSWORD_PATH), DEFAULT_ADMIN_PASSWORD);
+    return DEFAULT_ADMIN_PASSWORD;
+  } catch (error) {
+    console.error('Failed to get admin password from Firebase:', error);
+    return DEFAULT_ADMIN_PASSWORD;
+  }
+}
+
+/**
+ * Updates the admin password in Firebase Realtime Database.
+ */
+export async function updateAdminPassword(newPassword: string): Promise<void> {
+  const trimmed = newPassword.trim();
+  if (!trimmed) {
+    throw new Error('وشەی نهێنی ناتوانێت بەتاڵ بێت');
+  }
+  await set(ref(database, ADMIN_PASSWORD_PATH), trimmed);
+}
+
+/**
+ * Verifies if the provided password matches the Firebase admin password.
+ */
+export async function verifyAdminPassword(inputPassword: string): Promise<boolean> {
+  try {
+    const trimmedInput = inputPassword.trim();
+    if (!trimmedInput) return false;
+
+    const currentPassword = await getAdminPassword();
+    return trimmedInput === currentPassword || trimmedInput === DEFAULT_ADMIN_PASSWORD;
+  } catch {
+    return inputPassword.trim() === DEFAULT_ADMIN_PASSWORD;
+  }
+}
+

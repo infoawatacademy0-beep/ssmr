@@ -18,6 +18,7 @@ import {
   Clock,
   Globe,
   Check,
+  ShieldCheck,
 } from 'lucide-react';
 import type { User, AccountDeletionRequest } from '../types';
 import { useLanguage } from '../contexts';
@@ -47,6 +48,7 @@ export default function SettingsModal({
   onOpenEditProfile,
 }: SettingsModalProps) {
   const { language, setLanguage, t, isRTL } = useLanguage();
+  const isEn = language === 'en';
 
   // Local settings toggles
   const [noiseSuppression, setNoiseSuppression] = useState(
@@ -243,6 +245,23 @@ export default function SettingsModal({
                 </span>
               </div>
             </div>
+
+            {currentUser.isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  window.location.href = '/maznmahdi';
+                }}
+                className="flex w-full items-center justify-between rounded-2xl border border-rose-500/40 bg-gradient-to-r from-rose-500/20 via-pink-500/15 to-amber-500/15 px-4 py-2.5 text-xs font-black text-rose-300 shadow-md transition hover:border-rose-400/70 hover:brightness-110 active:scale-95"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-rose-400" />
+                  <span>{isEn ? 'Admin Command Console' : 'کردنەوەی پانێڵی سەرپەرشتیار (Mazn Mahdi)'}</span>
+                </div>
+                <ChevronRight className={`h-4 w-4 text-rose-400 ${isRTL ? 'rotate-180' : ''}`} />
+              </button>
+            )}
 
             <button
               onClick={() => {

@@ -23,6 +23,7 @@ import {
   Filter,
   Check,
   RefreshCw,
+  KeyRound,
   Image as ImageIcon,
   MapPin,
   Globe,
@@ -89,6 +90,8 @@ import {
   addEpisodeToCinemaFolder,
   deleteEpisodeFromCinemaFolder,
   uploadImageToImgBB,
+  getAdminPassword,
+  updateAdminPassword,
 } from '../services';
 import { useLanguage } from '../contexts/LanguageContext';
 import EpisodeVideoThumbnail from './EpisodeVideoThumbnail';
@@ -274,6 +277,48 @@ export default function AdminPanel({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Admin Password Management State (Firebase Realtime Database)
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [currentAdminPassword, setCurrentAdminPassword] = useState('');
+  const [newAdminPasswordInput, setNewAdminPasswordInput] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isSavingAdminPassword, setIsSavingAdminPassword] = useState(false);
+  const [passwordModalError, setPasswordModalError] = useState<string | null>(null);
+
+  const openAdminPasswordModal = async () => {
+    setIsPasswordModalOpen(true);
+    setPasswordModalError(null);
+    setNewAdminPasswordInput('');
+    try {
+      const pwd = await getAdminPassword();
+      setCurrentAdminPassword(pwd);
+    } catch {
+      setCurrentAdminPassword('mazo0101');
+    }
+  };
+
+  const handleSaveAdminPassword = async () => {
+    const trimmed = newAdminPasswordInput.trim();
+    if (!trimmed) {
+      setPasswordModalError(isEn ? 'Password cannot be empty' : 'تکایە وشەی نهێنی نوێ بنووسە');
+      return;
+    }
+    setIsSavingAdminPassword(true);
+    setPasswordModalError(null);
+    try {
+      await updateAdminPassword(trimmed);
+      setCurrentAdminPassword(trimmed);
+      setNewAdminPasswordInput('');
+      showToast(isEn ? 'Admin password updated in Firebase!' : 'وشەی نهێنی ئەدمین لە فایەربەیس بەسەرکەوتوویی نوێکرایەوە!');
+      setIsPasswordModalOpen(false);
+    } catch (err: any) {
+      setPasswordModalError(err?.message || (isEn ? 'Failed to update password' : 'نوێکردنەوە سەرکەوتوو نەبوو'));
+    } finally {
+      setIsSavingAdminPassword(false);
+    }
   };
 
   // Load Users
@@ -707,6 +752,15 @@ export default function AdminPanel({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={openAdminPasswordModal}
+              className="flex items-center gap-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-300 hover:border-amber-400/50 hover:bg-amber-500/20 transition active:scale-95 shadow-sm"
+              title={tr('گۆڕینی وشەی نهێنی ئەدمین لە فایەربەیس', 'Change Admin Password in Firebase')}
+            >
+              <KeyRound className="h-3.5 w-3.5 text-amber-400" />
+              <span className="hidden sm:inline">{tr('وشەی نهێنی ئەدمین', 'Admin Password')}</span>
+            </button>
+
             <button
               onClick={loadUsersList}
               disabled={isLoadingUsers}
@@ -2796,6 +2850,109 @@ export default function AdminPanel({
                     className="flex-1 rounded-2xl bg-amber-500 py-3 text-xs font-bold text-black shadow-lg shadow-amber-500/20"
                   >
                     {isSavingCoins ? tr('خەریکی گۆڕینە...', 'Updating...') : tr('جێگیرکردنی باڵانس', 'Apply Balance')}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Admin Password Management Modal */}
+          {isPasswordModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-md rounded-3xl border border-amber-500/30 bg-slate-900 p-6 shadow-2xl"
+              >
+                <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <KeyRound className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-sm font-black text-white uppercase">
+                        {tr('وشەی نهێنی ئەدمین (فایەربەیس)', 'Admin Password (Firebase)')}
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        {tr('وشەی نهێنی چوونەژوورەوەی ئەدمین بۆ /maznmahdi', 'Security key for /maznmahdi')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsPasswordModalOpen(false)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="py-4 space-y-4">
+                  {/* Current Password Display */}
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5">
+                    <span className="text-[11px] font-bold text-slate-400 block mb-1">
+                      {tr('وشەی نهێنی ئێستای ناو فایەربەیس:', 'Current Firebase Password:')}
+                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm font-bold text-amber-300">
+                        {showCurrentPassword ? currentAdminPassword || 'mazo0101' : '••••••••'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg bg-slate-800"
+                      >
+                        {showCurrentPassword ? tr('شاردنەوە', 'Hide') : tr('پیشاندان', 'Show')}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* New Password Input */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                      {tr('وشەی نهێنی نوێ بنووسە:', 'Enter New Password:')}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newAdminPasswordInput}
+                        onChange={(e) => {
+                          setNewAdminPasswordInput(e.target.value);
+                          if (passwordModalError) setPasswordModalError(null);
+                        }}
+                        placeholder={tr('وشەی نهێنی نوێ بنووسە...', 'Type new password...')}
+                        className="w-full rounded-2xl border border-slate-800 bg-slate-950 p-3 text-sm font-semibold text-white outline-none focus:border-amber-400 pe-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute inset-y-0 end-0 pe-3 flex items-center text-slate-400 hover:text-white"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {passwordModalError && (
+                    <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold">
+                      {passwordModalError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => setIsPasswordModalOpen(false)}
+                    className="flex-1 rounded-2xl border border-slate-800 py-3 text-xs font-bold text-slate-300 hover:bg-slate-800 transition"
+                  >
+                    {tr('پاشگەزبوونەوە', 'Cancel')}
+                  </button>
+                  <button
+                    onClick={handleSaveAdminPassword}
+                    disabled={isSavingAdminPassword}
+                    className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 py-3 text-xs font-black text-white shadow-lg shadow-amber-500/20 hover:brightness-110 transition disabled:opacity-50"
+                  >
+                    {isSavingAdminPassword ? tr('پاشەکەوت دەکرێت...', 'Saving...') : tr('پاشەکەوتکردن لە فایەربەیس', 'Save to Firebase')}
                   </button>
                 </div>
               </motion.div>

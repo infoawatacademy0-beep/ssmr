@@ -10,5 +10,6 @@ export { default as EntranceAnimation } from './EntranceAnimation';
 export { default as MusicPlayerPanel } from './MusicPlayerPanel';
 export { default as AudienceGrid } from './AudienceGrid';
 export { default as AdminPanel } from './AdminPanel';
+export { default as AdminGate } from './AdminGate';
 export { default as GiftIcon } from './GiftIcon';
 export { default as GiftAnimationOverlay } from './GiftAnimationOverlay';

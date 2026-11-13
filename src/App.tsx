@@ -72,7 +72,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
    ────────────────────────────────────────────── */
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const VoiceRoom = lazy(() => import('./components/VoiceRoom'));
-const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const AdminGate = lazy(() => import('./components/AdminGate'));
 const LudoGamePanel = lazy(() => import('./components/LudoGamePanel'));
 
 /* ──────────────────────────────────────────────
@@ -191,18 +191,7 @@ function AppRoutes() {
         />
         <Route
           path="/maznmahdi"
-          element={
-            isRealUser && user?.isAdmin ? (
-              <AdminPanel
-                currentUser={user}
-                onClose={() => {
-                  window.location.href = '/';
-                }}
-              />
-            ) : (
-              <Navigate to="/auth" replace />
-            )
-          }
+          element={<AdminGate currentUser={user} />}
         />
         <Route
           path="/game/ludo"

@@ -222,6 +222,11 @@ export {
   banUser,
   unbanUser,
   grantAdminRole,
+  getAdminPassword,
+  updateAdminPassword,
+  verifyAdminPassword,
+  ADMIN_PASSWORD_PATH,
+  DEFAULT_ADMIN_PASSWORD,
 } from './adminService';
 
 export {
