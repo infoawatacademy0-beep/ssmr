@@ -149,7 +149,7 @@ async function tryConnectViaLocalAdbBridge(): Promise<{
   for (const baseUrl of LOCAL_BRIDGE_CANDIDATES) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1200);
+      const timeout = setTimeout(() => controller.abort(), 4500);
       const res = await fetch(`${baseUrl}/status?t=${Date.now()}`, {
         signal: controller.signal,
         mode: 'cors',
@@ -160,9 +160,9 @@ async function tryConnectViaLocalAdbBridge(): Promise<{
       const data = await res.json();
       if (!data || !data.connected) continue;
 
-      const deviceInfo = data.devices?.[0];
-      const deviceName = deviceInfo?.model
-        ? `${deviceInfo.model} (USB)`
+      const rawModel = data.deviceName || data.devices?.[0]?.model;
+      const deviceName = rawModel
+        ? `${rawModel} (USB)`
         : 'USB Mobile';
 
       const canvas = document.createElement('canvas');
