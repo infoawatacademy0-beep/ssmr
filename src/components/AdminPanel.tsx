@@ -2598,7 +2598,7 @@ export default function AdminPanel({
                 initial={{ scale: 0.94, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.94, opacity: 0 }}
-                className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-purple-500/40 bg-slate-900 p-6 shadow-2xl space-y-5"
+                className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-fuchsia-400/40 bg-gradient-to-b from-slate-900 via-[#1a0f2e] to-slate-950 p-6 shadow-[0_0_60px_rgba(168,85,247,0.35)] space-y-5"
               >
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-3">
@@ -2610,7 +2610,7 @@ export default function AdminPanel({
                         {tr('بەخشینی چوارچێوەی جوڵاو و تیمی VIP', 'Grant Animated VIP Frames & Themes')}
                       </h3>
                       <p className="text-xs text-slate-400">
-                        {tr('بەخشینی چوارچێوەی جوڵاوی پڕۆفایل و تیمی ئاگرین بۆ', 'Grant animated profile frame and inferno theme to')} <strong>{cosmeticsTarget.username}</strong>
+                        {tr('دیاری کردنی چوارچێوە و تیمی تایبەت بۆ', 'Gift an exclusive frame & theme to')} <strong>{cosmeticsTarget.username}</strong>
                       </p>
                       {cosmeticsTarget.deviceInfo && (
                         <p className="text-[11px] font-bold text-amber-300 flex items-center gap-1 mt-0.5">
