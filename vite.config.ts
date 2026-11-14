@@ -2,6 +2,101 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
 import { AccessToken, TrackSource } from 'livekit-server-sdk';
+import { spawn, execFile } from 'node:child_process';
+
+function usbPhoneBridgePlugin(): Plugin {
+  let latestFrame: Buffer | null = null;
+  let latestFrameAt = 0;
+  let capturing = false;
+
+  const captureOnce = () =>
+    new Promise<boolean>((resolve) => {
+      if (capturing) return resolve(false);
+      capturing = true;
+      const child = spawn('adb', ['exec-out', 'screencap', '-p'], {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const chunks: Buffer[] = [];
+      const timer = setTimeout(() => {
+        try {
+          child.kill();
+        } catch {}
+      }, 3000);
+      child.stdout.on('data', (c: Buffer) => chunks.push(c));
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        capturing = false;
+        if (code === 0 && chunks.length > 0) {
+          const buf = Buffer.concat(chunks);
+          if (buf.length > 100 && buf[0] === 0x89 && buf[1] === 0x50) {
+            latestFrame = buf;
+            latestFrameAt = Date.now();
+            return resolve(true);
+          }
+        }
+        resolve(false);
+      });
+      child.on('error', () => {
+        clearTimeout(timer);
+        capturing = false;
+        resolve(false);
+      });
+    });
+
+  return {
+    name: 'usb-phone-bridge-api',
+    configureServer(server) {
+      server.middlewares.use('/api/usb-phone/status', (_req, res) => {
+        execFile('adb', ['devices', '-l'], { timeout: 3500 }, (err, stdout) => {
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          if (err || !stdout) {
+            res.end(JSON.stringify({ ok: true, connected: false }));
+            return;
+          }
+          const lines = stdout
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter((l) => l && !l.startsWith('List of devices') && !l.startsWith('*'));
+          for (const line of lines) {
+            if (/\bdevice\b/.test(line)) {
+              const serial = line.split(/\s+/)[0];
+              const m = line.match(/model:([^\s]+)/);
+              captureOnce();
+              res.end(
+                JSON.stringify({
+                  ok: true,
+                  connected: true,
+                  serial,
+                  deviceName: m ? m[1] : serial,
+                }),
+              );
+              return;
+            }
+          }
+          res.end(JSON.stringify({ ok: true, connected: false }));
+        });
+      });
+
+      server.middlewares.use('/api/usb-phone/frame', async (_req, res) => {
+        if (!latestFrame || Date.now() - latestFrameAt > 350) {
+          await captureOnce();
+        } else {
+          captureOnce();
+        }
+        if (latestFrame) {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'image/png');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(latestFrame);
+        } else {
+          res.statusCode = 503;
+          res.end('No USB frame');
+        }
+      });
+    },
+  };
+}
 
 /**
  * Embedded Vite API Plugin for LiveKit Token Generation.
@@ -65,7 +160,7 @@ function livekitTokenPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), livekitTokenPlugin()],
+  plugins: [react(), tailwindcss(), livekitTokenPlugin(), usbPhoneBridgePlugin()],
   build: {
     target: 'esnext',
     chunkSizeWarningLimit: 800,
