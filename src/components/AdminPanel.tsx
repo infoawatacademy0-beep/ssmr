@@ -2602,12 +2602,12 @@ export default function AdminPanel({
               >
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-purple-500 to-amber-400 text-white shadow-lg shadow-fuchsia-500/40">
                       <Palette className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="font-display text-sm font-bold text-white uppercase tracking-wider">
-                        {tr('بەخشینی چوارچێوەی جوڵاو و تیمی VIP', 'Grant Animated VIP Frames & Themes')}
+                      <h3 className="font-display text-base font-black bg-gradient-to-r from-amber-300 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent tracking-wide">
+                        {tr('ستایلی تایبەتی پڕۆفایل ✨', 'Premium Profile Styling ✨')}
                       </h3>
                       <p className="text-xs text-slate-400">
                         {tr('دیاری کردنی چوارچێوە و تیمی تایبەت بۆ', 'Gift an exclusive frame & theme to')} <strong>{cosmeticsTarget.username}</strong>
