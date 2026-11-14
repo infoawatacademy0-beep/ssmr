@@ -39,6 +39,7 @@ export async function startRoomScreenShare(
 ): Promise<void> {
   if (!roomId) return;
   const screenRef = ref(database, `rooms/${roomId}/screenShare`);
+  const frameRef = ref(database, `rooms/${roomId}/screenShareFrame`);
   const state: RoomScreenShareState = {
     isActive: true,
     presenterUid: payload.presenterUid,
@@ -53,9 +54,46 @@ export async function startRoomScreenShare(
 
   try {
     onDisconnect(screenRef).remove();
+    onDisconnect(frameRef).remove();
   } catch (err) {
     console.warn('Could not register onDisconnect for screenShare:', err);
   }
+}
+
+/**
+ * Publishes a compressed live JPEG frame of the shared screen to Firebase
+ * so all viewers see the screen immediately (even while WebRTC is connecting or across strict mobile NATs).
+ */
+export async function publishScreenShareFrame(
+  roomId: string,
+  frameDataUrl: string,
+  presenterUid: string,
+): Promise<void> {
+  if (!roomId || !frameDataUrl) return;
+  const frameRef = ref(database, `rooms/${roomId}/screenShareFrame`);
+  await set(frameRef, {
+    frame: frameDataUrl,
+    presenterUid,
+    updatedAt: Date.now(),
+  });
+}
+
+/**
+ * Subscribes in real-time to the room's live screen share frame fallback stream.
+ */
+export function subscribeToRoomScreenShareFrame(
+  roomId: string,
+  callback: (frameDataUrl: string | null) => void,
+): Unsubscribe {
+  const frameRef = ref(database, `rooms/${roomId}/screenShareFrame`);
+  return onValue(frameRef, (snap) => {
+    if (!snap.exists()) {
+      callback(null);
+      return;
+    }
+    const val = snap.val();
+    callback(val?.frame ? String(val.frame) : null);
+  });
 }
 
 /**
@@ -64,10 +102,15 @@ export async function startRoomScreenShare(
 export async function stopRoomScreenShare(roomId: string): Promise<void> {
   if (!roomId) return;
   const screenRef = ref(database, `rooms/${roomId}/screenShare`);
+  const frameRef = ref(database, `rooms/${roomId}/screenShareFrame`);
   try {
     onDisconnect(screenRef).cancel();
+    onDisconnect(frameRef).cancel();
   } catch {}
-  await set(screenRef, null);
+  await Promise.all([
+    set(screenRef, null).catch(() => {}),
+    set(frameRef, null).catch(() => {}),
+  ]);
 }
 
 /**

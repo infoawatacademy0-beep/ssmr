@@ -550,7 +550,7 @@ export default function VoiceRoom() {
     startVideoFileScreenShare,
     stopScreenShare,
   } = useVoiceRoom({
-    roomId: room?.id || '',
+    roomId: room?.id || roomId || '',
     currentUser: user,
     mySeat,
     allSeats: room?.seats || [],

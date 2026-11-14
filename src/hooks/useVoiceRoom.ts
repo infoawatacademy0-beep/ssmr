@@ -15,6 +15,7 @@ import {
   detectScreenShareDeviceType,
   startRoomScreenShare,
   stopRoomScreenShare,
+  publishScreenShareFrame,
 } from '../services/screenShareService';
 import type { User, Seat } from '../types';
 
@@ -22,7 +23,8 @@ import type { User, Seat } from '../types';
    useVoiceRoom Hook — WebRTC LiveKit Voice & Screen Streaming
    Connects client to LiveKit Room, syncs microphone state
    with Firebase seat state, handles audio streaming, and
-   provides direct Mobile / PC / Laptop Screen Sharing.
+   provides direct Mobile / PC / Laptop Screen Sharing with
+   instant Firebase live-frame fallback.
    ───────────────────────────────────────────────────────────── */
 
 export interface ActiveScreenShareStream {
@@ -32,6 +34,7 @@ export interface ActiveScreenShareStream {
   participantName: string;
   isLocal: boolean;
   hasAudio: boolean;
+  streamKey?: string;
 }
 
 interface UseVoiceRoomProps {
@@ -39,6 +42,14 @@ interface UseVoiceRoomProps {
   currentUser: User | null;
   mySeat: Seat | null;
   allSeats?: Seat[];
+}
+
+/**
+ * Extracts the base Firebase UID from a per-tab LiveKit identity (`uid__tabId` -> `uid`).
+ */
+function extractUid(identity: string): string {
+  if (!identity) return '';
+  return identity.split('__')[0];
 }
 
 export function useVoiceRoom({
@@ -58,6 +69,11 @@ export function useVoiceRoom({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [activeScreenShare, setActiveScreenShare] = useState<ActiveScreenShareStream | null>(null);
 
+  // Unique per-tab suffix so a user opening the room on both PC and Mobile never triggers DUPLICATE_IDENTITY kicks
+  const tabSessionIdRef = useRef<string>(
+    Math.random().toString(36).substring(2, 7),
+  );
+
   // Reference to persistent LiveKit room instance
   const roomRef = useRef<Room | null>(null);
   // Container for remote audio elements attached to the DOM
@@ -68,16 +84,18 @@ export function useVoiceRoom({
   const allSeatsRef = useRef<Seat[]>(allSeats);
   allSeatsRef.current = allSeats;
 
-  // Refs for local screen share tracks & cleanup
+  // Refs for local screen share tracks & live frame broadcaster cleanup
   const localScreenStreamRef = useRef<MediaStream | null>(null);
   const localScreenVideoElRef = useRef<HTMLVideoElement | null>(null);
+  const frameBroadcasterStopRef = useRef<(() => void) | null>(null);
   const isLocalScreenSharingRef = useRef<boolean>(false);
 
   // Check if a participant identity is permitted to speak (must occupy an active unmuted seat)
   const isParticipantAllowedToSpeak = useCallback((identity: string): boolean => {
-    if (!identity) return false;
+    const cleanUid = extractUid(identity);
+    if (!cleanUid) return false;
     const currentSeats = allSeatsRef.current || [];
-    const seat = currentSeats.find((s) => s.userId === identity);
+    const seat = currentSeats.find((s) => s.userId === cleanUid);
     // If not seated (audience) or seat is muted in Firebase -> silent
     if (!seat || seat.isMuted) return false;
     return true;
@@ -120,34 +138,133 @@ export function useVoiceRoom({
     if (isLocalScreenSharingRef.current) return;
 
     for (const participant of targetRoom.remoteParticipants.values()) {
-      for (const pub of participant.videoTrackPublications.values()) {
-        if (pub.isSubscribed && pub.track && pub.track.kind === Track.Kind.Video) {
+      const pubs = Array.from(participant.trackPublications.values());
+      for (const pub of pubs) {
+        const isVideo =
+          pub.kind === Track.Kind.Video ||
+          pub.source === Track.Source.ScreenShare ||
+          pub.source === Track.Source.Camera;
+
+        if (!isVideo) continue;
+
+        // Ensure remote video publication is explicitly subscribed
+        if (!pub.isSubscribed) {
+          try {
+            pub.setSubscribed(true);
+          } catch {}
+        }
+
+        if (pub.track && pub.track.kind === Track.Kind.Video) {
           const mediaStream = pub.track.mediaStreamTrack
             ? new MediaStream([pub.track.mediaStreamTrack])
             : null;
           const hasScreenAudio = Array.from(participant.audioTrackPublications.values()).some(
             (aPub) => aPub.source === Track.Source.ScreenShareAudio && aPub.isSubscribed,
           );
-          setActiveScreenShare({
-            videoTrack: pub.track,
-            mediaStream,
-            participantUid: participant.identity,
-            participantName: participant.name || participant.identity || 'User',
-            isLocal: false,
-            hasAudio: hasScreenAudio,
+          const cleanUid = extractUid(participant.identity);
+          const streamKey = `${participant.identity}_${pub.trackSid}_${hasScreenAudio}`;
+
+          setActiveScreenShare((prev) => {
+            if (prev && !prev.isLocal && prev.streamKey === streamKey && prev.videoTrack === pub.track) {
+              return prev;
+            }
+            return {
+              videoTrack: pub.track!,
+              mediaStream,
+              participantUid: cleanUid,
+              participantName: participant.name || cleanUid || 'User',
+              isLocal: false,
+              hasAudio: hasScreenAudio,
+              streamKey,
+            };
           });
           return;
         }
       }
     }
 
-    setActiveScreenShare(null);
+    setActiveScreenShare((prev) => (prev && !prev.isLocal ? null : prev));
   }, []);
+
+  // Starts a lightweight offscreen canvas broadcaster that sends compressed JPEG frames
+  // of the shared screen to Firebase so all members see the screen immediately.
+  const startFrameBroadcaster = useCallback(
+    (stream: MediaStream, targetRoomId: string, presenterUid: string) => {
+      if (frameBroadcasterStopRef.current) {
+        frameBroadcasterStopRef.current();
+        frameBroadcasterStopRef.current = null;
+      }
+
+      let isStopped = false;
+      let isUploading = false;
+      const hiddenVideo = document.createElement('video');
+      hiddenVideo.muted = true;
+      hiddenVideo.playsInline = true;
+      hiddenVideo.autoplay = true;
+      hiddenVideo.setAttribute('playsinline', 'true');
+      hiddenVideo.setAttribute('webkit-playsinline', 'true');
+      hiddenVideo.srcObject = stream;
+      hiddenVideo.play().catch(() => {});
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      const captureAndSend = async () => {
+        if (isStopped || isUploading || !isLocalScreenSharingRef.current) return;
+        const vw = hiddenVideo.videoWidth;
+        const vh = hiddenVideo.videoHeight;
+        if (!vw || !vh || !ctx) return;
+
+        isUploading = true;
+        try {
+          const maxDim = 854;
+          const scale = Math.min(1, maxDim / Math.max(vw, vh));
+          const cw = Math.max(2, Math.round(vw * scale));
+          const ch = Math.max(2, Math.round(vh * scale));
+          if (canvas.width !== cw || canvas.height !== ch) {
+            canvas.width = cw;
+            canvas.height = ch;
+          }
+          ctx.drawImage(hiddenVideo, 0, 0, cw, ch);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+          if (dataUrl && dataUrl.length > 100 && !isStopped) {
+            await publishScreenShareFrame(targetRoomId, dataUrl, presenterUid);
+          }
+        } catch {
+          // Ignore transient frame capture errors
+        } finally {
+          isUploading = false;
+        }
+      };
+
+      // Capture first frame quickly once video dimensions are ready
+      hiddenVideo.onloadeddata = () => {
+        captureAndSend();
+      };
+
+      const intervalId = setInterval(captureAndSend, 450);
+
+      frameBroadcasterStopRef.current = () => {
+        isStopped = true;
+        clearInterval(intervalId);
+        try {
+          hiddenVideo.pause();
+          hiddenVideo.srcObject = null;
+        } catch {}
+      };
+    },
+    [],
+  );
 
   // Stop local screen sharing and unpublish tracks
   const stopScreenShare = useCallback(async () => {
     isLocalScreenSharingRef.current = false;
     setIsScreenSharing(false);
+
+    if (frameBroadcasterStopRef.current) {
+      frameBroadcasterStopRef.current();
+      frameBroadcasterStopRef.current = null;
+    }
 
     // Stop local media stream tracks
     if (localScreenStreamRef.current) {
@@ -204,16 +321,18 @@ export function useVoiceRoom({
       }
     }
 
+    setActiveScreenShare(null);
+
     // Clear Firebase screen share state
     if (roomId) {
       await stopRoomScreenShare(roomId).catch(console.error);
     }
 
-    // Check if any remote participant is sharing, otherwise clear
+    // Check if any remote participant is sharing
     syncRemoteScreenShare(roomRef.current);
   }, [roomId, syncRemoteScreenShare]);
 
-  // Publish an acquired MediaStream as a LiveKit Screen Share
+  // Publish an acquired MediaStream as a LiveKit Screen Share + Instant Frame Stream
   const publishScreenMediaStream = useCallback(
     async (stream: MediaStream) => {
       const videoTrack = stream.getVideoTracks()[0];
@@ -256,49 +375,10 @@ export function useVoiceRoom({
         participantName: currentUser?.username || 'You',
         isLocal: true,
         hasAudio: Boolean(audioTrack),
+        streamKey: `local_${Date.now()}`,
       });
 
-      // Publish to LiveKit room if connected
-      const room = roomRef.current;
-      if (room && room.state === ConnectionState.Connected) {
-        // Unpublish any old video tracks first
-        for (const pub of Array.from(room.localParticipant.videoTrackPublications.values())) {
-          if (pub.track) {
-            await room.localParticipant.unpublishTrack(pub.track, true).catch(() => {});
-          }
-        }
-
-        const publishedVideoPub: LocalTrackPublication =
-          await room.localParticipant.publishTrack(videoTrack, {
-            name: 'screen_share',
-            source: Track.Source.ScreenShare,
-            simulcast: false,
-          });
-
-        if (audioTrack) {
-          await room.localParticipant
-            .publishTrack(audioTrack, {
-              name: 'screen_share_audio',
-              source: Track.Source.ScreenShareAudio,
-            })
-            .catch((err) => {
-              console.warn('Could not publish screen share audio track:', err);
-            });
-        }
-
-        if (publishedVideoPub?.track) {
-          setActiveScreenShare({
-            videoTrack: publishedVideoPub.track,
-            mediaStream: stream,
-            participantUid: currentUser?.uid || 'local',
-            participantName: currentUser?.username || 'You',
-            isLocal: true,
-            hasAudio: Boolean(audioTrack),
-          });
-        }
-      }
-
-      // Broadcast screen share metadata to Firebase
+      // Broadcast screen share metadata & start live frame broadcaster in Firebase immediately
       if (roomId && currentUser) {
         await startRoomScreenShare(roomId, {
           presenterUid: currentUser.uid,
@@ -307,9 +387,75 @@ export function useVoiceRoom({
           deviceType: detectScreenShareDeviceType(),
           hasSystemAudio: Boolean(audioTrack),
         });
+        startFrameBroadcaster(stream, roomId, currentUser.uid);
+      }
+
+      // Ensure LiveKit room is connected, reconnecting if needed, then publish WebRTC tracks
+      const room = roomRef.current;
+      if (room && currentUser && roomId) {
+        try {
+          if (room.state === ConnectionState.Connecting) {
+            // Wait up to 3.5s for ongoing connection
+            await new Promise<void>((resolve) => {
+              let elapsed = 0;
+              const check = setInterval(() => {
+                elapsed += 150;
+                if (room.state === ConnectionState.Connected || elapsed >= 3500) {
+                  clearInterval(check);
+                  resolve();
+                }
+              }, 150);
+            });
+          } else if (room.state === ConnectionState.Disconnected) {
+            const lkIdentity = `${currentUser.uid}__${tabSessionIdRef.current}`;
+            const token = await fetchLiveKitToken(roomId, lkIdentity, currentUser.username);
+            await room.connect(LIVEKIT_CONFIG.url, token);
+          }
+
+          if (room.state === ConnectionState.Connected) {
+            // Unpublish any old video tracks first
+            for (const pub of Array.from(room.localParticipant.videoTrackPublications.values())) {
+              if (pub.track && pub.track.mediaStreamTrack !== videoTrack) {
+                await room.localParticipant.unpublishTrack(pub.track, false).catch(() => {});
+              }
+            }
+
+            const publishedVideoPub: LocalTrackPublication =
+              await room.localParticipant.publishTrack(videoTrack, {
+                name: 'screen_share',
+                source: Track.Source.ScreenShare,
+                simulcast: false,
+              });
+
+            if (audioTrack) {
+              await room.localParticipant
+                .publishTrack(audioTrack, {
+                  name: 'screen_share_audio',
+                  source: Track.Source.ScreenShareAudio,
+                })
+                .catch((err) => {
+                  console.warn('Could not publish screen share audio track:', err);
+                });
+            }
+
+            if (publishedVideoPub?.track) {
+              setActiveScreenShare({
+                videoTrack: publishedVideoPub.track,
+                mediaStream: stream,
+                participantUid: currentUser.uid,
+                participantName: currentUser.username || 'You',
+                isLocal: true,
+                hasAudio: Boolean(audioTrack),
+                streamKey: `local_${publishedVideoPub.trackSid || Date.now()}`,
+              });
+            }
+          }
+        } catch (lkErr) {
+          console.warn('LiveKit screen track publish warning (Firebase frame stream active):', lkErr);
+        }
       }
     },
-    [roomId, currentUser, stopScreenShare],
+    [roomId, currentUser, stopScreenShare, startFrameBroadcaster],
   );
 
   /**
@@ -399,7 +545,6 @@ export function useVoiceRoom({
 
   /**
    * Mobile Fallback 1: Share live camera feed onto the room Screen Share stage
-   * (Works on all mobile phones & in-app browsers even if OS getDisplayMedia is restricted)
    */
   const startCameraScreenShare = useCallback(
     async (facingMode: 'environment' | 'user' = 'environment'): Promise<boolean> => {
@@ -479,11 +624,12 @@ export function useVoiceRoom({
       typeof window === 'undefined' ||
       localStorage.getItem('ssmr_noise_suppression') !== 'false';
 
+    // adaptiveStream & dynacast disabled so screen share video frames stream immediately to all mobile/PC viewers
     const room = new Room({
-      adaptiveStream: true,
-      dynacast: true,
+      adaptiveStream: false,
+      dynacast: false,
       disconnectOnPageLeave: false,
-      stopLocalTrackOnUnpublish: true, // Hardware mic stops immediately when unpublished
+      stopLocalTrackOnUnpublish: true,
       audioCaptureDefaults: {
         autoGainControl: isNoiseSuppEnabled,
         echoCancellation: isNoiseSuppEnabled,
@@ -492,6 +638,7 @@ export function useVoiceRoom({
       publishDefaults: {
         dtx: true,
         red: true,
+        simulcast: false,
       },
     });
 
@@ -521,11 +668,36 @@ export function useVoiceRoom({
       if (!isMounted) return;
       const activeIds = new Set<string>();
       for (const speaker of speakers) {
-        if (speaker.identity && isParticipantAllowedToSpeak(speaker.identity)) {
-          activeIds.add(speaker.identity);
+        const cleanUid = extractUid(speaker.identity);
+        if (cleanUid && isParticipantAllowedToSpeak(cleanUid)) {
+          activeIds.add(cleanUid);
         }
       }
       setSpeakingUids(activeIds);
+    });
+
+    // Ensure any newly published remote video track is immediately subscribed
+    room.on(
+      RoomEvent.TrackPublished,
+      (publication: RemoteTrackPublication) => {
+        if (!isMounted) return;
+        if (
+          publication.kind === Track.Kind.Video ||
+          publication.source === Track.Source.ScreenShare ||
+          publication.source === Track.Source.ScreenShareAudio
+        ) {
+          try {
+            publication.setSubscribed(true);
+          } catch {}
+          syncRemoteScreenShare(room);
+        }
+      },
+    );
+
+    room.on(RoomEvent.ParticipantConnected, () => {
+      if (isMounted) {
+        syncRemoteScreenShare(room);
+      }
     });
 
     // Handle remote participant audio & screen share video playback
@@ -542,17 +714,18 @@ export function useVoiceRoom({
 
         // 2. Remote Audio Track (Voice Mic or Screen Share Audio)
         if (track.kind === Track.Kind.Audio && audioContainerRef.current) {
+          const cleanUid = extractUid(participant.identity);
           const isScreenAudio = publication.source === Track.Source.ScreenShareAudio;
           const audioElement = (track as RemoteAudioTrack).attach();
           audioElement.id = `audio-${participant.identity}-${publication.trackSid}`;
-          audioElement.setAttribute('data-participant-uid', participant.identity);
+          audioElement.setAttribute('data-participant-uid', cleanUid);
           if (isScreenAudio) {
             audioElement.setAttribute('data-screen-audio', 'true');
           }
           audioElement.setAttribute('playsinline', 'true');
           audioElement.setAttribute('webkit-playsinline', 'true');
 
-          const isAllowed = isScreenAudio || isParticipantAllowedToSpeak(participant.identity);
+          const isAllowed = isScreenAudio || isParticipantAllowedToSpeak(cleanUid);
           const isGlobalSpeakerMuted = document.body.getAttribute('data-speaker-muted') === 'true';
 
           if (!isAllowed || isGlobalSpeakerMuted) {
@@ -611,11 +784,19 @@ export function useVoiceRoom({
         (publication.source === Track.Source.ScreenShare ||
           publication.track?.kind === Track.Kind.Video)
       ) {
-        if (isLocalScreenSharingRef.current) {
-          isLocalScreenSharingRef.current = false;
-          setIsScreenSharing(false);
-          stopRoomScreenShare(roomId).catch(() => {});
-          syncRemoteScreenShare(room);
+        // Only clean up if the local screen stream itself has ended
+        const activeVideoTrack = localScreenStreamRef.current?.getVideoTracks()[0];
+        if (!activeVideoTrack || activeVideoTrack.readyState === 'ended') {
+          if (isLocalScreenSharingRef.current) {
+            isLocalScreenSharingRef.current = false;
+            setIsScreenSharing(false);
+            if (frameBroadcasterStopRef.current) {
+              frameBroadcasterStopRef.current();
+              frameBroadcasterStopRef.current = null;
+            }
+            stopRoomScreenShare(roomId).catch(() => {});
+            syncRemoteScreenShare(room);
+          }
         }
       }
     });
@@ -636,12 +817,13 @@ export function useVoiceRoom({
       }
     });
 
-    // Connect with generated token
+    // Connect with generated token (using per-tab identity so multiple tabs/devices never collide)
     async function connectToLiveKit() {
       try {
+        const lkIdentity = `${currentUser!.uid}__${tabSessionIdRef.current}`;
         const token = await fetchLiveKitToken(
           roomId,
-          currentUser!.uid,
+          lkIdentity,
           currentUser!.username,
         );
 
@@ -708,11 +890,23 @@ export function useVoiceRoom({
 
     connectToLiveKit();
 
+    // Periodic check to ensure remote screen share video tracks are subscribed and synced
+    const syncTimer = setInterval(() => {
+      if (isMounted && room.state === ConnectionState.Connected) {
+        syncRemoteScreenShare(room);
+      }
+    }, 1000);
+
     return () => {
       isMounted = false;
+      clearInterval(syncTimer);
       if (wakeLockRef.current) {
         wakeLockRef.current.release?.().catch(() => {});
         wakeLockRef.current = null;
+      }
+      if (frameBroadcasterStopRef.current) {
+        frameBroadcasterStopRef.current();
+        frameBroadcasterStopRef.current = null;
       }
       if (isLocalScreenSharingRef.current) {
         isLocalScreenSharingRef.current = false;

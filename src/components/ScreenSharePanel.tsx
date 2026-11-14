@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { RoomScreenShareState, User } from '../types';
 import type { ActiveScreenShareStream } from '../hooks/useVoiceRoom';
+import { subscribeToRoomScreenShareFrame } from '../services';
 import { useLanguage } from '../contexts';
 
 interface ScreenSharePanelProps {
@@ -36,6 +37,7 @@ interface ScreenSharePanelProps {
 }
 
 export default function ScreenSharePanel({
+  roomId,
   screenShareState,
   activeScreenShare,
   isLocalScreenSharing,
@@ -54,6 +56,8 @@ export default function ScreenSharePanel({
   const [isObjectCover, setIsObjectCover] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [isWebRtcVideoPlaying, setIsWebRtcVideoPlaying] = useState(false);
+  const [liveFrameDataUrl, setLiveFrameDataUrl] = useState<string | null>(null);
 
   const isVisible = Boolean(activeScreenShare || screenShareState?.isActive);
   const presenterUid =
@@ -74,23 +78,45 @@ export default function ScreenSharePanel({
       isHostOrAdmin,
   );
 
+  // Subscribe to real-time live screen frames from Firebase so members see the screen immediately
+  // even while WebRTC is negotiating or across strict mobile data NATs.
+  useEffect(() => {
+    if (!roomId || !isVisible) {
+      setLiveFrameDataUrl(null);
+      return;
+    }
+    const unsub = subscribeToRoomScreenShareFrame(roomId, (frame) => {
+      setLiveFrameDataUrl(frame);
+    });
+    return () => unsub();
+  }, [roomId, isVisible]);
+
   // Attach LiveKit videoTrack or MediaStream to the <video> element
   useEffect(() => {
     const videoEl = videoRef.current;
-    if (!videoEl || !activeScreenShare || isCollapsed) return;
+    if (!videoEl || !activeScreenShare || isCollapsed) {
+      setIsWebRtcVideoPlaying(false);
+      return;
+    }
 
+    setIsWebRtcVideoPlaying(false);
     videoEl.setAttribute('playsinline', 'true');
     videoEl.setAttribute('webkit-playsinline', 'true');
 
     const { videoTrack, mediaStream, isLocal } = activeScreenShare;
 
     if (videoTrack && typeof (videoTrack as any).attach === 'function') {
-      (videoTrack as any).attach(videoEl);
-    } else if (mediaStream) {
+      try {
+        (videoTrack as any).attach(videoEl);
+      } catch {}
+    }
+    if (!videoEl.srcObject && mediaStream) {
       videoEl.srcObject = mediaStream;
+    } else if (!videoEl.srcObject && (videoTrack as any)?.mediaStreamTrack) {
+      videoEl.srcObject = new MediaStream([(videoTrack as any).mediaStreamTrack]);
     }
 
-    // Always mute the local video element itself (audio is played via LiveKit audio container for remote viewers)
+    // Always mute the video element itself (audio is played via LiveKit audio container for remote viewers)
     videoEl.muted = true;
     videoEl.play().catch(() => {});
 
@@ -104,7 +130,13 @@ export default function ScreenSharePanel({
         videoEl.srcObject = null;
       }
     };
-  }, [activeScreenShare, isCollapsed, isFullscreen, isRotatedLandscape]);
+  }, [
+    activeScreenShare,
+    activeScreenShare?.streamKey,
+    isCollapsed,
+    isFullscreen,
+    isRotatedLandscape,
+  ]);
 
   // Listen to native fullscreen changes
   useEffect(() => {
@@ -394,23 +426,44 @@ export default function ScreenSharePanel({
         </div>
       </div>
 
-      {/* Video Stream Viewport */}
+      {/* Video Stream Viewport (WebRTC Video + Instant Live Frame Stream) */}
       <div
         className={`relative flex items-center justify-center bg-black overflow-hidden ${
           isFullscreen ? 'flex-1 w-full h-full' : 'aspect-video w-full max-h-[250px] sm:max-h-[290px]'
         }`}
       >
-        {activeScreenShare ? (
+        {activeScreenShare && (
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
+            onLoadedData={() => setIsWebRtcVideoPlaying(true)}
+            onPlaying={() => setIsWebRtcVideoPlaying(true)}
+            onTimeUpdate={(e) => {
+              if (e.currentTarget.videoWidth > 0 && !isWebRtcVideoPlaying) {
+                setIsWebRtcVideoPlaying(true);
+              }
+            }}
             className={`h-full w-full transition-all duration-200 ${
+              isObjectCover ? 'object-cover' : 'object-contain'
+            } ${!isWebRtcVideoPlaying && liveFrameDataUrl ? 'opacity-0 absolute inset-0' : 'opacity-100'}`}
+          />
+        )}
+
+        {/* Instant Live Frame Stream Fallback (renders immediately before/when WebRTC video is not yet playing) */}
+        {(!activeScreenShare || !isWebRtcVideoPlaying) && liveFrameDataUrl && (
+          <img
+            src={liveFrameDataUrl}
+            alt={`${presenterName} live screen`}
+            className={`h-full w-full select-none pointer-events-none ${
               isObjectCover ? 'object-cover' : 'object-contain'
             }`}
           />
-        ) : (
+        )}
+
+        {/* Loading placeholder only during the first ~400ms before the very first frame or WebRTC track arrives */}
+        {!activeScreenShare && !liveFrameDataUrl && (
           <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-400 animate-pulse">
               <Monitor className="h-6 w-6" />
