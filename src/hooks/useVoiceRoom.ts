@@ -17,6 +17,10 @@ import {
   stopRoomScreenShare,
   publishScreenShareFrame,
 } from '../services/screenShareService';
+import {
+  startUsbVideoDeviceStream,
+  connectUsbPhoneViaWebUsb,
+} from '../utils/usbScreenShare';
 import type { User, Seat, ScreenShareDeviceType } from '../types';
 
 /* ─────────────────────────────────────────────────────────────
@@ -774,6 +778,54 @@ export function useVoiceRoom({
   );
 
   /**
+   * USB Video Device Share (Streams a USB-connected mobile phone video source / UVC / DroidCam / Camo / Capture device)
+   */
+  const startUsbDeviceScreenShare = useCallback(
+    async (
+      deviceId: string,
+      options?: ScreenShareStartOptions,
+    ): Promise<boolean> => {
+      try {
+        const stream = await startUsbVideoDeviceStream(deviceId);
+        await publishScreenMediaStream(stream, {
+          ...options,
+          deviceTypeOverride: 'mobile',
+        });
+        return true;
+      } catch (err) {
+        console.error('Failed to start USB device screen share:', err);
+        return false;
+      }
+    },
+    [publishScreenMediaStream],
+  );
+
+  /**
+   * Direct WebUSB Cable Screen Share (Connects to an Android phone over USB cable via WebUSB ADB)
+   */
+  const startWebUsbScreenShare = useCallback(
+    async (
+      options?: ScreenShareStartOptions,
+    ): Promise<{ success: boolean; message?: string }> => {
+      try {
+        const { stream } = await connectUsbPhoneViaWebUsb();
+        await publishScreenMediaStream(stream, {
+          ...options,
+          deviceTypeOverride: 'mobile',
+        });
+        return { success: true };
+      } catch (err: any) {
+        console.warn('WebUSB screen share info:', err);
+        return {
+          success: false,
+          message: err?.message || 'Could not connect via WebUSB.',
+        };
+      }
+    },
+    [publishScreenMediaStream],
+  );
+
+  /**
    * Mobile / PC Video File Share directly onto the room Screen Share stage (Supports Dual Screen mode too!)
    */
   const startVideoFileScreenShare = useCallback(
@@ -1303,6 +1355,8 @@ export function useVoiceRoom({
     localScreenStreamIds,
     startScreenShare,
     startCameraScreenShare,
+    startUsbDeviceScreenShare,
+    startWebUsbScreenShare,
     startVideoFileScreenShare,
     stopScreenShare,
     room: roomRef.current,

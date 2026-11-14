@@ -23,6 +23,7 @@ import {
   Layers,
   ArrowLeftRight,
   Users,
+  Usb,
 } from 'lucide-react';
 import type { RoomScreenShareState, ScreenShareDeviceType, User } from '../types';
 import type {
@@ -30,6 +31,11 @@ import type {
   ScreenShareStartOptions,
 } from '../hooks/useVoiceRoom';
 import { subscribeToRoomScreenShareFrames } from '../services';
+import {
+  listConnectedVideoDevices,
+  isWebUsbSupported,
+  type UsbVideoDeviceOption,
+} from '../utils/usbScreenShare';
 import { useLanguage } from '../contexts';
 
 interface CombinedScreenItem {
@@ -992,6 +998,13 @@ interface ScreenShareModalProps {
     facingMode: 'environment' | 'user',
     options?: ScreenShareStartOptions,
   ) => Promise<void>;
+  onStartUsbDeviceShare?: (
+    deviceId: string,
+    options?: ScreenShareStartOptions,
+  ) => Promise<void>;
+  onStartWebUsbShare?: (
+    options?: ScreenShareStartOptions,
+  ) => Promise<{ success: boolean; message?: string }>;
   onStartVideoFileShare: (
     file: File,
     options?: ScreenShareStartOptions,
@@ -1008,6 +1021,8 @@ export function ScreenShareModal({
   unsupportedNotice = false,
   onStartDirectScreenShare,
   onStartCameraShare,
+  onStartUsbDeviceShare,
+  onStartWebUsbShare,
   onStartVideoFileShare,
   onStopScreenShare,
 }: ScreenShareModalProps) {
@@ -1017,10 +1032,21 @@ export function ScreenShareModal({
   const [selectedDeviceTag, setSelectedDeviceTag] = useState<
     ScreenShareDeviceType | undefined
   >(undefined);
+  const [usbVideoDevices, setUsbVideoDevices] = useState<UsbVideoDeviceOption[]>([]);
+  const [showUsbDeviceList, setShowUsbDeviceList] = useState(false);
+  const [usbStatusMsg, setUsbStatusMsg] = useState<string | null>(null);
+  const [isConnectingUsb, setIsConnectingUsb] = useState(false);
+
+  const refreshUsbVideoDevices = async () => {
+    const devs = await listConnectedVideoDevices();
+    setUsbVideoDevices(devs);
+  };
 
   useEffect(() => {
     if (isOpen) {
       setAddSecondScreen(defaultAddSecondScreen || isScreenSharing || activeSharesCount > 0);
+      setUsbStatusMsg(null);
+      refreshUsbVideoDevices();
     }
   }, [isOpen, defaultAddSecondScreen, isScreenSharing, activeSharesCount]);
 
@@ -1029,6 +1055,11 @@ export function ScreenShareModal({
   const shareOptions: ScreenShareStartOptions = {
     addSecondScreen,
     deviceTypeOverride: selectedDeviceTag,
+  };
+
+  const usbMobileShareOptions: ScreenShareStartOptions = {
+    addSecondScreen,
+    deviceTypeOverride: 'mobile',
   };
 
   return (
@@ -1186,6 +1217,179 @@ export function ScreenShareModal({
 
           {/* Share Options */}
           <div className="mt-3.5 space-y-2.5">
+            {/* Option 0: USB Connected Mobile Screen Share (Special Section for USB Cable Mobile -> PC) */}
+            <div className="rounded-2xl border border-amber-400/50 bg-gradient-to-br from-amber-500/20 via-cyan-950/50 to-emerald-500/15 p-3.5 shadow-lg shadow-amber-500/10 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-400 to-cyan-400 text-black shadow-md">
+                    <Usb className="h-5 w-5 stroke-[2.4]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-black text-white">
+                        {tr(
+                          'پێشاندانی شاشەی مۆبایل بە کێبڵی USB',
+                          'Share Mobile Screen via USB Cable',
+                        )}
+                      </p>
+                      <span className="rounded-full bg-amber-400/25 border border-amber-300/50 px-1.5 py-0.2 text-[8px] font-black text-amber-200">
+                        USB
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-amber-100/85 mt-0.5">
+                      {tr(
+                        'کاتێک مۆبایلەکەت بە کێبڵی USB بە کۆمپیوتەرەوە پەیوەست کردووە، ڕاستەوخۆ پیشانی ژوورەکەی بدە',
+                        'Stream your USB-connected mobile phone screen directly to all room members',
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {usbStatusMsg && (
+                <div className="rounded-xl border border-amber-400/40 bg-black/50 p-2.5 text-[10px] text-amber-200 leading-relaxed">
+                  {usbStatusMsg}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {/* 1. Share USB Mobile Window / Screen on PC */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onStartDirectScreenShare(usbMobileShareOptions);
+                  }}
+                  className="flex items-center gap-2.5 rounded-xl border border-cyan-400/50 bg-cyan-500/20 hover:bg-cyan-500/30 p-2.5 text-start transition active:scale-95"
+                >
+                  <Smartphone className="h-4 w-4 text-cyan-300 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black text-white">
+                      {tr(
+                        'شاشەی مۆبایلی USB هەڵبژێرە',
+                        'Select USB Phone Screen',
+                      )}
+                    </p>
+                    <p className="text-[9px] text-cyan-200/80">
+                      {tr(
+                        'پەنجەرەی مۆبایل لەسەر کۆمپیوتەر',
+                        'Phone Link / Scrcpy / DeX / Window',
+                      )}
+                    </p>
+                  </div>
+                </button>
+
+                {/* 2. Direct WebUSB Cable Connection (Android ADB over USB) */}
+                {onStartWebUsbShare && (
+                  <button
+                    type="button"
+                    disabled={isConnectingUsb}
+                    onClick={async () => {
+                      if (!isWebUsbSupported()) {
+                        setUsbStatusMsg(
+                          tr(
+                            'بۆ پێشاندانی مۆبایلەکەت بە USB، تکایە کرتە لە دوگمەی (شاشەی مۆبایلی USB هەڵبژێرە) بکە یان لە خوارەوە کامێرا/ئامێری USB هەڵبژێرە.',
+                            'Please click "Select USB Phone Screen" or select your USB Video Device below.',
+                          ),
+                        );
+                        setShowUsbDeviceList(true);
+                        return;
+                      }
+                      setIsConnectingUsb(true);
+                      setUsbStatusMsg(null);
+                      const res = await onStartWebUsbShare(usbMobileShareOptions);
+                      setIsConnectingUsb(false);
+                      if (res.success) {
+                        onClose();
+                      } else {
+                        setUsbStatusMsg(
+                          tr(
+                            'ئەگەر شاشەی مۆبایلەکەت لەسەر کۆمپیوتەر کراوەتەوە (یان وەک کامێرای USB بەستراوە)، کرتە لە (شاشەی مۆبایلی USB هەڵبژێرە) یان لیستی ئامێرەکانی خوارەوە بکە!',
+                            res.message || 'Select USB Phone Window or USB Video Device below.',
+                          ),
+                        );
+                        setShowUsbDeviceList(true);
+                        refreshUsbVideoDevices();
+                      }
+                    }}
+                    className="flex items-center gap-2.5 rounded-xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 p-2.5 text-start transition active:scale-95 disabled:opacity-50"
+                  >
+                    <Usb className="h-4 w-4 text-amber-300 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black text-white">
+                        {isConnectingUsb
+                          ? tr('پەیوەستکردن بە USB...', 'Connecting USB...')
+                          : tr('پەیوەستکردنی کێبڵی USB', 'Direct USB Cable')}
+                      </p>
+                      <p className="text-[9px] text-amber-200/80">
+                        {tr('ناسینەوەی ڕاستەوخۆی مۆبایل', 'Detect USB Phone / Video')}
+                      </p>
+                    </div>
+                  </button>
+                )}
+              </div>
+
+              {/* 3. Toggle / Show Connected USB Video Input Devices */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUsbDeviceList((v) => !v);
+                    refreshUsbVideoDevices();
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-black/40 px-3 py-1.5 text-[10px] font-bold text-slate-200 hover:bg-black/60 transition"
+                >
+                  <span>
+                    {tr(
+                      `ئامێرە پەیوەستکراوەکانی USB و کامێرا (${usbVideoDevices.length})`,
+                      `Connected USB & Video Devices (${usbVideoDevices.length})`,
+                    )}
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${
+                      showUsbDeviceList ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {showUsbDeviceList && (
+                  <div className="mt-1.5 space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {usbVideoDevices.map((dev) => (
+                      <button
+                        key={dev.deviceId}
+                        type="button"
+                        onClick={async () => {
+                          if (onStartUsbDeviceShare) {
+                            await onStartUsbDeviceShare(
+                              dev.deviceId,
+                              usbMobileShareOptions,
+                            );
+                            onClose();
+                          }
+                        }}
+                        className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.05] hover:border-cyan-400 hover:bg-cyan-500/20 px-2.5 py-2 text-start text-[10px] font-bold text-white transition"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Smartphone className="h-3.5 w-3.5 text-cyan-300 shrink-0" />
+                          <span className="truncate">{dev.label}</span>
+                        </div>
+                        <span className="shrink-0 rounded bg-cyan-500/25 px-1.5 py-0.5 text-[8px] font-black text-cyan-200">
+                          {tr('پەخشکردن', 'Stream')}
+                        </span>
+                      </button>
+                    ))}
+                    {usbVideoDevices.length === 0 && (
+                      <p className="text-[10px] text-slate-400 text-center py-2">
+                        {tr(
+                          'هیچ کامێرا یان ئامێرێکی ڤیدیۆیی USB نەدۆزرایەوە',
+                          'No USB video capture devices detected',
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Option 1: Direct Screen Share (PC / Laptop / Mobile) */}
             <button
               type="button"

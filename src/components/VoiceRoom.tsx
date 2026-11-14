@@ -552,6 +552,8 @@ export default function VoiceRoom() {
     localScreenStreamIds,
     startScreenShare,
     startCameraScreenShare,
+    startUsbDeviceScreenShare,
+    startWebUsbScreenShare,
     startVideoFileScreenShare,
     stopScreenShare,
   } = useVoiceRoom({
@@ -1132,17 +1134,26 @@ export default function VoiceRoom() {
             </button>
           )}
 
-          {/* Cinema Active Pill (Only when cinema is currently broadcasting) */}
-          {!user?.isAnonymous && cinemaState?.isActive && (
-            <button
-              onClick={() => setIsCinemaConfigModalOpen(true)}
-              className="flex h-8 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 px-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/25 animate-pulse"
-              title={tr('مۆدی سینەما چالاکە · کرتە بکە بۆ قایمەی فیلمەکان و گۆڕینی فیلم', 'Cinema Active · Click for movie playlist & switch movie')}
-            >
-              <Film className="h-3.5 w-3.5" />
-              <span className="hidden xs:inline">{tr('سینەما', 'Cinema')}</span>
-            </button>
-          )}
+          {/* Cinema & Movie Mode Button (Always Accessible in Header Bar) */}
+          <button
+            type="button"
+            onClick={() => setIsCinemaConfigModalOpen(true)}
+            className={`flex h-8 px-2 sm:px-2.5 items-center justify-center gap-1 rounded-xl border text-xs font-black transition-all active:scale-95 ${
+              cinemaState?.isActive
+                ? 'border-amber-400/70 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 text-white shadow-lg shadow-rose-500/25 animate-pulse'
+                : 'border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25'
+            }`}
+            title={
+              cinemaState?.isActive
+                ? tr('مۆدی سینەما چالاکە · کرتە بکە بۆ قایمەی فیلمەکان و گۆڕینی فیلم', 'Cinema Active · Click for movie playlist & switch movie')
+                : tr('کردنەوەی مۆدی فیلم و سینەما (Cinema & Movie Mode)', 'Open Cinema & Movie Mode')
+            }
+          >
+            <Film className="h-3.5 w-3.5" />
+            <span className="text-[11px] sm:text-xs">
+              {cinemaState?.isActive ? tr('سینەما', 'Cinema') : tr('فیلم', 'Movie')}
+            </span>
+          </button>
 
           {/* Sleek Top Header Options Menu (⋮) */}
           <div className="relative">
@@ -1279,31 +1290,29 @@ export default function VoiceRoom() {
                       )}
                     </button>
 
-                    {/* 2. Cinema & Movie Mode (Host or Admin) */}
-                    {(isHost || user.isAdmin) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsTopHeaderMenuOpen(false);
-                          setIsCinemaConfigModalOpen(true);
-                        }}
-                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Film className="h-4 w-4 text-rose-400 shrink-0" />
-                          <span>{tr('مۆدی سینەما و فیلم', 'Cinema Mode')}</span>
-                        </div>
-                        {cinemaState?.isActive ? (
-                          <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-black">
-                            LIVE
-                          </span>
-                        ) : (
-                          <span className="rounded bg-rose-600/30 text-rose-300 px-1.5 py-0.5 text-[9px] font-black">
-                            PRO
-                          </span>
-                        )}
-                      </button>
-                    )}
+                    {/* 2. Cinema & Movie Mode (Available to Host, Admin & Members) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTopHeaderMenuOpen(false);
+                        setIsCinemaConfigModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Film className="h-4 w-4 text-rose-400 shrink-0" />
+                        <span>{tr('مۆدی سینەما و فیلم', 'Cinema & Movie Mode')}</span>
+                      </div>
+                      {cinemaState?.isActive ? (
+                        <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-black">
+                          LIVE
+                        </span>
+                      ) : (
+                        <span className="rounded bg-rose-600/30 text-rose-300 px-1.5 py-0.5 text-[9px] font-black">
+                          PRO
+                        </span>
+                      )}
+                    </button>
 
                     {/* 3. Music Player Mode Toggle */}
                     <button
@@ -1453,6 +1462,26 @@ export default function VoiceRoom() {
       <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* ── THE STAGE AREA: CINEMA MODE (5-SEAT COUCH + SCREEN) OR 8-SEAT AUDIO GRID ── */}
         <section className={isChatExpanded ? 'hidden' : 'shrink-0 p-4 pb-1'}>
+          {/* Live Real-Time Screen Share Stage (Mobile / USB / PC / Laptop — Supports Dual PC + Mobile Simultaneously) */}
+          <ScreenSharePanel
+            roomId={room.id}
+            screenShareState={screenShareState}
+            screenShares={screenShares}
+            activeScreenShare={activeScreenShare}
+            activeScreenShares={activeScreenShares}
+            isLocalScreenSharing={isScreenSharing}
+            currentUser={user}
+            isHostOrAdmin={Boolean(isHost || user.isAdmin)}
+            usersAvatarMap={usersAvatarMap}
+            onStopScreenShare={handleStopAnyScreenShare}
+            onStartDirectScreenShare={handleStartDirectScreenShare}
+            onOpenOptionsModal={(addSecond) => {
+              setScreenShareUnsupportedNotice(false);
+              setScreenShareAddSecondDefault(Boolean(addSecond));
+              setIsScreenShareModalOpen(true);
+            }}
+          />
+
           {cinemaState?.isActive ? (
             <CinemaPlayerPanel
               roomId={room.id}
@@ -1494,26 +1523,6 @@ export default function VoiceRoom() {
             />
           ) : (
             <>
-              {/* Live Real-Time Screen Share Stage (Mobile / PC / Laptop — Supports Dual PC + Mobile Simultaneously) */}
-              <ScreenSharePanel
-                roomId={room.id}
-                screenShareState={screenShareState}
-                screenShares={screenShares}
-                activeScreenShare={activeScreenShare}
-                activeScreenShares={activeScreenShares}
-                isLocalScreenSharing={isScreenSharing}
-                currentUser={user}
-                isHostOrAdmin={Boolean(isHost || user.isAdmin)}
-                usersAvatarMap={usersAvatarMap}
-                onStopScreenShare={handleStopAnyScreenShare}
-                onStartDirectScreenShare={handleStartDirectScreenShare}
-                onOpenOptionsModal={(addSecond) => {
-                  setScreenShareUnsupportedNotice(false);
-                  setScreenShareAddSecondDefault(Boolean(addSecond));
-                  setIsScreenShareModalOpen(true);
-                }}
-              />
-
               {/* 4 VS 4 PK Battle Arena Panel (5-min real-time battle) */}
               <PkBattlePanel
                 roomId={room.id}
@@ -1578,6 +1587,20 @@ export default function VoiceRoom() {
                     );
                   })}
               </div>
+              {/* Quick Stage Cinema / Movie Mode Pill */}
+              <button
+                type="button"
+                onClick={() => setIsCinemaConfigModalOpen(true)}
+                className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-[10px] font-black transition active:scale-95 ${
+                  cinemaState?.isActive
+                    ? 'border-amber-400 bg-rose-600/30 text-amber-200 shadow-[0_0_10px_rgba(244,63,94,0.4)]'
+                    : 'border-rose-500/35 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
+                }`}
+                title={tr('مۆدی فیلم و سینەما (Cinema & Movie Mode)', 'Cinema & Movie Mode')}
+              >
+                <Film className="h-3 w-3 text-rose-400" />
+                <span>{tr('مۆدی فیلم', 'Movie Mode')}</span>
+              </button>
               {/* Quick Stage Share Screen Pill (Available to All Members on Mobile & PC) */}
               <button
                 type="button"
@@ -2662,6 +2685,14 @@ export default function VoiceRoom() {
               <div className="grid grid-cols-4 gap-3">
                 {[
                   {
+                    key: 'cinema',
+                    icon: Film,
+                    grad: 'from-rose-500 to-amber-500',
+                    label: tr('مۆدی فیلم', 'Cinema Mode'),
+                    show: true,
+                    onClick: () => setIsCinemaConfigModalOpen(true),
+                  },
+                  {
                     key: 'screen-share',
                     icon: Monitor,
                     grad: isScreenSharing
@@ -3576,6 +3607,29 @@ export default function VoiceRoom() {
               `📱 ${user.username} کامێرا و شاشەکەی بە شێوەی ڕاستەوخۆ هاوبەش کرد`,
             ).catch(() => {});
           }
+        }}
+        onStartUsbDeviceShare={async (deviceId, options) => {
+          const ok = await startUsbDeviceScreenShare(deviceId, options);
+          if (ok && room) {
+            sendRoomMessage(
+              room.id,
+              'system',
+              'Screen Share',
+              `🔌📱 ${user.username} شاشەی مۆبایلەکەی بە کێبڵی USB هاوبەش کرد`,
+            ).catch(() => {});
+          }
+        }}
+        onStartWebUsbShare={async (options) => {
+          const res = await startWebUsbScreenShare(options);
+          if (res.success && room) {
+            sendRoomMessage(
+              room.id,
+              'system',
+              'Screen Share',
+              `🔌📱 ${user.username} شاشەی مۆبایلەکەی بە کێبڵی USB هاوبەش کرد`,
+            ).catch(() => {});
+          }
+          return res;
         }}
         onStartVideoFileShare={async (file, options) => {
           const ok = await startVideoFileScreenShare(file, options);
