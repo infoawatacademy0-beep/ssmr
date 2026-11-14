@@ -52,6 +52,7 @@ import {
   Headphones,
   Unlock,
   Monitor,
+  Swords,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, useLanguage } from '../contexts';
@@ -236,6 +237,7 @@ export default function VoiceRoom() {
   // Cinema & Movie Mode state
   const [cinemaState, setCinemaState] = useState<RoomCinemaState | null>(null);
   const [isCinemaConfigModalOpen, setIsCinemaConfigModalOpen] = useState(false);
+  const [isPkSetupModalOpen, setIsPkSetupModalOpen] = useState(false);
 
   // Live Screen Share state (Mobile / PC / Laptop — supports simultaneous PC + Mobile Dual Share)
   const [screenShareState, setScreenShareState] = useState<RoomScreenShareState | null>(null);
@@ -1105,35 +1107,6 @@ export default function VoiceRoom() {
             </button>
           )}
 
-          {/* Direct Screen Share Button (Mobile / PC / Laptop + Dual PC & Mobile Together — Open for All Members) */}
-          <button
-            type="button"
-            onClick={() => {
-              setScreenShareUnsupportedNotice(false);
-              setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
-              setIsScreenShareModalOpen(true);
-            }}
-            className={`flex h-8 px-2 sm:px-2.5 items-center justify-center gap-1 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
-              isScreenSharing || screenShares.length > 0
-                ? 'border-cyan-400 bg-gradient-to-r from-cyan-500/30 to-emerald-500/30 text-cyan-200 shadow-[0_0_14px_rgba(6,182,212,0.45)] animate-pulse'
-                : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
-            }`}
-            title={
-              isScreenSharing
-                ? tr('شاشەکەت پەخش دەکرێت · کرتە بکە بۆ زیادکردنی شاشەی دووەم یان ڕاگرتن', 'Sharing Screen · Click to add 2nd screen or stop')
-                : tr('هاوبەشکردنی ڕاستەوخۆی شاشەی مۆبایل / PC / هەردووکیان پێکەوە', 'Share Screen (Mobile / PC / Both Together)')
-            }
-          >
-            <Monitor className="h-3.5 w-3.5" />
-            <span className="text-[11px] sm:text-xs">
-              {screenShares.length >= 2
-                ? tr('٢ شاشە', '2 Screens')
-                : isScreenSharing
-                ? tr('شاشە+', 'Screen+')
-                : tr('شاشە', 'Screen')}
-            </span>
-          </button>
-
           {/* Direct Messenger Button with Real-time Unread Badge (Inside Voice Room) */}
           {!user?.isAnonymous && (
             <button
@@ -1149,27 +1122,6 @@ export default function VoiceRoom() {
               )}
             </button>
           )}
-
-          {/* Cinema & Movie Mode Button (Always Accessible in Header Bar) */}
-          <button
-            type="button"
-            onClick={() => setIsCinemaConfigModalOpen(true)}
-            className={`flex h-8 px-2 sm:px-2.5 items-center justify-center gap-1 rounded-xl border text-xs font-black transition-all active:scale-95 ${
-              cinemaState?.isActive
-                ? 'border-amber-400/70 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 text-white shadow-lg shadow-rose-500/25 animate-pulse'
-                : 'border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25'
-            }`}
-            title={
-              cinemaState?.isActive
-                ? tr('مۆدی سینەما چالاکە · کرتە بکە بۆ قایمەی فیلمەکان و گۆڕینی فیلم', 'Cinema Active · Click for movie playlist & switch movie')
-                : tr('کردنەوەی مۆدی فیلم و سینەما (Cinema & Movie Mode)', 'Open Cinema & Movie Mode')
-            }
-          >
-            <Film className="h-3.5 w-3.5" />
-            <span className="text-[11px] sm:text-xs">
-              {cinemaState?.isActive ? tr('سینەما', 'Cinema') : tr('فیلم', 'Movie')}
-            </span>
-          </button>
 
           {/* Sleek Top Header Options Menu (⋮) */}
           <div className="relative">
@@ -1329,6 +1281,32 @@ export default function VoiceRoom() {
                         </span>
                       )}
                     </button>
+
+                    {/* 2b. PK Battle Mode (Inside Room Menu) */}
+                    {(isHost || user?.isAdmin) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsTopHeaderMenuOpen(false);
+                          setIsPkSetupModalOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Swords className="h-4 w-4 text-amber-400 shrink-0" />
+                          <span>{tr('مۆدی جەنگی PK', 'PK Battle Mode')}</span>
+                        </div>
+                        {pkBattle?.status === 'active' ? (
+                          <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-black">
+                            LIVE
+                          </span>
+                        ) : (
+                          <span className="rounded bg-gradient-to-r from-rose-500/30 to-sky-500/30 text-amber-200 px-1.5 py-0.5 text-[9px] font-black">
+                            VS
+                          </span>
+                        )}
+                      </button>
+                    )}
 
                     {/* 3. Music Player Mode Toggle */}
                     <button
@@ -1543,9 +1521,11 @@ export default function VoiceRoom() {
               <PkBattlePanel
                 roomId={room.id}
                 currentUser={user}
-                isHost={isHost}
+                isHost={Boolean(isHost || user?.isAdmin)}
                 seats={room.seats}
                 pkBattle={pkBattle}
+                isSetupModalOpen={isPkSetupModalOpen}
+                onCloseSetupModal={() => setIsPkSetupModalOpen(false)}
                 onOpenGiftStore={(targetUserId, targetUsername) => {
                   if (targetUserId) {
                     const targetSeat = room.seats.find((s) => s.userId === targetUserId);
@@ -1603,44 +1583,6 @@ export default function VoiceRoom() {
                     );
                   })}
               </div>
-              {/* Quick Stage Cinema / Movie Mode Pill */}
-              <button
-                type="button"
-                onClick={() => setIsCinemaConfigModalOpen(true)}
-                className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-[10px] font-black transition active:scale-95 ${
-                  cinemaState?.isActive
-                    ? 'border-amber-400 bg-rose-600/30 text-amber-200 shadow-[0_0_10px_rgba(244,63,94,0.4)]'
-                    : 'border-rose-500/35 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
-                }`}
-                title={tr('مۆدی فیلم و سینەما (Cinema & Movie Mode)', 'Cinema & Movie Mode')}
-              >
-                <Film className="h-3 w-3 text-rose-400" />
-                <span>{tr('مۆدی فیلم', 'Movie Mode')}</span>
-              </button>
-              {/* Quick Stage Share Screen Pill (Available to All Members on Mobile & PC) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setScreenShareUnsupportedNotice(false);
-                  setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
-                  setIsScreenShareModalOpen(true);
-                }}
-                className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-[10px] font-black transition active:scale-95 ${
-                  isScreenSharing || screenShares.length > 0
-                    ? 'border-cyan-400 bg-cyan-500/25 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
-                    : 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
-                }`}
-                title={tr('هاوبەشکردنی ڕاستەوخۆی شاشەی مۆبایل و PC پێکەوە', 'Share Screen (Mobile & PC Together)')}
-              >
-                <Monitor className="h-3 w-3 text-cyan-400" />
-                <span>
-                  {screenShares.length >= 2
-                    ? tr('٢ شاشە پێکەوە', 'Dual Screen')
-                    : isScreenSharing || screenShares.length > 0
-                    ? tr('+ شاشەی دووەم / مۆبایل', '+ Add Screen')
-                    : tr('شاشە هاوبەش بکە', 'Share Screen')}
-                </span>
-              </button>
               {/* Host/Admin Live Seat Stepper */}
               {Boolean(isHost || user?.isAdmin) ? (
                 <div className="flex items-center gap-1 bg-black/50 border border-white/10 rounded-xl px-1.5 py-0.5 shadow-sm">
@@ -2723,6 +2665,14 @@ export default function VoiceRoom() {
                       setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
                       setIsScreenShareModalOpen(true);
                     },
+                  },
+                  {
+                    key: 'pk-battle',
+                    icon: Swords,
+                    grad: 'from-rose-600 via-amber-500 to-sky-500',
+                    label: tr('مۆدی PK', 'PK Mode'),
+                    show: Boolean(isHost || user?.isAdmin),
+                    onClick: () => setIsPkSetupModalOpen(true),
                   },
                   {
                     key: 'voice',

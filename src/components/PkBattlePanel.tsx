@@ -34,6 +34,8 @@ interface PkBattlePanelProps {
   isHost: boolean;
   seats: Seat[];
   pkBattle: PkBattleState | null;
+  isSetupModalOpen?: boolean;
+  onCloseSetupModal?: () => void;
   onOpenGiftStore?: (targetUserId?: string, targetUsername?: string) => void;
 }
 
@@ -52,12 +54,20 @@ export default function PkBattlePanel({
   isHost,
   seats,
   pkBattle,
+  isSetupModalOpen = false,
+  onCloseSetupModal,
   onOpenGiftStore,
 }: PkBattlePanelProps) {
   const { tr } = useLanguage();
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [showSetupModal, setShowSetupModal] = useState<boolean>(false);
   const [showContributors, setShowContributors] = useState<boolean>(false);
+
+  const isModalOpen = showSetupModal || isSetupModalOpen;
+  const closeSetupModal = () => {
+    setShowSetupModal(false);
+    onCloseSetupModal?.();
+  };
 
   // Setup form states
   const [selectedMode, setSelectedMode] = useState<PkMode>('4v4');
@@ -185,7 +195,7 @@ export default function PkBattlePanel({
       };
 
       await startPkBattle(roomId, currentUser.username, options);
-      setShowSetupModal(false);
+      closeSetupModal();
     } catch (err: any) {
       alert(err.message || 'Failed to start PK battle');
     } finally {
@@ -272,105 +282,99 @@ export default function PkBattlePanel({
   };
 
   // ─────────────────────────────────────────────────────────────
-  // RENDER: IDLE STATE (Host Launcher)
+  // RENDER: IDLE STATE (Modal Launched from Room Menu so Stage stays clean)
   // ─────────────────────────────────────────────────────────────
   if (!pkBattle || pkBattle.status === 'idle') {
-    if (!isHost) return null;
+    if (!isModalOpen) return null;
 
     return (
-      <div className="mb-2 px-1">
-        <div className="flex items-center gap-2">
-          {/* Main Quick Start Button (Pro Red vs Blue Split Gradient) */}
-          <button
-            onClick={handleQuickStart5Min}
-            className="group relative flex flex-1 items-center justify-between overflow-hidden rounded-2xl border border-white/20 bg-slate-950 px-3 py-2 text-xs font-bold text-white shadow-[0_6px_25px_rgba(0,0,0,0.5)] transition-all hover:border-amber-400/60 active:scale-98"
+      <AnimatePresence>
+        {isModalOpen && (
+          <div
+            className="fixed inset-0 z-[10004] flex items-center justify-center p-3 bg-black/80 backdrop-blur-md"
+            onClick={closeSetupModal}
           >
-            {/* Split Red vs Blue Background inside Launcher */}
-            <div className="pointer-events-none absolute inset-0 flex opacity-85 transition-opacity group-hover:opacity-100">
-              <div
-                className="h-full w-1/2"
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(225, 29, 72, 0.5) 0%, rgba(159, 18, 57, 0.25) 70%, transparent 100%)',
-                }}
-              />
-              <div
-                className="h-full w-1/2"
-                style={{
-                  background:
-                    'linear-gradient(225deg, rgba(2, 132, 199, 0.5) 0%, rgba(29, 78, 216, 0.25) 70%, transparent 100%)',
-                }}
-              />
-            </div>
-
-            <div className="relative z-10 flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 via-amber-500 to-sky-500 p-0.5 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]">
-                <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-slate-950/80">
-                  <Swords className="h-4 w-4 text-amber-300" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl border border-white/15 bg-gradient-to-b from-slate-900 via-surface-900 to-slate-950 p-4 shadow-2xl"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow">
+                    <Swords className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white">
+                      {tr('ڕێکخستنی جەنگی PK', 'PK Battle Setup')}
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      {tr('مۆد، کات و سزای دۆڕاو دیاری بکە', 'Configure mode, time & punishment')}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={closeSetupModal}
+                  className="rounded-full bg-white/5 p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <div className="text-left">
-                <span className="flex items-center gap-1.5 font-black text-white text-xs tracking-wide drop-shadow">
-                  <span>{tr('جەنگی خێرای ٤ بە ٤ (PK)', 'Quick 4v4 PK Battle')}</span>
-                  <span className="rounded bg-gradient-to-r from-rose-500 to-sky-500 px-1 py-0 text-[8px] font-black uppercase text-white">
-                    VS
-                  </span>
-                </span>
-                <span className="text-[10px] text-slate-300/90">
-                  {tr('٥ خولەک • سوور دژی شین', '5 Min • Red vs Blue Arena')}
-                </span>
-              </div>
-            </div>
-            <span className="relative z-10 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-sky-500 px-2.5 py-1 text-[10px] font-black text-white shadow-md transition-transform group-hover:scale-105">
-              {tr('دەستپێکردن ←', 'Start →')}
-            </span>
-          </button>
 
-          {/* Setup / Custom Battle Button */}
-          <button
-            onClick={() => setShowSetupModal(true)}
-            className="flex h-12 items-center gap-1.5 rounded-2xl border border-white/15 bg-slate-900/90 px-3 text-xs font-bold text-slate-200 shadow-lg hover:border-amber-400/50 hover:bg-slate-800 hover:text-amber-300 transition active:scale-95"
-            title="PK Battle Settings & Modes"
-          >
-            <Settings2 className="h-4 w-4 text-amber-400" />
-            <span className="hidden xs:inline">{tr('مۆدەکان', 'Custom Mode')}</span>
-          </button>
-        </div>
-
-        {/* ── PK SETUP MODAL ── */}
-        <AnimatePresence>
-          {showSetupModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-b from-slate-900 via-surface-900 to-slate-950 p-4 shadow-2xl"
-              >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow">
-                      <Swords className="h-4 w-4" />
+              {/* Quick 1-Tap 4v4 Battle Launcher inside Modal */}
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleQuickStart5Min();
+                    closeSetupModal();
+                  }}
+                  className="group relative flex w-full items-center justify-between overflow-hidden rounded-2xl border border-amber-400/40 bg-slate-950 px-3 py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:border-amber-400 active:scale-98"
+                >
+                  <div className="pointer-events-none absolute inset-0 flex opacity-85">
+                    <div
+                      className="h-full w-1/2"
+                      style={{
+                        background:
+                          'linear-gradient(135deg, rgba(225, 29, 72, 0.5) 0%, rgba(159, 18, 57, 0.25) 70%, transparent 100%)',
+                      }}
+                    />
+                    <div
+                      className="h-full w-1/2"
+                      style={{
+                        background:
+                          'linear-gradient(225deg, rgba(2, 132, 199, 0.5) 0%, rgba(29, 78, 216, 0.25) 70%, transparent 100%)',
+                      }}
+                    />
+                  </div>
+                  <div className="relative z-10 flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 via-amber-500 to-sky-500 p-0.5 text-white">
+                      <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-slate-950/80">
+                        <Swords className="h-4 w-4 text-amber-300" />
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-black text-white">
-                        {tr('ڕێکخستنی جەنگی PK', 'PK Battle Setup')}
-                      </h3>
-                      <p className="text-[10px] text-slate-400">
-                        {tr('مۆد، کات و سزای دۆڕاو دیاری بکە', 'Configure mode, time & punishment')}
-                      </p>
+                    <div className="text-start">
+                      <span className="flex items-center gap-1.5 font-black text-white text-xs">
+                        <span>{tr('جەنگی خێرای ٤ بە ٤ (PK)', 'Quick 4v4 PK Battle')}</span>
+                        <span className="rounded bg-gradient-to-r from-rose-500 to-sky-500 px-1 py-0 text-[8px] font-black uppercase text-white">
+                          VS
+                        </span>
+                      </span>
+                      <span className="text-[10px] text-slate-300/90">
+                        {tr('٥ خولەک • سوور دژی شین', '5 Min • Red vs Blue Arena')}
+                      </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowSetupModal(false)}
-                    className="rounded-full bg-white/5 p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+                  <span className="relative z-10 rounded-xl bg-gradient-to-r from-rose-500 via-amber-500 to-sky-500 px-2.5 py-1 text-[10px] font-black text-white shadow-md">
+                    {tr('دەستپێکردن ←', 'Start →')}
+                  </span>
+                </button>
+              </div>
 
-                <div className="space-y-3.5 py-3 text-xs">
+              <div className="space-y-3.5 py-3 text-xs">
                   {/* Step 1: Mode Selection */}
                   <div>
                     <label className="mb-1.5 block font-bold text-slate-300">
@@ -557,8 +561,7 @@ export default function PkBattlePanel({
               </motion.div>
             </div>
           )}
-        </AnimatePresence>
-      </div>
+      </AnimatePresence>
     );
   }
 
