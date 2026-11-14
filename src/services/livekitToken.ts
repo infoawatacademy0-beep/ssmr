@@ -34,9 +34,15 @@ export async function generateLiveKitToken({
   at.addGrant({
     room: roomId,
     roomJoin: true,
-    canPublish: true, // Can publish audio tracks
-    canSubscribe: true, // Can subscribe to incoming audio streams
+    canPublish: true, // Can publish audio & screen share tracks
+    canSubscribe: true, // Can subscribe to incoming audio & screen share streams
     canPublishData: true,
+    canPublishSources: [
+      TrackSource.MICROPHONE,
+      TrackSource.SCREEN_SHARE,
+      TrackSource.SCREEN_SHARE_AUDIO,
+      TrackSource.CAMERA,
+    ],
   });
 
   return await at.toJwt();

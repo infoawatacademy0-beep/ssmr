@@ -58,4 +58,6 @@ export type { RoomInvite } from './invite';
 export type { ShopItemType, ShopItem, PurchaseRecord } from './shop';
 export type { PkTeam, PkBattleState, PkMode, PkContributor, StartPkBattleOptions } from './pkBattle';
 export type { RoomCinemaState, StartCinemaPayload, SavedCinemaMovie, CinemaEpisode, CinemaFolder } from './cinema';
+export type { RoomScreenShareState, ScreenShareDeviceType } from './screenShare';
+
 

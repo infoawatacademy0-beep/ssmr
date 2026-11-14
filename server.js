@@ -298,10 +298,15 @@ app.all('/api/livekit/token', async (req, res) => {
     at.addGrant({
       room: String(roomId),
       roomJoin: true,
-      canPublish: true, // Audio publish permission
-      canSubscribe: true, // Audio subscribe permission
+      canPublish: true, // Audio & Screen Share publish permission
+      canSubscribe: true, // Audio & Screen Share subscribe permission
       canPublishData: true,
-      canPublishSources: [TrackSource.MICROPHONE], // Restrict to microphone audio only
+      canPublishSources: [
+        TrackSource.MICROPHONE,
+        TrackSource.SCREEN_SHARE,
+        TrackSource.SCREEN_SHARE_AUDIO,
+        TrackSource.CAMERA,
+      ],
     });
 
     const token = await at.toJwt();

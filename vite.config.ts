@@ -41,7 +41,12 @@ function livekitTokenPlugin(): Plugin {
             canPublish: true,
             canSubscribe: true,
             canPublishData: true,
-            canPublishSources: [TrackSource.MICROPHONE],
+            canPublishSources: [
+              TrackSource.MICROPHONE,
+              TrackSource.SCREEN_SHARE,
+              TrackSource.SCREEN_SHARE_AUDIO,
+              TrackSource.CAMERA,
+            ],
           });
 
           const token = await at.toJwt();

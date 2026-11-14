@@ -284,5 +284,13 @@ export {
   clearPrivateChatNotifications,
 } from './oneSignalService';
 
+export {
+  detectScreenShareDeviceType,
+  startRoomScreenShare,
+  stopRoomScreenShare,
+  subscribeToRoomScreenShare,
+} from './screenShareService';
+
+
 
 

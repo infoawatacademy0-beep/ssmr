@@ -20,6 +20,7 @@ import {
   Users,
   Plus,
   Minus,
+  Monitor,
 } from 'lucide-react';
 import type { Room, Seat, User, JackarooGame } from '../types';
 import { useLanguage } from '../contexts';
@@ -42,6 +43,8 @@ interface HostControlsPanelProps {
   onOpenMusicPlayer?: () => void;
   onOpenCinemaConfig?: () => void;
   isCinemaActive?: boolean;
+  onStartScreenShare?: () => void;
+  isScreenShareActive?: boolean;
   onClose: () => void;
 }
 
@@ -52,6 +55,8 @@ export default function HostControlsPanel({
   onOpenMusicPlayer,
   onOpenCinemaConfig,
   isCinemaActive,
+  onStartScreenShare,
+  isScreenShareActive,
   onClose,
 }: HostControlsPanelProps) {
   const { tr } = useLanguage();
@@ -212,8 +217,24 @@ export default function HostControlsPanel({
 
         {/* Seats List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-          {/* Quick Host Room Actions: Cinema Mode, Clear Chat, Cancel Game, Play Music */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-2">
+          {/* Quick Host Room Actions: Screen Share, Cinema Mode, Clear Chat, Cancel Game, Play Music */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pb-2">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onStartScreenShare?.();
+              }}
+              className={`flex flex-col items-center justify-center gap-1 rounded-2xl border p-2.5 text-center text-[11px] font-bold transition active:scale-95 ${
+                isScreenShareActive
+                  ? 'border-cyan-400/60 bg-cyan-500/25 text-cyan-200 shadow-md shadow-cyan-500/20 ring-1 ring-cyan-400'
+                  : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+              }`}
+            >
+              <Monitor className="h-4 w-4 text-cyan-400" />
+              <span>{isScreenShareActive ? tr('شاشە چالاکە', 'Screen Live') : tr('شاشە هاوبەش بکە', 'Share Screen')}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => {
