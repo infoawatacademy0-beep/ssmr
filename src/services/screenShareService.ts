@@ -1,6 +1,7 @@
 import {
   ref,
   set,
+  get,
   onValue,
   onDisconnect,
   type Unsubscribe,
@@ -37,12 +38,40 @@ export async function startRoomScreenShare(
     presenterAvatar?: string | null;
     deviceType?: ScreenShareDeviceType;
     hasSystemAudio?: boolean;
+    keepExisting?: boolean;
+    activeLocalStreamIds?: string[];
   },
 ): Promise<string> {
   if (!roomId) return '';
   const deviceType = payload.deviceType || detectScreenShareDeviceType();
   const streamId =
     payload.streamId || `${payload.presenterUid}_${deviceType}`;
+
+  // Clean up any stale / ghost entries from previous tabs of the same presenter
+  try {
+    const allSharesRef = ref(database, `rooms/${roomId}/screenShares`);
+    const snap = await get(allSharesRef);
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, any>;
+      const keepSet = new Set(payload.activeLocalStreamIds || []);
+      keepSet.add(streamId);
+
+      for (const [existingKey, existingVal] of Object.entries(val)) {
+        if (existingKey === streamId) continue;
+        if (existingVal?.presenterUid === payload.presenterUid) {
+          // If not in Dual-Screen mode, remove all previous entries for this user.
+          // If in Dual-Screen mode, remove any old entry from the same deviceType that isn't an active local slot.
+          const shouldRemove =
+            !payload.keepExisting ||
+            (!keepSet.has(existingKey) && existingVal?.deviceType === deviceType);
+          if (shouldRemove) {
+            set(ref(database, `rooms/${roomId}/screenShares/${existingKey}`), null).catch(() => {});
+            set(ref(database, `rooms/${roomId}/screenShareFrames/${existingKey}`), null).catch(() => {});
+          }
+        }
+      }
+    }
+  } catch {}
 
   const shareEntryRef = ref(database, `rooms/${roomId}/screenShares/${streamId}`);
   const frameEntryRef = ref(database, `rooms/${roomId}/screenShareFrames/${streamId}`);
@@ -86,16 +115,12 @@ export async function publishScreenShareFrame(
   const key = streamId || presenterUid;
   const now = Date.now();
   const frameRef = ref(database, `rooms/${roomId}/screenShareFrames/${key}`);
-  const heartbeatRef = ref(database, `rooms/${roomId}/screenShares/${key}/updatedAt`);
-  await Promise.all([
-    set(frameRef, {
-      frame: frameDataUrl,
-      presenterUid,
-      streamId: key,
-      updatedAt: now,
-    }),
-    set(heartbeatRef, now).catch(() => {}),
-  ]);
+  await set(frameRef, {
+    frame: frameDataUrl,
+    presenterUid,
+    streamId: key,
+    updatedAt: now,
+  });
 }
 
 /**

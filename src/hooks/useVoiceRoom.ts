@@ -126,9 +126,13 @@ export function useVoiceRoom({
   mySeatRef.current = mySeat;
   const allSeatsRef = useRef<Seat[]>(allSeats);
   allSeatsRef.current = allSeats;
+  const currentUserRef = useRef<User | null>(currentUser);
+  currentUserRef.current = currentUser;
 
   // Map of active local screen share slots on this device (keyed by streamId)
   const localScreenSlotsRef = useRef<Map<string, LocalScreenSlot>>(new Map());
+  // Cache remote MediaStream wrappers by MediaStreamTrack.id so object references never churn on sync intervals
+  const remoteMediaStreamsRef = useRef<Map<string, MediaStream>>(new Map());
 
   // Check if a participant identity is permitted to speak (must occupy an active unmuted seat)
   const isParticipantAllowedToSpeak = useCallback((identity: string): boolean => {
@@ -174,102 +178,123 @@ export function useVoiceRoom({
 
   // Synchronizes ALL active local screen share slots + ALL remote participant screen share tracks
   // so both PC and Mobile screens can be viewed simultaneously by the presenter and all room members.
-  const syncAllScreenShares = useCallback(
-    (targetRoom: Room | null) => {
-      const combined: ActiveScreenShareStream[] = [];
-      const seenStreamIds = new Set<string>();
+  const syncAllScreenShares = useCallback((targetRoom: Room | null) => {
+    const combined: ActiveScreenShareStream[] = [];
+    const seenStreamIds = new Set<string>();
+    const activeRemoteTrackIds = new Set<string>();
+    const usr = currentUserRef.current;
 
-      // 1. Add all active local screen share slots from this device
-      for (const slot of localScreenSlotsRef.current.values()) {
-        seenStreamIds.add(slot.streamId);
-        combined.push({
-          streamId: slot.streamId,
-          videoTrack: slot.videoTrack,
-          mediaStream: slot.stream,
-          participantUid: currentUser?.uid || 'local',
-          participantName: currentUser?.username || 'You',
-          deviceType: slot.deviceType,
-          isLocal: true,
-          hasAudio: slot.hasAudio,
-          streamKey: `local_${slot.streamId}_${slot.videoTrack?.sid || slot.startedAt}`,
-        });
-      }
+    // 1. Add all active local screen share slots from this device
+    for (const slot of localScreenSlotsRef.current.values()) {
+      seenStreamIds.add(slot.streamId);
+      combined.push({
+        streamId: slot.streamId,
+        videoTrack: slot.videoTrack,
+        mediaStream: slot.stream,
+        participantUid: usr?.uid || 'local',
+        participantName: usr?.username || 'You',
+        deviceType: slot.deviceType,
+        isLocal: true,
+        hasAudio: slot.hasAudio,
+        // Keep streamKey strictly stable for the entire lifetime of the local slot
+        streamKey: `local_${slot.streamId}_${slot.startedAt}`,
+      });
+    }
 
-      // 2. Add all active remote screen share video tracks from other devices / members
-      if (targetRoom) {
-        for (const participant of targetRoom.remoteParticipants.values()) {
-          const pubs = Array.from(participant.trackPublications.values());
-          for (const pub of pubs) {
-            const isVideo =
-              pub.kind === Track.Kind.Video ||
-              pub.source === Track.Source.ScreenShare ||
-              pub.source === Track.Source.Camera;
+    // 2. Add all active remote screen share video tracks from other devices / members
+    if (targetRoom) {
+      for (const participant of targetRoom.remoteParticipants.values()) {
+        const pubs = Array.from(participant.trackPublications.values());
+        for (const pub of pubs) {
+          const isVideo =
+            pub.kind === Track.Kind.Video ||
+            pub.source === Track.Source.ScreenShare ||
+            pub.source === Track.Source.Camera;
 
-            if (!isVideo) continue;
+          if (!isVideo) continue;
 
-            // Ensure remote video publication is explicitly subscribed
-            if (!pub.isSubscribed) {
-              try {
-                pub.setSubscribed(true);
-              } catch {}
+          // Ensure remote video publication is explicitly subscribed (only if not already desired/subscribed)
+          if (!pub.isSubscribed && !(pub as any).isDesired) {
+            try {
+              pub.setSubscribed(true);
+            } catch {}
+          }
+
+          if (pub.track && pub.track.kind === Track.Kind.Video) {
+            const parsed = parseScreenTrackName(pub.trackName);
+            const slotIdx =
+              parsed.slotIndex ||
+              (pub.source === Track.Source.Camera ? 2 : 1);
+            const remoteStreamId = `${participant.identity}__${slotIdx}`;
+
+            if (seenStreamIds.has(remoteStreamId)) continue;
+            seenStreamIds.add(remoteStreamId);
+
+            let mediaStream: MediaStream | null = null;
+            const rawMediaTrack = pub.track.mediaStreamTrack;
+            if (rawMediaTrack) {
+              const cacheKey = rawMediaTrack.id || pub.trackSid || remoteStreamId;
+              activeRemoteTrackIds.add(cacheKey);
+              let cached = remoteMediaStreamsRef.current.get(cacheKey);
+              if (!cached || cached.getVideoTracks()[0] !== rawMediaTrack) {
+                cached = new MediaStream([rawMediaTrack]);
+                remoteMediaStreamsRef.current.set(cacheKey, cached);
+              }
+              mediaStream = cached;
             }
 
-            if (pub.track && pub.track.kind === Track.Kind.Video) {
-              const parsed = parseScreenTrackName(pub.trackName);
-              const slotIdx =
-                parsed.slotIndex ||
-                (pub.source === Track.Source.Camera ? 2 : 1);
-              const remoteStreamId = `${participant.identity}__${slotIdx}`;
+            const hasScreenAudio = Array.from(
+              participant.audioTrackPublications.values(),
+            ).some(
+              (aPub) =>
+                aPub.source === Track.Source.ScreenShareAudio &&
+                aPub.isSubscribed,
+            );
+            const cleanUid = extractUid(participant.identity);
+            // Keep streamKey strictly stable per remote trackSid (do not include hasScreenAudio)
+            const streamKey = `remote_${remoteStreamId}_${pub.trackSid}`;
 
-              if (seenStreamIds.has(remoteStreamId)) continue;
-              seenStreamIds.add(remoteStreamId);
-
-              const mediaStream = pub.track.mediaStreamTrack
-                ? new MediaStream([pub.track.mediaStreamTrack])
-                : null;
-              const hasScreenAudio = Array.from(
-                participant.audioTrackPublications.values(),
-              ).some(
-                (aPub) =>
-                  aPub.source === Track.Source.ScreenShareAudio &&
-                  aPub.isSubscribed,
-              );
-              const cleanUid = extractUid(participant.identity);
-              const streamKey = `${remoteStreamId}_${pub.trackSid}_${hasScreenAudio}`;
-
-              combined.push({
-                streamId: remoteStreamId,
-                videoTrack: pub.track,
-                mediaStream,
-                participantUid: cleanUid,
-                participantName: participant.name || cleanUid || 'User',
-                deviceType: parsed.deviceType,
-                isLocal: false,
-                hasAudio: hasScreenAudio,
-                streamKey,
-              });
-            }
+            combined.push({
+              streamId: remoteStreamId,
+              videoTrack: pub.track,
+              mediaStream,
+              participantUid: cleanUid,
+              participantName: participant.name || cleanUid || 'User',
+              deviceType: parsed.deviceType,
+              isLocal: false,
+              hasAudio: hasScreenAudio,
+              streamKey,
+            });
           }
         }
       }
+    }
 
-      setActiveScreenShares((prev) => {
-        if (
-          prev.length === combined.length &&
-          prev.every(
-            (item, idx) =>
-              item.streamKey === combined[idx].streamKey &&
-              item.videoTrack === combined[idx].videoTrack &&
-              item.mediaStream === combined[idx].mediaStream,
-          )
-        ) {
-          return prev;
-        }
-        return combined;
-      });
-    },
-    [currentUser?.uid, currentUser?.username],
-  );
+    // Prune any ended remote streams from cache
+    for (const key of Array.from(remoteMediaStreamsRef.current.keys())) {
+      if (!activeRemoteTrackIds.has(key)) {
+        remoteMediaStreamsRef.current.delete(key);
+      }
+    }
+
+    setActiveScreenShares((prev) => {
+      if (
+        prev.length === combined.length &&
+        prev.every(
+          (item, idx) =>
+            item.streamId === combined[idx].streamId &&
+            item.streamKey === combined[idx].streamKey &&
+            item.videoTrack === combined[idx].videoTrack &&
+            item.mediaStream === combined[idx].mediaStream &&
+            item.hasAudio === combined[idx].hasAudio &&
+            item.deviceType === combined[idx].deviceType,
+        )
+      ) {
+        return prev;
+      }
+      return combined;
+    });
+  }, []);
 
   // Starts a lightweight offscreen canvas broadcaster that sends compressed JPEG frames
   // of a shared screen to Firebase so all members see every screen (PC + Mobile) immediately.
@@ -557,6 +582,8 @@ export function useVoiceRoom({
             currentUser.avatar || currentUser.profileImage || null,
           deviceType,
           hasSystemAudio: Boolean(audioTrack),
+          keepExisting: Boolean(options?.addSecondScreen),
+          activeLocalStreamIds: currentIds,
         });
       }
 
@@ -893,7 +920,7 @@ export function useVoiceRoom({
       adaptiveStream: false,
       dynacast: false,
       disconnectOnPageLeave: false,
-      stopLocalTrackOnUnpublish: true,
+      stopLocalTrackOnUnpublish: false,
       audioCaptureDefaults: {
         autoGainControl: isNoiseSuppEnabled,
         echoCancellation: isNoiseSuppEnabled,

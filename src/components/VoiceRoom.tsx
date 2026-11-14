@@ -603,17 +603,33 @@ export default function VoiceRoom() {
     [room, stopScreenShare, isHost, user?.isAdmin],
   );
 
+  // Track which local screen share streamIds have been confirmed in Firebase
+  // so a newly starting stream is never prematurely stopped before Firebase syncs it
+  const confirmedFirebaseSharesRef = useRef<Set<string>>(new Set());
+
   // If Host/Admin or remote device stops a specific local screen share in Firebase, stop that local slot too
   useEffect(() => {
-    if (!isScreenSharing || localScreenStreamIds.length === 0) return;
+    if (!isScreenSharing || localScreenStreamIds.length === 0) {
+      confirmedFirebaseSharesRef.current.clear();
+      return;
+    }
+
+    for (const localId of localScreenStreamIds) {
+      if (screenShares.some((s) => s.streamId === localId)) {
+        confirmedFirebaseSharesRef.current.add(localId);
+      }
+    }
+
     const timer = setTimeout(() => {
       for (const localId of localScreenStreamIds) {
+        if (!confirmedFirebaseSharesRef.current.has(localId)) continue;
         const stillInFirebase = screenShares.some((s) => s.streamId === localId);
         if (!stillInFirebase) {
+          confirmedFirebaseSharesRef.current.delete(localId);
           stopScreenShare(localId);
         }
       }
-    }, 2500);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [screenShares, isScreenSharing, localScreenStreamIds, stopScreenShare]);
 

@@ -71,8 +71,6 @@ function ScreenStreamTile({
   item,
   isObjectCover,
   isCollapsed,
-  isFullscreen,
-  isRotatedLandscape,
   isDualMode,
   canStop,
   isFocused,
@@ -81,23 +79,49 @@ function ScreenStreamTile({
 }: ScreenStreamTileProps) {
   const { tr } = useLanguage();
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [isWebRtcVideoPlaying, setIsWebRtcVideoPlaying] = useState(false);
-
   const activeStream = item.webrtcStream;
+  const activeStreamRef = useRef<ActiveScreenShareStream | null>(activeStream);
+  activeStreamRef.current = activeStream;
+
+  const rawMediaTrack =
+    activeStream?.mediaStream?.getVideoTracks()?.[0] ||
+    (activeStream?.videoTrack as any)?.mediaStreamTrack ||
+    null;
+  const mediaTrackId = rawMediaTrack?.id || activeStream?.streamKey || '';
+
+  const [isWebRtcVideoPlaying, setIsWebRtcVideoPlaying] = useState<boolean>(
+    Boolean(activeStream?.isLocal && activeStream?.mediaStream),
+  );
 
   useEffect(() => {
     const videoEl = videoRef.current;
-    if (!videoEl || !activeStream || isCollapsed) {
+    const streamObj = activeStreamRef.current;
+    if (!videoEl || !streamObj || !mediaTrackId || isCollapsed) {
       setIsWebRtcVideoPlaying(false);
       return;
     }
 
-    setIsWebRtcVideoPlaying(false);
     videoEl.setAttribute('playsinline', 'true');
     videoEl.setAttribute('webkit-playsinline', 'true');
+    videoEl.muted = true;
 
-    const { videoTrack, mediaStream, isLocal } = activeStream;
+    const { videoTrack, mediaStream, isLocal } = streamObj;
 
+    if (isLocal && mediaStream) {
+      // For local streams, bind MediaStream directly without LiveKit attach/detach churn
+      if (videoEl.srcObject !== mediaStream) {
+        videoEl.srcObject = mediaStream;
+      }
+      setIsWebRtcVideoPlaying(true);
+      videoEl.play().catch(() => {});
+      return () => {
+        if (videoEl.srcObject === mediaStream) {
+          videoEl.srcObject = null;
+        }
+      };
+    }
+
+    // Remote WebRTC stream
     if (videoTrack && typeof (videoTrack as any).attach === 'function') {
       try {
         (videoTrack as any).attach(videoEl);
@@ -109,7 +133,10 @@ function ScreenStreamTile({
       videoEl.srcObject = new MediaStream([(videoTrack as any).mediaStreamTrack]);
     }
 
-    videoEl.muted = true;
+    if (videoEl.readyState >= 2 || videoEl.videoWidth > 0) {
+      setIsWebRtcVideoPlaying(true);
+    }
+
     videoEl.play().catch(() => {});
 
     return () => {
@@ -118,17 +145,8 @@ function ScreenStreamTile({
           (videoTrack as any).detach(videoEl);
         } catch {}
       }
-      if (isLocal && videoEl.srcObject) {
-        videoEl.srcObject = null;
-      }
     };
-  }, [
-    activeStream,
-    activeStream?.streamKey,
-    isCollapsed,
-    isFullscreen,
-    isRotatedLandscape,
-  ]);
+  }, [mediaTrackId, isCollapsed]);
 
   const renderDeviceBadge = (dev: ScreenShareDeviceType) => {
     if (dev === 'mobile') {
@@ -163,6 +181,7 @@ function ScreenStreamTile({
           autoPlay
           playsInline
           muted
+          onLoadedMetadata={() => setIsWebRtcVideoPlaying(true)}
           onLoadedData={() => setIsWebRtcVideoPlaying(true)}
           onPlaying={() => setIsWebRtcVideoPlaying(true)}
           onTimeUpdate={(e) => {
@@ -170,10 +189,10 @@ function ScreenStreamTile({
               setIsWebRtcVideoPlaying(true);
             }
           }}
-          className={`h-full w-full transition-all duration-200 ${
+          className={`h-full w-full ${
             isObjectCover ? 'object-cover' : 'object-contain'
           } ${
-            !isWebRtcVideoPlaying && item.liveFrameDataUrl
+            !isWebRtcVideoPlaying && !activeStream.isLocal && item.liveFrameDataUrl
               ? 'opacity-0 absolute inset-0'
               : 'opacity-100'
           }`}
@@ -181,15 +200,16 @@ function ScreenStreamTile({
       )}
 
       {/* Instant Live Frame Stream Fallback (renders immediately before/when WebRTC video is negotiating) */}
-      {(!activeStream || !isWebRtcVideoPlaying) && item.liveFrameDataUrl && (
-        <img
-          src={item.liveFrameDataUrl}
-          alt={`${item.presenterName} live screen`}
-          className={`h-full w-full select-none pointer-events-none ${
-            isObjectCover ? 'object-cover' : 'object-contain'
-          }`}
-        />
-      )}
+      {(!activeStream || (!isWebRtcVideoPlaying && !activeStream.isLocal)) &&
+        item.liveFrameDataUrl && (
+          <img
+            src={item.liveFrameDataUrl}
+            alt={`${item.presenterName} live screen`}
+            className={`h-full w-full select-none pointer-events-none ${
+              isObjectCover ? 'object-cover' : 'object-contain'
+            }`}
+          />
+        )}
 
       {/* Loading placeholder only during the first ~400ms before first frame or WebRTC track arrives */}
       {!activeStream && !item.liveFrameDataUrl && (
@@ -322,6 +342,16 @@ export default function ScreenSharePanel({
     const items: CombinedScreenItem[] = [];
     const usedWebrtcIds = new Set<string>();
 
+    // Pre-reserve any WebRTC streamId that has an exact match in allFirebaseShares
+    // so a stale share entry never steals another share's WebRTC stream via fallback matching
+    const exactMatchStreamIds = new Set<string>();
+    for (const share of allFirebaseShares) {
+      const sId = share.streamId || `${share.presenterUid}_${share.deviceType}`;
+      if (allWebrtcStreams.some((w) => w.streamId === sId)) {
+        exactMatchStreamIds.add(sId);
+      }
+    }
+
     for (const share of allFirebaseShares) {
       const sId = share.streamId || `${share.presenterUid}_${share.deviceType}`;
       // 1. Exact streamId match
@@ -330,24 +360,26 @@ export default function ScreenSharePanel({
           (w) => w.streamId === sId && !usedWebrtcIds.has(w.streamId),
         ) || null;
 
-      // 2. Fallback match by presenterUid + deviceType
+      // 2. Fallback match by presenterUid + deviceType (only among non-reserved WebRTC streams)
       if (!matchedWebrtc) {
         matchedWebrtc =
           allWebrtcStreams.find(
             (w) =>
+              !exactMatchStreamIds.has(w.streamId) &&
+              !usedWebrtcIds.has(w.streamId) &&
               w.participantUid === share.presenterUid &&
-              (!w.deviceType || w.deviceType === share.deviceType) &&
-              !usedWebrtcIds.has(w.streamId),
+              (!w.deviceType || w.deviceType === share.deviceType),
           ) || null;
       }
 
-      // 3. Fallback match by presenterUid
+      // 3. Fallback match by presenterUid (only among non-reserved WebRTC streams)
       if (!matchedWebrtc) {
         matchedWebrtc =
           allWebrtcStreams.find(
             (w) =>
-              w.participantUid === share.presenterUid &&
-              !usedWebrtcIds.has(w.streamId),
+              !exactMatchStreamIds.has(w.streamId) &&
+              !usedWebrtcIds.has(w.streamId) &&
+              w.participantUid === share.presenterUid,
           ) || null;
       }
 
@@ -358,8 +390,18 @@ export default function ScreenSharePanel({
       const frameUrl =
         framesMap[sId] ||
         (matchedWebrtc ? framesMap[matchedWebrtc.streamId] : null) ||
-        framesMap[share.presenterUid] ||
         null;
+
+      // If this share entry has neither a live WebRTC track nor a frame in framesMap,
+      // and it belongs to the current user who already has other active local streams, skip the stale entry
+      if (
+        !matchedWebrtc &&
+        !frameUrl &&
+        share.presenterUid === currentUser.uid &&
+        allWebrtcStreams.some((w) => w.isLocal && w.streamId !== sId)
+      ) {
+        continue;
+      }
 
       const avatar =
         usersAvatarMap[share.presenterUid] ||
@@ -369,15 +411,13 @@ export default function ScreenSharePanel({
           : null);
 
       items.push({
-        streamId: sId,
+        streamId: matchedWebrtc?.streamId || sId,
         presenterUid: share.presenterUid,
         presenterName: share.presenterName || 'User',
         presenterAvatar: avatar,
         deviceType: matchedWebrtc?.deviceType || share.deviceType || 'pc',
         hasAudio: Boolean(matchedWebrtc?.hasAudio || share.hasSystemAudio),
-        isLocal: Boolean(
-          matchedWebrtc?.isLocal || share.presenterUid === currentUser.uid,
-        ),
+        isLocal: Boolean(matchedWebrtc?.isLocal),
         webrtcStream: matchedWebrtc,
         liveFrameDataUrl: frameUrl,
       });

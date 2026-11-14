@@ -171,6 +171,7 @@ async function tryConnectViaLocalAdbBridge(): Promise<{
       const ctx = canvas.getContext('2d');
 
       let isStopped = false;
+      let dimsLocked = false;
 
       const fetchAndDrawFrame = async (): Promise<boolean> => {
         if (isStopped) return false;
@@ -184,17 +185,20 @@ async function tryConnectViaLocalAdbBridge(): Promise<{
 
         const bitmap = await createImageBitmap(blob);
         if (ctx && !isStopped) {
-          if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
-            canvas.width = bitmap.width;
-            canvas.height = bitmap.height;
+          if (!dimsLocked) {
+            const maxDim = 960;
+            const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+            canvas.width = Math.max(2, Math.round(bitmap.width * scale));
+            canvas.height = Math.max(2, Math.round(bitmap.height * scale));
+            dimsLocked = true;
           }
-          ctx.drawImage(bitmap, 0, 0);
+          ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
         }
         bitmap.close();
         return true;
       };
 
-      // Grab first frame to verify stream works
+      // Grab first frame to verify stream works and lock canvas dimensions before captureStream
       const firstOk = await fetchAndDrawFrame();
       if (!firstOk) continue;
 
@@ -202,11 +206,7 @@ async function tryConnectViaLocalAdbBridge(): Promise<{
         while (!isStopped) {
           try {
             const ok = await fetchAndDrawFrame();
-            if (!ok) {
-              await new Promise((r) => setTimeout(r, 200));
-            } else {
-              await new Promise((r) => setTimeout(r, 30));
-            }
+            await new Promise((r) => setTimeout(r, ok ? 140 : 250));
           } catch {
             await new Promise((r) => setTimeout(r, 250));
           }
