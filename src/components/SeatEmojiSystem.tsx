@@ -546,19 +546,27 @@ export function AnimatedEmojiGraphic({
  * Renders the animated emoji directly on top of a voice room seat (Screenshot 1 style).
  */
 export function SeatEmojiOverlay({ emojiId }: { emojiId: string }) {
+  // The emoji takes the place of the profile picture on the mic seat,
+  // spins in 3D for a few seconds, then the avatar returns.
   return (
     <motion.div
       initial={{ scale: 0.2, opacity: 0 }}
-      animate={{ scale: [0.2, 1.22, 1.05], opacity: 1 }}
+      animate={{ scale: 1, opacity: 1 }}
       exit={{ scale: 0.3, opacity: 0 }}
-      transition={{ duration: 0.4, ease: 'backOut' }}
-      className="pointer-events-none absolute -inset-2 z-30 flex items-center justify-center"
+      transition={{ duration: 0.35, ease: 'backOut' }}
+      className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-full bg-slate-950/90 shadow-[0_0_18px_rgba(251,191,36,0.55)]"
+      style={{ perspective: 400 }}
     >
-      <AnimatedEmojiGraphic emojiId={emojiId} size={74} />
+      <motion.div
+        animate={{ rotateY: [0, 720, 720, 1080] }}
+        transition={{ duration: 4, times: [0, 0.4, 0.7, 1], ease: 'easeInOut' }}
+        className="flex items-center justify-center"
+      >
+        <AnimatedEmojiGraphic emojiId={emojiId} size={56} />
+      </motion.div>
     </motion.div>
   );
 }
-
 /**
  * Interactive 4x4 3D Animated Emoji Drawer Modal (Screenshot 2 style).
  */
