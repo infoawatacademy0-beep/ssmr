@@ -415,18 +415,72 @@ export default function GiftAnimationOverlay({ giftEvent }: GiftAnimationOverlay
               <GiftIcon iconKey={gift.iconKey} size={175} />
             </motion.div>
           ) : (
-            /* SCENE E: ALL OTHER GIFTS WITH CINEMATIC RADIANCE */
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1.05, 1.15, 1],
-                rotate: [0, -4, 4, -2, 0],
-              }}
-              transition={{ duration: 2.6, ease: 'easeInOut' }}
-              className="drop-shadow-[0_0_30px_rgba(251,191,36,0.65)]"
-            >
-              <GiftIcon iconKey={gift.iconKey} size={165} />
-            </motion.div>
-          )}
+            /* SCENE E: TIKTOK-STYLE 3D GIFT — spin, float, light rays & sparkles */
+            <div className="relative flex h-72 w-72 items-center justify-center" style={{ perspective: 700 }}>
+              {/* Rotating light rays */}
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 6, ease: 'linear', repeat: Infinity }}
+                className="absolute inset-0 rounded-full opacity-60 blur-[2px]"
+                style={{
+                  background:
+                    'conic-gradient(from 0deg, transparent 0deg, rgba(251,191,36,0.55) 20deg, transparent 50deg, transparent 90deg, rgba(244,114,182,0.5) 110deg, transparent 140deg, transparent 180deg, rgba(56,189,248,0.5) 200deg, transparent 230deg, transparent 270deg, rgba(167,139,250,0.5) 290deg, transparent 320deg)',
+                  maskImage: 'radial-gradient(circle, black 30%, transparent 70%)',
+                  WebkitMaskImage: 'radial-gradient(circle, black 30%, transparent 70%)',
+                }}
+              />
+              {/* Expanding shockwave rings */}
+              {[0, 1, 2].map((r) => (
+                <motion.div
+                  key={`gring-${r}`}
+                  initial={{ scale: 0.3, opacity: 0.8 }}
+                  animate={{ scale: 2, opacity: 0 }}
+                  transition={{ duration: 1.8, delay: 0.3 + r * 0.55, ease: 'easeOut' }}
+                  className="absolute h-40 w-40 rounded-full border-2 border-amber-300/80 shadow-[0_0_24px_rgba(251,191,36,0.8)]"
+                />
+              ))}
+              {/* Hero 3D gift: pop-in, Y-axis spins, gentle float */}
+              <motion.div
+                initial={{ scale: 0, rotateY: -180 }}
+                animate={{
+                  scale: [0, 1.35, 1.1, 1.2, 1.1],
+                  rotateY: [-180, 360, 360, 720, 720],
+                  y: [0, 0, -14, 0, -10],
+                }}
+                transition={{ duration: 3.6, times: [0, 0.25, 0.5, 0.8, 1], ease: 'easeInOut' }}
+                className="relative z-10 drop-shadow-[0_18px_30px_rgba(0,0,0,0.55)]"
+                style={{ transformStyle: 'preserve-3d' }}
+              >
+                <GiftIcon iconKey={gift.iconKey} size={190} />
+              </motion.div>
+              {/* Floor reflection shadow */}
+              <motion.div
+                animate={{ scaleX: [0.6, 1, 0.8, 1], opacity: [0.2, 0.5, 0.35, 0.5] }}
+                transition={{ duration: 3.6 }}
+                className="absolute bottom-4 h-4 w-40 rounded-full bg-black/60 blur-md"
+              />
+              {/* Sparkle burst */}
+              {Array.from({ length: 16 }).map((_, i) => {
+                const ang = (i / 16) * Math.PI * 2;
+                const dist = 95 + (i % 3) * 30;
+                return (
+                  <motion.div
+                    key={`spark-${i}`}
+                    initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                    animate={{
+                      x: Math.cos(ang) * dist,
+                      y: Math.sin(ang) * dist,
+                      scale: [0, 1.4, 0],
+                      opacity: [0, 1, 0],
+                    }}
+                    transition={{ duration: 1.4, delay: 0.5 + (i % 4) * 0.25, ease: 'easeOut' }}
+                    className="absolute text-xl"
+                  >
+                    {i % 3 === 0 ? '✨' : i % 3 === 1 ? '⭐' : '💫'}
+                  </motion.div>
+                );
+              })}
+            </div>          )}
 
           {/* ── 5. LUXURY CINEMA GIFT BANNER ── */}
           <motion.div

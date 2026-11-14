@@ -8,6 +8,22 @@ import ChromaKeyVideo, { type ChromaKeyColor } from './ChromaKeyVideo';
    or image; otherwise it falls back to the hand-crafted SVG icon.
    ───────────────────────────────────────────────────────────── */
 
+const FLUENT_3D_BASE = 'https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
+/** Real 3D artwork (Microsoft Fluent Emoji 3D) used for every gift except the teapot. */
+export const GIFT_3D_ART: Partial<Record<GiftIconKey, string>> = {
+  'heart-me': 'Sparkling heart/3D/sparkling_heart_3d.png',
+  rose: 'Rose/3D/rose_3d.png',
+  'neon-heart': 'Heart on fire/3D/heart_on_fire_3d.png',
+  fire: 'Fire/3D/fire_3d.png',
+  diamond: 'Gem stone/3D/gem_stone_3d.png',
+  'sports-car': 'Racing car/3D/racing_car_3d.png',
+  lion: 'Lion/3D/lion_3d.png',
+  rocket: 'Rocket/3D/rocket_3d.png',
+  nebula: 'Milky way/3D/milky_way_3d.png',
+  crown: 'Crown/3D/crown_3d.png',
+  interstellar: 'Flying saucer/3D/flying_saucer_3d.png',
+  'white-tiger': 'Tiger/3D/tiger_3d.png',
+};
 interface GiftIconProps {
   iconKey: GiftIconKey;
   size?: number;
@@ -27,6 +43,7 @@ export default function GiftIcon({
 }: GiftIconProps) {
   const [videoFailed, setVideoFailed] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [art3dFailed, setArt3dFailed] = useState(false);
   const s = size;
 
   // 1. If videoUrl is provided and not errored, render real-time Chroma-Key video!
@@ -64,8 +81,23 @@ export default function GiftIcon({
     );
   }
 
-  switch (iconKey) {
-    /* ━━━ HEART ME — Cute smiling heart ━━━ */
+  // 3. Real 3D artwork for every gift except the teapot
+  const art3d = GIFT_3D_ART[iconKey];
+  if (art3d && !art3dFailed) {
+    return (
+      <img
+        src={`${FLUENT_3D_BASE}${encodeURI(art3d)}`}
+        alt={iconKey}
+        loading="eager"
+        draggable={false}
+        style={{ width: s, height: s }}
+        className={`object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.45)] ${className}`}
+        onError={() => setArt3dFailed(true)}
+      />
+    );
+  }
+
+  switch (iconKey) {    /* ━━━ HEART ME — Cute smiling heart ━━━ */
     case 'heart-me':
       return (
         <svg viewBox="0 0 64 64" width={s} height={s} className={className}>
