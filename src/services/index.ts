@@ -289,8 +289,10 @@ export {
   startRoomScreenShare,
   stopRoomScreenShare,
   subscribeToRoomScreenShare,
+  subscribeToRoomScreenShares,
   publishScreenShareFrame,
   subscribeToRoomScreenShareFrame,
+  subscribeToRoomScreenShareFrames,
 } from './screenShareService';
 
 

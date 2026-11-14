@@ -17,24 +17,44 @@ import {
   stopRoomScreenShare,
   publishScreenShareFrame,
 } from '../services/screenShareService';
-import type { User, Seat } from '../types';
+import type { User, Seat, ScreenShareDeviceType } from '../types';
 
 /* ─────────────────────────────────────────────────────────────
-   useVoiceRoom Hook — WebRTC LiveKit Voice & Screen Streaming
+   useVoiceRoom Hook — WebRTC LiveKit Voice & Multi-Screen Streaming
    Connects client to LiveKit Room, syncs microphone state
    with Firebase seat state, handles audio streaming, and
    provides direct Mobile / PC / Laptop Screen Sharing with
-   instant Firebase live-frame fallback.
+   simultaneous Dual-Screen (PC + Mobile together) support
+   and instant Firebase live-frame fallback.
    ───────────────────────────────────────────────────────────── */
 
 export interface ActiveScreenShareStream {
+  streamId: string;
   videoTrack: Track | null;
   mediaStream: MediaStream | null;
   participantUid: string;
   participantName: string;
+  deviceType?: ScreenShareDeviceType;
   isLocal: boolean;
   hasAudio: boolean;
   streamKey?: string;
+}
+
+export interface ScreenShareStartOptions {
+  addSecondScreen?: boolean;
+  deviceTypeOverride?: ScreenShareDeviceType;
+}
+
+interface LocalScreenSlot {
+  streamId: string;
+  slotIndex: number;
+  deviceType: ScreenShareDeviceType;
+  stream: MediaStream;
+  videoEl: HTMLVideoElement | null;
+  stopBroadcaster: () => void;
+  videoTrack: Track | null;
+  hasAudio: boolean;
+  startedAt: number;
 }
 
 interface UseVoiceRoomProps {
@@ -52,6 +72,24 @@ function extractUid(identity: string): string {
   return identity.split('__')[0];
 }
 
+/**
+ * Parses slot index and deviceType from a published LiveKit video track name (`screen_share__1__pc`).
+ */
+function parseScreenTrackName(trackName?: string): {
+  slotIndex: number;
+  deviceType?: ScreenShareDeviceType;
+} {
+  if (!trackName) return { slotIndex: 1 };
+  const match = trackName.match(/^screen_share__(\d+)__(mobile|pc|laptop)$/);
+  if (match) {
+    return {
+      slotIndex: Number(match[1]) || 1,
+      deviceType: match[2] as ScreenShareDeviceType,
+    };
+  }
+  return { slotIndex: 1 };
+}
+
 export function useVoiceRoom({
   roomId,
   currentUser,
@@ -65,9 +103,10 @@ export function useVoiceRoom({
   const [audioAutoplayBlocked, setAudioAutoplayBlocked] = useState(false);
   const [isSelfMonitoring, setIsSelfMonitoring] = useState(false);
 
-  // Live Screen Share state (Local or Remote)
+  // Live Screen Share state (Supports 1 or 2+ simultaneous local & remote streams, e.g., PC + Mobile together)
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [activeScreenShare, setActiveScreenShare] = useState<ActiveScreenShareStream | null>(null);
+  const [activeScreenShares, setActiveScreenShares] = useState<ActiveScreenShareStream[]>([]);
+  const [localScreenStreamIds, setLocalScreenStreamIds] = useState<string[]>([]);
 
   // Unique per-tab suffix so a user opening the room on both PC and Mobile never triggers DUPLICATE_IDENTITY kicks
   const tabSessionIdRef = useRef<string>(
@@ -84,11 +123,8 @@ export function useVoiceRoom({
   const allSeatsRef = useRef<Seat[]>(allSeats);
   allSeatsRef.current = allSeats;
 
-  // Refs for local screen share tracks & live frame broadcaster cleanup
-  const localScreenStreamRef = useRef<MediaStream | null>(null);
-  const localScreenVideoElRef = useRef<HTMLVideoElement | null>(null);
-  const frameBroadcasterStopRef = useRef<(() => void) | null>(null);
-  const isLocalScreenSharingRef = useRef<boolean>(false);
+  // Map of active local screen share slots on this device (keyed by streamId)
+  const localScreenSlotsRef = useRef<Map<string, LocalScreenSlot>>(new Map());
 
   // Check if a participant identity is permitted to speak (must occupy an active unmuted seat)
   const isParticipantAllowedToSpeak = useCallback((identity: string): boolean => {
@@ -132,69 +168,114 @@ export function useVoiceRoom({
     }
   };
 
-  // Helper to scan remote participants for any active screen share video tracks
-  const syncRemoteScreenShare = useCallback((targetRoom: Room | null) => {
-    if (!targetRoom) return;
-    if (isLocalScreenSharingRef.current) return;
+  // Synchronizes ALL active local screen share slots + ALL remote participant screen share tracks
+  // so both PC and Mobile screens can be viewed simultaneously by the presenter and all room members.
+  const syncAllScreenShares = useCallback(
+    (targetRoom: Room | null) => {
+      const combined: ActiveScreenShareStream[] = [];
+      const seenStreamIds = new Set<string>();
 
-    for (const participant of targetRoom.remoteParticipants.values()) {
-      const pubs = Array.from(participant.trackPublications.values());
-      for (const pub of pubs) {
-        const isVideo =
-          pub.kind === Track.Kind.Video ||
-          pub.source === Track.Source.ScreenShare ||
-          pub.source === Track.Source.Camera;
+      // 1. Add all active local screen share slots from this device
+      for (const slot of localScreenSlotsRef.current.values()) {
+        seenStreamIds.add(slot.streamId);
+        combined.push({
+          streamId: slot.streamId,
+          videoTrack: slot.videoTrack,
+          mediaStream: slot.stream,
+          participantUid: currentUser?.uid || 'local',
+          participantName: currentUser?.username || 'You',
+          deviceType: slot.deviceType,
+          isLocal: true,
+          hasAudio: slot.hasAudio,
+          streamKey: `local_${slot.streamId}_${slot.videoTrack?.sid || slot.startedAt}`,
+        });
+      }
 
-        if (!isVideo) continue;
+      // 2. Add all active remote screen share video tracks from other devices / members
+      if (targetRoom) {
+        for (const participant of targetRoom.remoteParticipants.values()) {
+          const pubs = Array.from(participant.trackPublications.values());
+          for (const pub of pubs) {
+            const isVideo =
+              pub.kind === Track.Kind.Video ||
+              pub.source === Track.Source.ScreenShare ||
+              pub.source === Track.Source.Camera;
 
-        // Ensure remote video publication is explicitly subscribed
-        if (!pub.isSubscribed) {
-          try {
-            pub.setSubscribed(true);
-          } catch {}
-        }
+            if (!isVideo) continue;
 
-        if (pub.track && pub.track.kind === Track.Kind.Video) {
-          const mediaStream = pub.track.mediaStreamTrack
-            ? new MediaStream([pub.track.mediaStreamTrack])
-            : null;
-          const hasScreenAudio = Array.from(participant.audioTrackPublications.values()).some(
-            (aPub) => aPub.source === Track.Source.ScreenShareAudio && aPub.isSubscribed,
-          );
-          const cleanUid = extractUid(participant.identity);
-          const streamKey = `${participant.identity}_${pub.trackSid}_${hasScreenAudio}`;
-
-          setActiveScreenShare((prev) => {
-            if (prev && !prev.isLocal && prev.streamKey === streamKey && prev.videoTrack === pub.track) {
-              return prev;
+            // Ensure remote video publication is explicitly subscribed
+            if (!pub.isSubscribed) {
+              try {
+                pub.setSubscribed(true);
+              } catch {}
             }
-            return {
-              videoTrack: pub.track!,
-              mediaStream,
-              participantUid: cleanUid,
-              participantName: participant.name || cleanUid || 'User',
-              isLocal: false,
-              hasAudio: hasScreenAudio,
-              streamKey,
-            };
-          });
-          return;
+
+            if (pub.track && pub.track.kind === Track.Kind.Video) {
+              const parsed = parseScreenTrackName(pub.trackName);
+              const slotIdx =
+                parsed.slotIndex ||
+                (pub.source === Track.Source.Camera ? 2 : 1);
+              const remoteStreamId = `${participant.identity}__${slotIdx}`;
+
+              if (seenStreamIds.has(remoteStreamId)) continue;
+              seenStreamIds.add(remoteStreamId);
+
+              const mediaStream = pub.track.mediaStreamTrack
+                ? new MediaStream([pub.track.mediaStreamTrack])
+                : null;
+              const hasScreenAudio = Array.from(
+                participant.audioTrackPublications.values(),
+              ).some(
+                (aPub) =>
+                  aPub.source === Track.Source.ScreenShareAudio &&
+                  aPub.isSubscribed,
+              );
+              const cleanUid = extractUid(participant.identity);
+              const streamKey = `${remoteStreamId}_${pub.trackSid}_${hasScreenAudio}`;
+
+              combined.push({
+                streamId: remoteStreamId,
+                videoTrack: pub.track,
+                mediaStream,
+                participantUid: cleanUid,
+                participantName: participant.name || cleanUid || 'User',
+                deviceType: parsed.deviceType,
+                isLocal: false,
+                hasAudio: hasScreenAudio,
+                streamKey,
+              });
+            }
+          }
         }
       }
-    }
 
-    setActiveScreenShare((prev) => (prev && !prev.isLocal ? null : prev));
-  }, []);
+      setActiveScreenShares((prev) => {
+        if (
+          prev.length === combined.length &&
+          prev.every(
+            (item, idx) =>
+              item.streamKey === combined[idx].streamKey &&
+              item.videoTrack === combined[idx].videoTrack &&
+              item.mediaStream === combined[idx].mediaStream,
+          )
+        ) {
+          return prev;
+        }
+        return combined;
+      });
+    },
+    [currentUser?.uid, currentUser?.username],
+  );
 
   // Starts a lightweight offscreen canvas broadcaster that sends compressed JPEG frames
-  // of the shared screen to Firebase so all members see the screen immediately.
-  const startFrameBroadcaster = useCallback(
-    (stream: MediaStream, targetRoomId: string, presenterUid: string) => {
-      if (frameBroadcasterStopRef.current) {
-        frameBroadcasterStopRef.current();
-        frameBroadcasterStopRef.current = null;
-      }
-
+  // of a shared screen to Firebase so all members see every screen (PC + Mobile) immediately.
+  const createFrameBroadcaster = useCallback(
+    (
+      stream: MediaStream,
+      targetRoomId: string,
+      presenterUid: string,
+      streamId: string,
+    ): (() => void) => {
       let isStopped = false;
       let isUploading = false;
       const hiddenVideo = document.createElement('video');
@@ -210,14 +291,20 @@ export function useVoiceRoom({
       const ctx = canvas.getContext('2d');
 
       const captureAndSend = async () => {
-        if (isStopped || isUploading || !isLocalScreenSharingRef.current) return;
+        if (
+          isStopped ||
+          isUploading ||
+          !localScreenSlotsRef.current.has(streamId)
+        ) {
+          return;
+        }
         const vw = hiddenVideo.videoWidth;
         const vh = hiddenVideo.videoHeight;
         if (!vw || !vh || !ctx) return;
 
         isUploading = true;
         try {
-          const maxDim = 854;
+          const maxDim = localScreenSlotsRef.current.size > 1 ? 720 : 854;
           const scale = Math.min(1, maxDim / Math.max(vw, vh));
           const cw = Math.max(2, Math.round(vw * scale));
           const ch = Math.max(2, Math.round(vh * scale));
@@ -226,9 +313,14 @@ export function useVoiceRoom({
             canvas.height = ch;
           }
           ctx.drawImage(hiddenVideo, 0, 0, cw, ch);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.55);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.54);
           if (dataUrl && dataUrl.length > 100 && !isStopped) {
-            await publishScreenShareFrame(targetRoomId, dataUrl, presenterUid);
+            await publishScreenShareFrame(
+              targetRoomId,
+              dataUrl,
+              presenterUid,
+              streamId,
+            );
           }
         } catch {
           // Ignore transient frame capture errors
@@ -237,14 +329,13 @@ export function useVoiceRoom({
         }
       };
 
-      // Capture first frame quickly once video dimensions are ready
       hiddenVideo.onloadeddata = () => {
         captureAndSend();
       };
 
-      const intervalId = setInterval(captureAndSend, 450);
+      const intervalId = setInterval(captureAndSend, 480);
 
-      frameBroadcasterStopRef.current = () => {
+      return () => {
         isStopped = true;
         clearInterval(intervalId);
         try {
@@ -256,104 +347,164 @@ export function useVoiceRoom({
     [],
   );
 
-  // Stop local screen sharing and unpublish tracks
-  const stopScreenShare = useCallback(async () => {
-    isLocalScreenSharingRef.current = false;
-    setIsScreenSharing(false);
+  // Stop a specific local screen share stream (if targetStreamId is provided) or all local screen share streams
+  const stopScreenShare = useCallback(
+    async (targetStreamId?: string) => {
+      const slotsToStop: LocalScreenSlot[] = [];
 
-    if (frameBroadcasterStopRef.current) {
-      frameBroadcasterStopRef.current();
-      frameBroadcasterStopRef.current = null;
-    }
-
-    // Stop local media stream tracks
-    if (localScreenStreamRef.current) {
-      localScreenStreamRef.current.getTracks().forEach((t) => {
-        try {
-          t.onended = null;
-          t.stop();
-        } catch {}
-      });
-      localScreenStreamRef.current = null;
-    }
-
-    // Cleanup hidden video element if sharing a local video file
-    if (localScreenVideoElRef.current) {
-      try {
-        localScreenVideoElRef.current.pause();
-        if (localScreenVideoElRef.current.src.startsWith('blob:')) {
-          URL.revokeObjectURL(localScreenVideoElRef.current.src);
-        }
-        localScreenVideoElRef.current.removeAttribute('src');
-        localScreenVideoElRef.current.load();
-      } catch {}
-      localScreenVideoElRef.current = null;
-    }
-
-    // Unpublish screen share tracks from LiveKit
-    const room = roomRef.current;
-    if (room && room.state === ConnectionState.Connected) {
-      try {
-        await room.localParticipant.setScreenShareEnabled(false).catch(() => {});
-      } catch {}
-
-      try {
-        const videoPubs = Array.from(room.localParticipant.videoTrackPublications.values());
-        for (const pub of videoPubs) {
-          if (pub.track) {
-            try {
-              pub.track.stop();
-              await room.localParticipant.unpublishTrack(pub.track, true);
-            } catch {}
+      if (targetStreamId) {
+        const slot = localScreenSlotsRef.current.get(targetStreamId);
+        if (slot) {
+          slotsToStop.push(slot);
+          localScreenSlotsRef.current.delete(targetStreamId);
+        } else {
+          // Remote stream stop requested (e.g. presenter on PC stopping their Mobile stream, or Host/Admin stopping a stream)
+          if (roomId) {
+            await stopRoomScreenShare(roomId, targetStreamId).catch(console.error);
           }
+          syncAllScreenShares(roomRef.current);
+          return;
         }
-        const audioPubs = Array.from(room.localParticipant.audioTrackPublications.values());
-        for (const pub of audioPubs) {
-          if (pub.source === Track.Source.ScreenShareAudio && pub.track) {
-            try {
-              pub.track.stop();
-              await room.localParticipant.unpublishTrack(pub.track, true);
-            } catch {}
-          }
+      } else {
+        for (const slot of localScreenSlotsRef.current.values()) {
+          slotsToStop.push(slot);
         }
-      } catch (err) {
-        console.warn('Error unpublishing screen share tracks:', err);
+        localScreenSlotsRef.current.clear();
       }
-    }
 
-    setActiveScreenShare(null);
+      const remainingIds = Array.from(localScreenSlotsRef.current.keys());
+      setLocalScreenStreamIds(remainingIds);
+      setIsScreenSharing(remainingIds.length > 0);
 
-    // Clear Firebase screen share state
-    if (roomId) {
-      await stopRoomScreenShare(roomId).catch(console.error);
-    }
+      const room = roomRef.current;
 
-    // Check if any remote participant is sharing
-    syncRemoteScreenShare(roomRef.current);
-  }, [roomId, syncRemoteScreenShare]);
+      for (const slot of slotsToStop) {
+        try {
+          slot.stopBroadcaster();
+        } catch {}
+
+        // Stop local media stream tracks
+        const mediaTracks = slot.stream.getTracks();
+        mediaTracks.forEach((t) => {
+          try {
+            t.onended = null;
+            t.stop();
+          } catch {}
+        });
+
+        // Cleanup hidden video element if sharing a local video file
+        if (slot.videoEl) {
+          try {
+            slot.videoEl.pause();
+            if (slot.videoEl.src.startsWith('blob:')) {
+              URL.revokeObjectURL(slot.videoEl.src);
+            }
+            slot.videoEl.removeAttribute('src');
+            slot.videoEl.load();
+          } catch {}
+        }
+
+        // Unpublish matching tracks from LiveKit
+        if (room && room.state === ConnectionState.Connected) {
+          try {
+            const videoPubs = Array.from(
+              room.localParticipant.videoTrackPublications.values(),
+            );
+            for (const pub of videoPubs) {
+              if (
+                pub.track &&
+                (pub.track === slot.videoTrack ||
+                  mediaTracks.includes(pub.track.mediaStreamTrack))
+              ) {
+                try {
+                  pub.track.stop();
+                  await room.localParticipant.unpublishTrack(pub.track, true);
+                } catch {}
+              }
+            }
+
+            if (localScreenSlotsRef.current.size === 0) {
+              const audioPubs = Array.from(
+                room.localParticipant.audioTrackPublications.values(),
+              );
+              for (const pub of audioPubs) {
+                if (pub.source === Track.Source.ScreenShareAudio && pub.track) {
+                  try {
+                    pub.track.stop();
+                    await room.localParticipant.unpublishTrack(pub.track, true);
+                  } catch {}
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('Error unpublishing screen share slot tracks:', err);
+          }
+        }
+
+        // Remove only this specific stream from Firebase so any other active screen (e.g. Mobile or PC) stays live
+        if (roomId) {
+          await stopRoomScreenShare(roomId, slot.streamId).catch(console.error);
+        }
+      }
+
+      syncAllScreenShares(roomRef.current);
+    },
+    [roomId, syncAllScreenShares],
+  );
 
   // Publish an acquired MediaStream as a LiveKit Screen Share + Instant Frame Stream
   const publishScreenMediaStream = useCallback(
-    async (stream: MediaStream) => {
+    async (
+      stream: MediaStream,
+      options?: ScreenShareStartOptions,
+      hiddenVideoEl: HTMLVideoElement | null = null,
+    ) => {
       const videoTrack = stream.getVideoTracks()[0];
       if (!videoTrack) {
         throw new Error('No video track found in screen stream.');
       }
       const audioTrack = stream.getAudioTracks()[0] || null;
 
-      // Stop any previous local screen share stream without clearing Firebase yet
-      if (localScreenStreamRef.current && localScreenStreamRef.current !== stream) {
-        localScreenStreamRef.current.getTracks().forEach((t) => {
+      const uid = currentUser?.uid || 'local';
+      const tabId = tabSessionIdRef.current;
+      const slot1Id = `${uid}__${tabId}__1`;
+
+      let slotIndex = 1;
+      if (options?.addSecondScreen) {
+        if (!localScreenSlotsRef.current.has(slot1Id)) {
+          slotIndex = 1;
+        } else {
+          slotIndex = 2;
+        }
+      } else {
+        slotIndex = 1;
+      }
+
+      const streamId = `${uid}__${tabId}__${slotIndex}`;
+      const deviceType: ScreenShareDeviceType =
+        options?.deviceTypeOverride || detectScreenShareDeviceType();
+
+      // If replacing the same slot on this device, clean up the old stream in that slot first
+      const existingSlot = localScreenSlotsRef.current.get(streamId);
+      if (existingSlot && existingSlot.stream !== stream) {
+        try {
+          existingSlot.stopBroadcaster();
+        } catch {}
+        existingSlot.stream.getTracks().forEach((t) => {
           try {
             t.onended = null;
             t.stop();
           } catch {}
         });
+        if (existingSlot.videoEl) {
+          try {
+            existingSlot.videoEl.pause();
+            if (existingSlot.videoEl.src.startsWith('blob:')) {
+              URL.revokeObjectURL(existingSlot.videoEl.src);
+            }
+          } catch {}
+        }
       }
-
-      localScreenStreamRef.current = stream;
-      isLocalScreenSharingRef.current = true;
-      setIsScreenSharing(true);
 
       // Hint for crisp text/screen detail
       try {
@@ -362,32 +513,47 @@ export function useVoiceRoom({
         }
       } catch {}
 
-      // Listen for native browser "Stop sharing" button
+      const stopBroadcaster =
+        roomId && currentUser
+          ? createFrameBroadcaster(stream, roomId, currentUser.uid, streamId)
+          : () => {};
+
+      const newSlot: LocalScreenSlot = {
+        streamId,
+        slotIndex,
+        deviceType,
+        stream,
+        videoEl: hiddenVideoEl,
+        stopBroadcaster,
+        videoTrack: null,
+        hasAudio: Boolean(audioTrack),
+        startedAt: Date.now(),
+      };
+
+      localScreenSlotsRef.current.set(streamId, newSlot);
+      const currentIds = Array.from(localScreenSlotsRef.current.keys());
+      setLocalScreenStreamIds(currentIds);
+      setIsScreenSharing(true);
+
+      // Listen for native browser "Stop sharing" button on this specific stream
       videoTrack.onended = () => {
-        stopScreenShare();
+        stopScreenShare(streamId);
       };
 
       // Update local preview immediately
-      setActiveScreenShare({
-        videoTrack: null,
-        mediaStream: stream,
-        participantUid: currentUser?.uid || 'local',
-        participantName: currentUser?.username || 'You',
-        isLocal: true,
-        hasAudio: Boolean(audioTrack),
-        streamKey: `local_${Date.now()}`,
-      });
+      syncAllScreenShares(roomRef.current);
 
-      // Broadcast screen share metadata & start live frame broadcaster in Firebase immediately
+      // Broadcast screen share metadata in Firebase under its unique streamId
       if (roomId && currentUser) {
         await startRoomScreenShare(roomId, {
+          streamId,
           presenterUid: currentUser.uid,
           presenterName: currentUser.username,
-          presenterAvatar: currentUser.avatar || currentUser.profileImage || null,
-          deviceType: detectScreenShareDeviceType(),
+          presenterAvatar:
+            currentUser.avatar || currentUser.profileImage || null,
+          deviceType,
           hasSystemAudio: Boolean(audioTrack),
         });
-        startFrameBroadcaster(stream, roomId, currentUser.uid);
       }
 
       // Ensure LiveKit room is connected, reconnecting if needed, then publish WebRTC tracks
@@ -395,12 +561,14 @@ export function useVoiceRoom({
       if (room && currentUser && roomId) {
         try {
           if (room.state === ConnectionState.Connecting) {
-            // Wait up to 3.5s for ongoing connection
             await new Promise<void>((resolve) => {
               let elapsed = 0;
               const check = setInterval(() => {
                 elapsed += 150;
-                if (room.state === ConnectionState.Connected || elapsed >= 3500) {
+                if (
+                  room.state === ConnectionState.Connected ||
+                  elapsed >= 3500
+                ) {
                   clearInterval(check);
                   resolve();
                 }
@@ -408,29 +576,45 @@ export function useVoiceRoom({
             });
           } else if (room.state === ConnectionState.Disconnected) {
             const lkIdentity = `${currentUser.uid}__${tabSessionIdRef.current}`;
-            const token = await fetchLiveKitToken(roomId, lkIdentity, currentUser.username);
+            const token = await fetchLiveKitToken(
+              roomId,
+              lkIdentity,
+              currentUser.username,
+            );
             await room.connect(LIVEKIT_CONFIG.url, token);
           }
 
           if (room.state === ConnectionState.Connected) {
-            // Unpublish any old video tracks first
-            for (const pub of Array.from(room.localParticipant.videoTrackPublications.values())) {
-              if (pub.track && pub.track.mediaStreamTrack !== videoTrack) {
-                await room.localParticipant.unpublishTrack(pub.track, false).catch(() => {});
+            const trackSource =
+              slotIndex === 2 ? Track.Source.Camera : Track.Source.ScreenShare;
+            const trackName = `screen_share__${slotIndex}__${deviceType}`;
+
+            // Unpublish any old video track occupying the same source on this tab
+            for (const pub of Array.from(
+              room.localParticipant.videoTrackPublications.values(),
+            )) {
+              if (
+                pub.source === trackSource &&
+                pub.track &&
+                pub.track.mediaStreamTrack !== videoTrack
+              ) {
+                await room.localParticipant
+                  .unpublishTrack(pub.track, false)
+                  .catch(() => {});
               }
             }
 
             const publishedVideoPub: LocalTrackPublication =
               await room.localParticipant.publishTrack(videoTrack, {
-                name: 'screen_share',
-                source: Track.Source.ScreenShare,
+                name: trackName,
+                source: trackSource,
                 simulcast: false,
               });
 
             if (audioTrack) {
               await room.localParticipant
                 .publishTrack(audioTrack, {
-                  name: 'screen_share_audio',
+                  name: `screen_share_audio__${slotIndex}`,
                   source: Track.Source.ScreenShareAudio,
                 })
                 .catch((err) => {
@@ -439,115 +623,134 @@ export function useVoiceRoom({
             }
 
             if (publishedVideoPub?.track) {
-              setActiveScreenShare({
-                videoTrack: publishedVideoPub.track,
-                mediaStream: stream,
-                participantUid: currentUser.uid,
-                participantName: currentUser.username || 'You',
-                isLocal: true,
-                hasAudio: Boolean(audioTrack),
-                streamKey: `local_${publishedVideoPub.trackSid || Date.now()}`,
-              });
+              const activeSlot = localScreenSlotsRef.current.get(streamId);
+              if (activeSlot) {
+                activeSlot.videoTrack = publishedVideoPub.track;
+              }
+              syncAllScreenShares(room);
             }
           }
         } catch (lkErr) {
-          console.warn('LiveKit screen track publish warning (Firebase frame stream active):', lkErr);
+          console.warn(
+            'LiveKit screen track publish warning (Firebase frame stream active):',
+            lkErr,
+          );
         }
       }
     },
-    [roomId, currentUser, stopScreenShare, startFrameBroadcaster],
+    [
+      roomId,
+      currentUser,
+      stopScreenShare,
+      createFrameBroadcaster,
+      syncAllScreenShares,
+    ],
   );
 
   /**
    * Starts direct screen sharing on Mobile, PC, or Laptop.
-   * Must be invoked directly from a user click handler so mobile browsers preserve user gesture activation.
+   * Supports adding a second simultaneous screen (`options.addSecondScreen = true`).
    */
-  const startScreenShare = useCallback(async (): Promise<{
-    success: boolean;
-    reason?: 'cancelled' | 'unsupported' | 'error';
-    message?: string;
-  }> => {
-    try {
-      const mediaDevices = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined;
-      if (!mediaDevices || typeof mediaDevices.getDisplayMedia !== 'function') {
-        return {
-          success: false,
-          reason: 'unsupported',
-          message: 'Direct display capture is not supported by this mobile browser.',
-        };
-      }
-
-      const isMobile =
-        typeof navigator !== 'undefined' &&
-        /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
-
-      let stream: MediaStream;
-      if (isMobile) {
-        // Mobile browsers (Android Chrome / iOS Safari) require simple { video: true } on the initial user gesture
-        stream = await mediaDevices.getDisplayMedia({
-          video: true,
-        });
-      } else {
-        // Desktop / Laptop browsers support 1080p @ 30fps + system/tab audio capture
-        try {
-          stream = await mediaDevices.getDisplayMedia({
-            video: {
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              frameRate: { ideal: 30 },
-            },
-            audio: true,
-          } as DisplayMediaStreamOptions);
-        } catch (firstErr: any) {
-          const errName = String(firstErr?.name || '');
-          // If the user explicitly clicked Cancel in the picker, do not re-prompt
-          if (errName === 'NotAllowedError' || errName === 'AbortError') {
-            return { success: false, reason: 'cancelled' };
-          }
-          stream = await mediaDevices.getDisplayMedia({ video: true });
+  const startScreenShare = useCallback(
+    async (
+      options?: ScreenShareStartOptions,
+    ): Promise<{
+      success: boolean;
+      reason?: 'cancelled' | 'unsupported' | 'error';
+      message?: string;
+    }> => {
+      try {
+        const mediaDevices =
+          typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined;
+        if (
+          !mediaDevices ||
+          typeof mediaDevices.getDisplayMedia !== 'function'
+        ) {
+          return {
+            success: false,
+            reason: 'unsupported',
+            message:
+              'Direct display capture is not supported by this mobile browser.',
+          };
         }
-      }
 
-      await publishScreenMediaStream(stream);
-      return { success: true };
-    } catch (err: any) {
-      const errName = String(err?.name || '');
-      const errMsg = String(err?.message || '');
-      if (
-        errName === 'NotAllowedError' ||
-        errName === 'PermissionDeniedError' ||
-        errName === 'AbortError' ||
-        errMsg.toLowerCase().includes('permission denied') ||
-        errMsg.toLowerCase().includes('cancel')
-      ) {
-        return { success: false, reason: 'cancelled' };
-      }
-      if (
-        errName === 'NotSupportedError' ||
-        errName === 'TypeError' ||
-        errMsg.toLowerCase().includes('not supported') ||
-        errMsg.toLowerCase().includes('getdisplaymedia')
-      ) {
+        const isMobile =
+          typeof navigator !== 'undefined' &&
+          /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini/i.test(
+            navigator.userAgent || '',
+          );
+
+        let stream: MediaStream;
+        if (isMobile) {
+          // Mobile browsers (Android Chrome / iOS Safari) require simple { video: true } on the initial user gesture
+          stream = await mediaDevices.getDisplayMedia({
+            video: true,
+          });
+        } else {
+          // Desktop / Laptop browsers support 1080p @ 30fps + system/tab audio capture
+          try {
+            stream = await mediaDevices.getDisplayMedia({
+              video: {
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                frameRate: { ideal: 30 },
+              },
+              audio: true,
+            } as DisplayMediaStreamOptions);
+          } catch (firstErr: any) {
+            const errName = String(firstErr?.name || '');
+            if (errName === 'NotAllowedError' || errName === 'AbortError') {
+              return { success: false, reason: 'cancelled' };
+            }
+            stream = await mediaDevices.getDisplayMedia({ video: true });
+          }
+        }
+
+        await publishScreenMediaStream(stream, options);
+        return { success: true };
+      } catch (err: any) {
+        const errName = String(err?.name || '');
+        const errMsg = String(err?.message || '');
+        if (
+          errName === 'NotAllowedError' ||
+          errName === 'PermissionDeniedError' ||
+          errName === 'AbortError' ||
+          errMsg.toLowerCase().includes('permission denied') ||
+          errMsg.toLowerCase().includes('cancel')
+        ) {
+          return { success: false, reason: 'cancelled' };
+        }
+        if (
+          errName === 'NotSupportedError' ||
+          errName === 'TypeError' ||
+          errMsg.toLowerCase().includes('not supported') ||
+          errMsg.toLowerCase().includes('getdisplaymedia')
+        ) {
+          return {
+            success: false,
+            reason: 'unsupported',
+            message: errMsg,
+          };
+        }
+        console.error('Error starting screen share:', err);
         return {
           success: false,
-          reason: 'unsupported',
-          message: errMsg,
+          reason: 'error',
+          message: errMsg || 'Could not start screen sharing.',
         };
       }
-      console.error('Error starting screen share:', err);
-      return {
-        success: false,
-        reason: 'error',
-        message: errMsg || 'Could not start screen sharing.',
-      };
-    }
-  }, [publishScreenMediaStream]);
+    },
+    [publishScreenMediaStream],
+  );
 
   /**
-   * Mobile Fallback 1: Share live camera feed onto the room Screen Share stage
+   * Mobile / PC Camera Share onto the room Screen Share stage (Supports Dual Screen mode too!)
    */
   const startCameraScreenShare = useCallback(
-    async (facingMode: 'environment' | 'user' = 'environment'): Promise<boolean> => {
+    async (
+      facingMode: 'environment' | 'user' = 'environment',
+      options?: ScreenShareStartOptions,
+    ): Promise<boolean> => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
           throw new Error('Camera access is not available on this device.');
@@ -560,7 +763,7 @@ export function useVoiceRoom({
           },
           audio: false,
         });
-        await publishScreenMediaStream(stream);
+        await publishScreenMediaStream(stream, options);
         return true;
       } catch (err) {
         console.error('Failed to start camera screen share:', err);
@@ -571,10 +774,10 @@ export function useVoiceRoom({
   );
 
   /**
-   * Mobile / PC Fallback 2: Stream a local video / screen-recording file from device directly as a Live Screen Share
+   * Mobile / PC Video File Share directly onto the room Screen Share stage (Supports Dual Screen mode too!)
    */
   const startVideoFileScreenShare = useCallback(
-    async (file: File): Promise<boolean> => {
+    async (file: File, options?: ScreenShareStartOptions): Promise<boolean> => {
       try {
         const videoEl = document.createElement('video');
         const objectUrl = URL.createObjectURL(file);
@@ -587,7 +790,6 @@ export function useVoiceRoom({
         videoEl.setAttribute('webkit-playsinline', 'true');
 
         await videoEl.play();
-        localScreenVideoElRef.current = videoEl;
 
         const captureFn =
           (videoEl as any).captureStream?.bind(videoEl) ||
@@ -599,18 +801,28 @@ export function useVoiceRoom({
         }
 
         const stream: MediaStream = captureFn();
+        await publishScreenMediaStream(stream, options, videoEl);
+
+        const uid = currentUser?.uid || 'local';
+        const tabId = tabSessionIdRef.current;
+        const targetSlotIndex =
+          options?.addSecondScreen &&
+          localScreenSlotsRef.current.has(`${uid}__${tabId}__1`)
+            ? 2
+            : 1;
+        const createdStreamId = `${uid}__${tabId}__${targetSlotIndex}`;
+
         videoEl.onended = () => {
-          stopScreenShare();
+          stopScreenShare(createdStreamId);
         };
 
-        await publishScreenMediaStream(stream);
         return true;
       } catch (err) {
         console.error('Failed to stream video file as screen share:', err);
         return false;
       }
     },
-    [publishScreenMediaStream, stopScreenShare],
+    [publishScreenMediaStream, stopScreenShare, currentUser?.uid],
   );
 
   /* ─────────────────────────────────────────────────────────────
@@ -684,19 +896,20 @@ export function useVoiceRoom({
         if (
           publication.kind === Track.Kind.Video ||
           publication.source === Track.Source.ScreenShare ||
+          publication.source === Track.Source.Camera ||
           publication.source === Track.Source.ScreenShareAudio
         ) {
           try {
             publication.setSubscribed(true);
           } catch {}
-          syncRemoteScreenShare(room);
+          syncAllScreenShares(room);
         }
       },
     );
 
     room.on(RoomEvent.ParticipantConnected, () => {
       if (isMounted) {
-        syncRemoteScreenShare(room);
+        syncAllScreenShares(room);
       }
     });
 
@@ -708,7 +921,7 @@ export function useVoiceRoom({
 
         // 1. Remote Screen Share Video Track
         if (track.kind === Track.Kind.Video) {
-          syncRemoteScreenShare(room);
+          syncAllScreenShares(room);
           return;
         }
 
@@ -740,7 +953,7 @@ export function useVoiceRoom({
           audioContainerRef.current.appendChild(audioElement);
 
           if (isScreenAudio) {
-            syncRemoteScreenShare(room);
+            syncAllScreenShares(room);
           }
 
           // Handle browser autoplay policy only if allowed to play
@@ -761,12 +974,12 @@ export function useVoiceRoom({
         if (track.kind === Track.Kind.Audio) {
           track.detach().forEach((el) => el.remove());
           if (publication.source === Track.Source.ScreenShareAudio && isMounted) {
-            syncRemoteScreenShare(room);
+            syncAllScreenShares(room);
           }
         } else if (track.kind === Track.Kind.Video) {
           track.detach();
           if (isMounted) {
-            syncRemoteScreenShare(room);
+            syncAllScreenShares(room);
           }
         }
       },
@@ -774,7 +987,7 @@ export function useVoiceRoom({
 
     room.on(RoomEvent.ParticipantDisconnected, () => {
       if (isMounted) {
-        syncRemoteScreenShare(room);
+        syncAllScreenShares(room);
       }
     });
 
@@ -782,22 +995,23 @@ export function useVoiceRoom({
       if (
         isMounted &&
         (publication.source === Track.Source.ScreenShare ||
+          publication.source === Track.Source.Camera ||
           publication.track?.kind === Track.Kind.Video)
       ) {
-        // Only clean up if the local screen stream itself has ended
-        const activeVideoTrack = localScreenStreamRef.current?.getVideoTracks()[0];
-        if (!activeVideoTrack || activeVideoTrack.readyState === 'ended') {
-          if (isLocalScreenSharingRef.current) {
-            isLocalScreenSharingRef.current = false;
-            setIsScreenSharing(false);
-            if (frameBroadcasterStopRef.current) {
-              frameBroadcasterStopRef.current();
-              frameBroadcasterStopRef.current = null;
-            }
-            stopRoomScreenShare(roomId).catch(() => {});
-            syncRemoteScreenShare(room);
+        for (const [sId, slot] of Array.from(localScreenSlotsRef.current.entries())) {
+          const activeVideoTrack = slot.stream.getVideoTracks()[0];
+          if (!activeVideoTrack || activeVideoTrack.readyState === 'ended') {
+            try {
+              slot.stopBroadcaster();
+            } catch {}
+            localScreenSlotsRef.current.delete(sId);
+            stopRoomScreenShare(roomId, sId).catch(() => {});
           }
         }
+        const remIds = Array.from(localScreenSlotsRef.current.keys());
+        setLocalScreenStreamIds(remIds);
+        setIsScreenSharing(remIds.length > 0);
+        syncAllScreenShares(room);
       }
     });
 
@@ -813,7 +1027,7 @@ export function useVoiceRoom({
       setIsConnected(state === ConnectionState.Connected);
       setIsConnecting(state === ConnectionState.Connecting);
       if (state === ConnectionState.Connected) {
-        syncRemoteScreenShare(room);
+        syncAllScreenShares(room);
       }
     });
 
@@ -842,30 +1056,39 @@ export function useVoiceRoom({
           }
 
           // Check if any remote participant is already sharing screen
-          syncRemoteScreenShare(room);
+          syncAllScreenShares(room);
 
           // If user started local screen share while LiveKit was still connecting, publish it now
-          if (isLocalScreenSharingRef.current && localScreenStreamRef.current) {
-            const vTrack = localScreenStreamRef.current.getVideoTracks()[0];
-            const aTrack = localScreenStreamRef.current.getAudioTracks()[0];
+          for (const slot of localScreenSlotsRef.current.values()) {
+            const vTrack = slot.stream.getVideoTracks()[0];
+            const aTrack = slot.stream.getAudioTracks()[0];
+            const trackSource =
+              slot.slotIndex === 2 ? Track.Source.Camera : Track.Source.ScreenShare;
+            const trackName = `screen_share__${slot.slotIndex}__${slot.deviceType}`;
             if (vTrack) {
               await room.localParticipant
                 .publishTrack(vTrack, {
-                  name: 'screen_share',
-                  source: Track.Source.ScreenShare,
+                  name: trackName,
+                  source: trackSource,
                   simulcast: false,
+                })
+                .then((pub) => {
+                  if (pub?.track) {
+                    slot.videoTrack = pub.track;
+                  }
                 })
                 .catch(console.warn);
             }
             if (aTrack) {
               await room.localParticipant
                 .publishTrack(aTrack, {
-                  name: 'screen_share_audio',
+                  name: `screen_share_audio__${slot.slotIndex}`,
                   source: Track.Source.ScreenShareAudio,
                 })
                 .catch(console.warn);
             }
           }
+          syncAllScreenShares(room);
 
           // Check if audio can be played
           if (!room.canPlaybackAudio) {
@@ -893,7 +1116,7 @@ export function useVoiceRoom({
     // Periodic check to ensure remote screen share video tracks are subscribed and synced
     const syncTimer = setInterval(() => {
       if (isMounted && room.state === ConnectionState.Connected) {
-        syncRemoteScreenShare(room);
+        syncAllScreenShares(room);
       }
     }, 1000);
 
@@ -904,23 +1127,19 @@ export function useVoiceRoom({
         wakeLockRef.current.release?.().catch(() => {});
         wakeLockRef.current = null;
       }
-      if (frameBroadcasterStopRef.current) {
-        frameBroadcasterStopRef.current();
-        frameBroadcasterStopRef.current = null;
+      for (const [sId, slot] of Array.from(localScreenSlotsRef.current.entries())) {
+        try {
+          slot.stopBroadcaster();
+        } catch {}
+        slot.stream.getTracks().forEach((t) => {
+          try {
+            t.onended = null;
+            t.stop();
+          } catch {}
+        });
+        stopRoomScreenShare(roomId, sId).catch(() => {});
       }
-      if (isLocalScreenSharingRef.current) {
-        isLocalScreenSharingRef.current = false;
-        if (localScreenStreamRef.current) {
-          localScreenStreamRef.current.getTracks().forEach((t) => {
-            try {
-              t.onended = null;
-              t.stop();
-            } catch {}
-          });
-          localScreenStreamRef.current = null;
-        }
-        stopRoomScreenShare(roomId).catch(() => {});
-      }
+      localScreenSlotsRef.current.clear();
       setIsSelfMonitoring(false);
       stopAndUnpublishLocalAudio(room).finally(() => {
         room.disconnect();
@@ -930,7 +1149,7 @@ export function useVoiceRoom({
       }
       roomRef.current = null;
     };
-  }, [roomId, currentUser?.uid, isParticipantAllowedToSpeak, syncRemoteScreenShare]);
+  }, [roomId, currentUser?.uid, isParticipantAllowedToSpeak, syncAllScreenShares]);
 
   /* ─────────────────────────────────────────────────────────────
      2. Mute/Unmute Synchronization with Seat State (Sender)
@@ -1079,7 +1298,9 @@ export function useVoiceRoom({
     isSelfMonitoring,
     toggleSelfMonitor,
     isScreenSharing,
-    activeScreenShare,
+    activeScreenShare: activeScreenShares[0] || null,
+    activeScreenShares,
+    localScreenStreamIds,
     startScreenShare,
     startCameraScreenShare,
     startVideoFileScreenShare,

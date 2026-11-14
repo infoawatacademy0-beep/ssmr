@@ -1,6 +1,7 @@
 export type ScreenShareDeviceType = 'mobile' | 'pc' | 'laptop';
 
 export interface RoomScreenShareState {
+  streamId: string;
   isActive: boolean;
   presenterUid: string;
   presenterName: string;
@@ -8,4 +9,5 @@ export interface RoomScreenShareState {
   deviceType: ScreenShareDeviceType;
   hasSystemAudio?: boolean;
   startedAt: number;
+  updatedAt?: number;
 }

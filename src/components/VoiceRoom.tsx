@@ -97,7 +97,7 @@ import {
   sendSeatEmoji,
   subscribeToSeatEmojis,
   subscribeToRoomCinema,
-  subscribeToRoomScreenShare,
+  subscribeToRoomScreenShares,
   stopRoomScreenShare,
   updateRoomSeatCount,
   moveUserToSeat,
@@ -105,7 +105,7 @@ import {
   assignUserToSeat,
   subscribeToUnreadDirectMessagesCount,
 } from '../services';
-import { useVoiceRoom } from '../hooks/useVoiceRoom';
+import { useVoiceRoom, type ScreenShareStartOptions } from '../hooks/useVoiceRoom';
 import JackarooGamePanel from './JackarooGamePanel';
 import GiftStoreModal from './GiftStoreModal';
 import GiftComboButton, { type GiftComboState } from './GiftComboButton';
@@ -237,9 +237,11 @@ export default function VoiceRoom() {
   const [cinemaState, setCinemaState] = useState<RoomCinemaState | null>(null);
   const [isCinemaConfigModalOpen, setIsCinemaConfigModalOpen] = useState(false);
 
-  // Live Screen Share state (Mobile / PC / Laptop)
+  // Live Screen Share state (Mobile / PC / Laptop — supports simultaneous PC + Mobile Dual Share)
   const [screenShareState, setScreenShareState] = useState<RoomScreenShareState | null>(null);
+  const [screenShares, setScreenShares] = useState<RoomScreenShareState[]>([]);
   const [isScreenShareModalOpen, setIsScreenShareModalOpen] = useState(false);
+  const [screenShareAddSecondDefault, setScreenShareAddSecondDefault] = useState(false);
   const [screenShareUnsupportedNotice, setScreenShareUnsupportedNotice] = useState(false);
 
   // Room Invite Modal state
@@ -436,9 +438,10 @@ export default function VoiceRoom() {
       setCinemaState(cState);
     });
 
-    // Real-time Live Screen Share listener
-    const unsubScreenShare = subscribeToRoomScreenShare(roomId, (sState) => {
-      setScreenShareState(sState);
+    // Real-time Live Screen Share listener (supports 1 or 2+ simultaneous PC & Mobile shares)
+    const unsubScreenShare = subscribeToRoomScreenShares(roomId, (shares) => {
+      setScreenShares(shares);
+      setScreenShareState(shares[0] || null);
     });
 
     // Register user presence in audience (automatic onDisconnect cleanup)
@@ -545,6 +548,8 @@ export default function VoiceRoom() {
     toggleSelfMonitor,
     isScreenSharing,
     activeScreenShare,
+    activeScreenShares,
+    localScreenStreamIds,
     startScreenShare,
     startCameraScreenShare,
     startVideoFileScreenShare,
@@ -556,53 +561,59 @@ export default function VoiceRoom() {
     allSeats: room?.seats || [],
   });
 
-  // Direct 1-tap Screen Share handler (Mobile / PC / Laptop)
-  const handleStartDirectScreenShare = useCallback(async () => {
-    if (!room || !user) return;
-    if (user.isAnonymous) {
-      alert(tr('مێوان ناتوانێت شاشە هاوبەش بکات. تکایە بچۆ ژوورەوە.', 'Guests cannot share screen. Please log in.'));
-      return;
-    }
-    unlockAudioAutoplay();
-    const res = await startScreenShare();
-    if (res.success) {
-      setIsScreenShareModalOpen(false);
-      setScreenShareUnsupportedNotice(false);
-      sendRoomMessage(
-        room.id,
-        'system',
-        'Screen Share',
-        `🖥️ ${user.username} شاشەکەی بە شێوەی ڕاستەوخۆ هاوبەش کرد (Share Screen)`,
-      ).catch(() => {});
-    } else if (res.reason === 'unsupported' || res.reason === 'error') {
-      // Automatically open fallback options modal on mobile browsers that restrict OS getDisplayMedia
-      setScreenShareUnsupportedNotice(true);
-      setIsScreenShareModalOpen(true);
-    }
-  }, [room, user, unlockAudioAutoplay, startScreenShare, tr]);
+  // Direct Screen Share handler (Mobile / PC / Laptop + Dual PC & Mobile together)
+  const handleStartDirectScreenShare = useCallback(
+    async (options?: ScreenShareStartOptions) => {
+      if (!room || !user) return;
+      unlockAudioAutoplay();
+      const res = await startScreenShare(options);
+      if (res.success) {
+        setIsScreenShareModalOpen(false);
+        setScreenShareUnsupportedNotice(false);
+        sendRoomMessage(
+          room.id,
+          'system',
+          'Screen Share',
+          `🖥️📱 ${user.username} شاشەکەی بە شێوەی ڕاستەوخۆ هاوبەش کرد (Share Screen)`,
+        ).catch(() => {});
+      } else if (res.reason === 'unsupported' || res.reason === 'error') {
+        // Automatically open fallback options modal on mobile browsers that restrict OS getDisplayMedia
+        setScreenShareUnsupportedNotice(true);
+        setIsScreenShareModalOpen(true);
+      }
+    },
+    [room, user, unlockAudioAutoplay, startScreenShare],
+  );
 
-  const handleStopAnyScreenShare = useCallback(async () => {
-    if (!room) return;
-    await stopScreenShare();
-    await stopRoomScreenShare(room.id).catch(console.error);
-  }, [room, stopScreenShare]);
+  const handleStopAnyScreenShare = useCallback(
+    async (targetStreamId?: string) => {
+      if (!room) return;
+      if (targetStreamId) {
+        await stopScreenShare(targetStreamId);
+        await stopRoomScreenShare(room.id, targetStreamId).catch(console.error);
+        return;
+      }
+      await stopScreenShare();
+      if (isHost || user?.isAdmin) {
+        await stopRoomScreenShare(room.id).catch(console.error);
+      }
+    },
+    [room, stopScreenShare, isHost, user?.isAdmin],
+  );
 
-  // If Host/Admin stops our screen share remotely in Firebase, stop local capture too
+  // If Host/Admin or remote device stops a specific local screen share in Firebase, stop that local slot too
   useEffect(() => {
-    if (
-      isScreenSharing &&
-      screenShareState === null &&
-      activeScreenShare?.isLocal
-    ) {
-      // Verify after short delay that it wasn't just initial state before Firebase write completed
-      const timer = setTimeout(() => {
-        if (!screenShareState?.isActive && isScreenSharing) {
-          stopScreenShare();
+    if (!isScreenSharing || localScreenStreamIds.length === 0) return;
+    const timer = setTimeout(() => {
+      for (const localId of localScreenStreamIds) {
+        const stillInFirebase = screenShares.some((s) => s.streamId === localId);
+        if (!stillInFirebase) {
+          stopScreenShare(localId);
         }
-      }, 2200);
-      return () => clearTimeout(timer);
-    }
-  }, [screenShareState, isScreenSharing, activeScreenShare?.isLocal, stopScreenShare]);
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [screenShares, isScreenSharing, localScreenStreamIds, stopScreenShare]);
 
   // Keep last known mute state & voice effect synced so switching seats NEVER forces mic open
   useEffect(() => {
@@ -1076,34 +1087,34 @@ export default function VoiceRoom() {
             </button>
           )}
 
-          {/* Direct Screen Share Button (Mobile / PC / Laptop) */}
-          {!user?.isAnonymous && (
-            <button
-              type="button"
-              onClick={() => {
-                if (isScreenSharing) {
-                  setIsScreenShareModalOpen(true);
-                } else {
-                  handleStartDirectScreenShare();
-                }
-              }}
-              className={`flex h-8 w-8 sm:w-auto sm:px-2.5 items-center justify-center gap-1 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
-                isScreenSharing || screenShareState?.isActive
-                  ? 'border-cyan-400 bg-gradient-to-r from-cyan-500/30 to-emerald-500/30 text-cyan-200 shadow-[0_0_14px_rgba(6,182,212,0.45)] animate-pulse'
-                  : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
-              }`}
-              title={
-                isScreenSharing
-                  ? tr('شاشەکەت پەخش دەکرێت · کرتە بکە بۆ ڕێکخستن یان ڕاگرتن', 'Sharing Screen · Click for options or stop')
-                  : tr('هاوبەشکردنی ڕاستەوخۆی شاشەی مۆبایل / PC / لاپتۆپ', 'Share Screen (Mobile / PC / Laptop)')
-              }
-            >
-              <Monitor className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">
-                {isScreenSharing ? tr('شاشە چالاکە', 'Sharing') : tr('شاشە', 'Screen')}
-              </span>
-            </button>
-          )}
+          {/* Direct Screen Share Button (Mobile / PC / Laptop + Dual PC & Mobile Together — Open for All Members) */}
+          <button
+            type="button"
+            onClick={() => {
+              setScreenShareUnsupportedNotice(false);
+              setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
+              setIsScreenShareModalOpen(true);
+            }}
+            className={`flex h-8 px-2 sm:px-2.5 items-center justify-center gap-1 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+              isScreenSharing || screenShares.length > 0
+                ? 'border-cyan-400 bg-gradient-to-r from-cyan-500/30 to-emerald-500/30 text-cyan-200 shadow-[0_0_14px_rgba(6,182,212,0.45)] animate-pulse'
+                : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+            }`}
+            title={
+              isScreenSharing
+                ? tr('شاشەکەت پەخش دەکرێت · کرتە بکە بۆ زیادکردنی شاشەی دووەم یان ڕاگرتن', 'Sharing Screen · Click to add 2nd screen or stop')
+                : tr('هاوبەشکردنی ڕاستەوخۆی شاشەی مۆبایل / PC / هەردووکیان پێکەوە', 'Share Screen (Mobile / PC / Both Together)')
+            }
+          >
+            <Monitor className="h-3.5 w-3.5" />
+            <span className="text-[11px] sm:text-xs">
+              {screenShares.length >= 2
+                ? tr('٢ شاشە', '2 Screens')
+                : isScreenSharing
+                ? tr('شاشە+', 'Screen+')
+                : tr('شاشە', 'Screen')}
+            </span>
+          </button>
 
           {/* Direct Messenger Button with Real-time Unread Badge (Inside Voice Room) */}
           {!user?.isAnonymous && (
@@ -1242,32 +1253,31 @@ export default function VoiceRoom() {
                       )}
                     </button>
 
-                    {/* Direct Screen Share (Mobile / PC / Laptop) */}
-                    {!user?.isAnonymous && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsTopHeaderMenuOpen(false);
-                          setScreenShareUnsupportedNotice(false);
-                          setIsScreenShareModalOpen(true);
-                        }}
-                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Monitor className="h-4 w-4 text-emerald-400 shrink-0" />
-                          <span>{tr('هاوبەشکردنی شاشە (مۆبایل / PC)', 'Share Screen (Mobile / PC)')}</span>
-                        </div>
-                        {isScreenSharing || screenShareState?.isActive ? (
-                          <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-black">
-                            LIVE
-                          </span>
-                        ) : (
-                          <span className="rounded bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 text-[9px] font-black">
-                            HD
-                          </span>
-                        )}
-                      </button>
-                    )}
+                    {/* Direct Screen Share (Mobile / PC / Laptop — Open for All Members) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTopHeaderMenuOpen(false);
+                        setScreenShareUnsupportedNotice(false);
+                        setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
+                        setIsScreenShareModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold text-white hover:bg-white/10 transition active:scale-98"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Monitor className="h-4 w-4 text-emerald-400 shrink-0" />
+                        <span>{tr('هاوبەشکردنی شاشە (مۆبایل + PC پێکەوە)', 'Share Screen (Mobile + PC)')}</span>
+                      </div>
+                      {isScreenSharing || screenShares.length > 0 ? (
+                        <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-black">
+                          {screenShares.length >= 2 ? 'DUAL LIVE' : 'LIVE'}
+                        </span>
+                      ) : (
+                        <span className="rounded bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 text-[9px] font-black">
+                          HD
+                        </span>
+                      )}
+                    </button>
 
                     {/* 2. Cinema & Movie Mode (Host or Admin) */}
                     {(isHost || user.isAdmin) && (
@@ -1484,19 +1494,22 @@ export default function VoiceRoom() {
             />
           ) : (
             <>
-              {/* Live Real-Time Screen Share Stage (Mobile / PC / Laptop) */}
+              {/* Live Real-Time Screen Share Stage (Mobile / PC / Laptop — Supports Dual PC + Mobile Simultaneously) */}
               <ScreenSharePanel
                 roomId={room.id}
                 screenShareState={screenShareState}
+                screenShares={screenShares}
                 activeScreenShare={activeScreenShare}
+                activeScreenShares={activeScreenShares}
                 isLocalScreenSharing={isScreenSharing}
                 currentUser={user}
                 isHostOrAdmin={Boolean(isHost || user.isAdmin)}
                 usersAvatarMap={usersAvatarMap}
                 onStopScreenShare={handleStopAnyScreenShare}
                 onStartDirectScreenShare={handleStartDirectScreenShare}
-                onOpenOptionsModal={() => {
+                onOpenOptionsModal={(addSecond) => {
                   setScreenShareUnsupportedNotice(false);
+                  setScreenShareAddSecondDefault(Boolean(addSecond));
                   setIsScreenShareModalOpen(true);
                 }}
               />
@@ -1565,28 +1578,30 @@ export default function VoiceRoom() {
                     );
                   })}
               </div>
-              {/* Quick Stage Share Screen Pill */}
-              {!user?.isAnonymous && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isScreenSharing) {
-                      setIsScreenShareModalOpen(true);
-                    } else {
-                      handleStartDirectScreenShare();
-                    }
-                  }}
-                  className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-[10px] font-black transition active:scale-95 ${
-                    isScreenSharing
-                      ? 'border-cyan-400 bg-cyan-500/25 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
-                      : 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
-                  }`}
-                  title={tr('هاوبەشکردنی ڕاستەوخۆی شاشەی مۆبایل / PC / لاپتۆپ', 'Share Screen (Mobile / PC / Laptop)')}
-                >
-                  <Monitor className="h-3 w-3 text-cyan-400" />
-                  <span>{isScreenSharing ? tr('شاشە چالاکە', 'Screen Live') : tr('شاشە هاوبەش بکە', 'Share Screen')}</span>
-                </button>
-              )}
+              {/* Quick Stage Share Screen Pill (Available to All Members on Mobile & PC) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setScreenShareUnsupportedNotice(false);
+                  setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
+                  setIsScreenShareModalOpen(true);
+                }}
+                className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-[10px] font-black transition active:scale-95 ${
+                  isScreenSharing || screenShares.length > 0
+                    ? 'border-cyan-400 bg-cyan-500/25 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                    : 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
+                }`}
+                title={tr('هاوبەشکردنی ڕاستەوخۆی شاشەی مۆبایل و PC پێکەوە', 'Share Screen (Mobile & PC Together)')}
+              >
+                <Monitor className="h-3 w-3 text-cyan-400" />
+                <span>
+                  {screenShares.length >= 2
+                    ? tr('٢ شاشە پێکەوە', 'Dual Screen')
+                    : isScreenSharing || screenShares.length > 0
+                    ? tr('+ شاشەی دووەم / مۆبایل', '+ Add Screen')
+                    : tr('شاشە هاوبەش بکە', 'Share Screen')}
+                </span>
+              </button>
               {/* Host/Admin Live Seat Stepper */}
               {Boolean(isHost || user?.isAdmin) ? (
                 <div className="flex items-center gap-1 bg-black/50 border border-white/10 rounded-xl px-1.5 py-0.5 shadow-sm">
@@ -2650,18 +2665,16 @@ export default function VoiceRoom() {
                     key: 'screen-share',
                     icon: Monitor,
                     grad: isScreenSharing
-                      ? 'from-rose-500 to-red-600'
+                      ? 'from-emerald-500 to-cyan-600'
                       : 'from-cyan-500 to-emerald-600',
                     label: isScreenSharing
-                      ? tr('ڕاگرتنی شاشە', 'Stop Screen')
+                      ? tr('+ شاشەی دووەم', '+ 2nd Screen')
                       : tr('هاوبەشکردنی شاشە', 'Share Screen'),
-                    show: !user?.isAnonymous,
+                    show: true,
                     onClick: () => {
-                      if (isScreenSharing) {
-                        handleStopAnyScreenShare();
-                      } else {
-                        handleStartDirectScreenShare();
-                      }
+                      setScreenShareUnsupportedNotice(false);
+                      setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
+                      setIsScreenShareModalOpen(true);
                     },
                   },
                   {
@@ -2991,6 +3004,25 @@ export default function VoiceRoom() {
                     >
                       {selectedSeat.isMuted ? <Mic className="h-4 w-4 text-emerald-400" /> : <MicOff className="h-4 w-4 text-rose-400" />}
                       {selectedSeat.isMuted ? tr('کردنەوەی مایکەکەم', 'Unmute my mic') : tr('بێدەنگکردنی مایکەکەم', 'Mute my mic')}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsActionSheetOpen(false);
+                        setScreenShareUnsupportedNotice(false);
+                        setScreenShareAddSecondDefault(isScreenSharing || screenShares.length > 0);
+                        setIsScreenShareModalOpen(true);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500/15 to-emerald-500/15 py-3 text-xs font-black text-cyan-200 transition-colors hover:brightness-110"
+                    >
+                      <Monitor className="h-4 w-4 text-cyan-400" />
+                      <span>
+                        {tr(
+                          'هاوبەشکردنی شاشە (مۆبایل / PC / هەردووکیان پێکەوە)',
+                          'Share Screen (Mobile / PC / Both Together)',
+                        )}
+                      </span>
                     </button>
 
                     <button
@@ -3524,16 +3556,18 @@ export default function VoiceRoom() {
       </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────
-         MODAL 7B: Direct Screen Share & Mobile Fallback Options Modal
+         MODAL 7B: Direct Screen Share & Dual PC + Mobile Options Modal
          ───────────────────────────────────────────────────────── */}
       <ScreenShareModal
         isOpen={isScreenShareModalOpen}
         onClose={() => setIsScreenShareModalOpen(false)}
         isScreenSharing={isScreenSharing}
+        activeSharesCount={screenShares.length}
+        defaultAddSecondScreen={screenShareAddSecondDefault}
         unsupportedNotice={screenShareUnsupportedNotice}
         onStartDirectScreenShare={handleStartDirectScreenShare}
-        onStartCameraShare={async (facingMode) => {
-          const ok = await startCameraScreenShare(facingMode);
+        onStartCameraShare={async (facingMode, options) => {
+          const ok = await startCameraScreenShare(facingMode, options);
           if (ok && room) {
             sendRoomMessage(
               room.id,
@@ -3543,8 +3577,8 @@ export default function VoiceRoom() {
             ).catch(() => {});
           }
         }}
-        onStartVideoFileShare={async (file) => {
-          const ok = await startVideoFileScreenShare(file);
+        onStartVideoFileShare={async (file, options) => {
+          const ok = await startVideoFileScreenShare(file, options);
           if (ok && room) {
             sendRoomMessage(
               room.id,
